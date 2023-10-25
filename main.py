@@ -1,34 +1,36 @@
-import asyncio
 import os
 import re
 from typing import Union
 from urllib.parse import urlparse
 
-from playwright.async_api import Page, Playwright, async_playwright
+from flask import Flask, request
+from playwright.async_api import Page, async_playwright
 
-DEBUG = True
+PLAYWRIGHT_DEBUG = True
+FLASK_PORT = 9750
 DOWNLOAD_ROOT = os.path.join(os.getcwd(), "Downloads")
+
+app = Flask(__name__)
 
 
 async def usePlaywright(
     browser: str = "chromium",
-    headless: bool = not DEBUG,
+    headless: bool = not PLAYWRIGHT_DEBUG,
     timeout: int = 0,
 ):
     pw = await async_playwright().start()
-    bw = None
 
     match browser:
         case "chromium":
-            bw = pw.chromium
+            bt = pw.chromium
         case "firefox":
-            bw = pw.firefox
+            bt = pw.firefox
         case "webkit":
-            bw = pw.webkit
+            bt = pw.webkit
         case _:
             raise Exception("browser is not of type chromium, firefox, or webkit")
 
-    bw = await bw.launch(headless=headless, timeout=timeout)
+    bw = await bt.launch(headless=headless, timeout=timeout)
     ctx = await bw.new_context()
 
     ctx.set_default_timeout(timeout)
@@ -98,8 +100,8 @@ async def mega(album_name: str, dl_page: Page) -> None:
     await dl_handler.save_as(os.path.join(DOWNLOAD_ROOT, album_name + extension))
 
 
-async def main() -> None:
-    url = "https://doujinstyle.com/?p=page&type=1&id=22378"
+async def main(url: str) -> None:
+    # url = "https://doujinstyle.com/?p=page&type=1&id=22378"
     # url = "https://doujinstyle.com/?p=page&type=1&id=16315"
 
     if not os.path.exists(DOWNLOAD_ROOT) or not os.path.isdir(DOWNLOAD_ROOT):
@@ -130,14 +132,23 @@ async def main() -> None:
 
     await dl_page.close()
 
-    # for p in ctx.pages:
-    #    if "doujinstyle.com" not in p.url:
-    #       await p.close()
-
     await ctx.close()
     await browser.close()
     await pw.stop()
 
 
+@app.route("/", methods=["GET"])
+async def server_root():
+    album_id = int(request.args.get("id", -1))
+
+    if album_id == -1:
+        return "URL is not set"
+
+    await main(f"https://doujinstyle.com/?p=page&type=1&id={album_id}")
+
+    return f"Got album ID {album_id}"
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    print(f"Opening web server at http://127.0.0.1:{FLASK_PORT}/")
+    app.run(port=FLASK_PORT)
