@@ -1,5 +1,7 @@
 import asyncio
 import os
+import re
+from typing import Union
 from urllib.parse import urlparse
 
 from playwright.async_api import Page, Playwright, async_playwright
@@ -34,25 +36,58 @@ async def usePlaywright(
     return (pw, bw, ctx)
 
 
-async def mediafire(ds_page: Page, dl_page: Page):
-    filename = "test mediafire filename"
-    extension = "." + dl_page.url.split(".")[-1].split("/")[0]
+async def handle_popup(popup: Page) -> None:
+    await popup.wait_for_load_state()
+    await popup.close()
+
+
+async def craft_filename(page: Page) -> str:
+    album = await page.evaluate("document.querySelector('h2').innerText")
+    artist = await page.evaluate("document.querySelectorAll('.pageSpan2')[0].innerText")
+
+    el = await page.query_selector('text="Format:"')
+    format = await page.evaluate(
+        """
+            (element) => {
+                let sibling = element.nextElementSibling;
+                return sibling.innerText
+            }
+        """,
+        el,
+    )
+
+    event: Union[str, None] = None
+    try:
+        event = re.findall(
+            r"C\d+|M\d\-\d+",
+            await page.evaluate("document.querySelectorAll('.pageSpan2')[1].innerText"),
+        )[0]
+    except Exception:
+        event = None
+
+    return f"{artist} — {album}{f' [{event}]' if event is not None else ''} [{format}]"
+
+
+async def mediafire(album_name: str, dl_page: Page) -> None:
+    extension: str = re.findall(
+        r"\.[a-zA-Z0-9]+",
+        await dl_page.evaluate("document.querySelector('.filetype').innerText"),
+    )[0].lower()
 
     async with dl_page.expect_download() as dl_info:
         await dl_page.evaluate("document.querySelector('#downloadButton').click()")
 
     dl_handler = await dl_info.value
 
-    await dl_handler.save_as(os.path.join(DOWNLOAD_ROOT, filename + extension))
+    await dl_handler.save_as(os.path.join(DOWNLOAD_ROOT, album_name + extension))
 
 
-async def mega(ds_page: Page, dl_page: Page):
+async def mega(album_name: str, dl_page: Page) -> None:
     while (
         await dl_page.evaluate("document.querySelector('.js-default-download')") is None
     ):
         await dl_page.wait_for_timeout(500)
 
-    filename = "test mega filename"
     extension = await dl_page.evaluate("document.querySelector('.extension').innerText")
 
     async with dl_page.expect_download() as dl_info:
@@ -60,14 +95,13 @@ async def mega(ds_page: Page, dl_page: Page):
 
     dl_handler = await dl_info.value
 
-    await dl_handler.save_as(os.path.join(DOWNLOAD_ROOT, filename + extension))
+    await dl_handler.save_as(os.path.join(DOWNLOAD_ROOT, album_name + extension))
 
 
-async def main():
+async def main() -> None:
     url = "https://doujinstyle.com/?p=page&type=1&id=22378"
     # url = "https://doujinstyle.com/?p=page&type=1&id=16315"
 
-    print(DOWNLOAD_ROOT)
     if not os.path.exists(DOWNLOAD_ROOT) or not os.path.isdir(DOWNLOAD_ROOT):
         os.makedirs(DOWNLOAD_ROOT)
 
@@ -76,23 +110,29 @@ async def main():
     page = await ctx.new_page()
     await page.goto(url)
 
+    album_name = await craft_filename(page)
+
     async with ctx.expect_page() as p_info:
         await page.evaluate("document.querySelector('#downloadForm').click()")
 
     dl_page = await p_info.value
     await dl_page.wait_for_load_state()
 
+    dl_page.on("popup", handle_popup)
+
     match urlparse(dl_page.url).netloc:
         case "www.mediafire.com":
-            await mediafire(page, dl_page)
+            await mediafire(album_name, dl_page)
         case "mega.nz":
-            await mega(page, dl_page)
+            await mega(album_name, dl_page)
         case _:
             pass
 
-    for p in ctx.pages:
-        if "doujinstyle.com" not in p.url:
-            await p.close()
+    await dl_page.close()
+
+    # for p in ctx.pages:
+    #    if "doujinstyle.com" not in p.url:
+    #       await p.close()
 
     await ctx.close()
     await browser.close()
