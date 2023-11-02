@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from flask import Flask, request
 from playwright.async_api import Page, async_playwright
 
-PLAYWRIGHT_DEBUG = True
+PLAYWRIGHT_DEBUG = False
 FLASK_PORT = 9750
 DOWNLOAD_ROOT = os.path.join(os.getcwd(), "Downloads")
 
@@ -39,7 +39,7 @@ async def usePlaywright(
 
 
 async def handle_popup(popup: Page) -> None:
-    await popup.wait_for_load_state()
+    # await popup.wait_for_load_state()
     await popup.close()
 
 
@@ -122,13 +122,15 @@ async def main(url: str) -> None:
 
     dl_page.on("popup", handle_popup)
 
+    # TODO: sanitize filename
+    # TODO: check if file is already downloaded
     match urlparse(dl_page.url).netloc:
         case "www.mediafire.com":
             await mediafire(album_name, dl_page)
         case "mega.nz":
             await mega(album_name, dl_page)
         case _:
-            pass
+            raise Exception("Not an handled download url")
 
     await dl_page.close()
 
@@ -142,9 +144,11 @@ async def server_root():
     album_id = int(request.args.get("id", -1))
 
     if album_id == -1:
-        return "URL is not set"
+        return "Album ID is not set"
 
+    print("Now downloading: {}".format(album_id))
     await main(f"https://doujinstyle.com/?p=page&type=1&id={album_id}")
+    print("Finished downloading: {}".format(album_id))
 
     return f"Got album ID {album_id}"
 
