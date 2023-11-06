@@ -1,0 +1,12 @@
+<div class="download-queue-element">
+    <div
+        class="delete"
+        hx-get="/remove-queue-element"
+        hx-vals='{"index": {{elementIndex}}}'
+        hx-target="#items"
+    >
+        X
+    </div>
+
+    <p>{{item}}</p>
+</div>

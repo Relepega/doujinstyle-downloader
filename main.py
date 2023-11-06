@@ -1,158 +1,116 @@
-import os
-import re
-from typing import Union
-from urllib.parse import urlparse
+from typing import List
+from quart import Quart, render_template, request, abort, make_response, Response
+import asyncio
+from dataclasses import dataclass
 
-from flask import Flask, request
-from playwright.async_api import Page, async_playwright
+from .fuck import server_root
 
-PLAYWRIGHT_DEBUG = False
-FLASK_PORT = 9750
-DOWNLOAD_ROOT = os.path.join(os.getcwd(), "Downloads")
+app = Quart(__name__)
 
-app = Flask(__name__)
+task_list: List[str] = []
+active_tasks: int = 0
 
-
-async def usePlaywright(
-    browser: str = "chromium",
-    headless: bool = not PLAYWRIGHT_DEBUG,
-    timeout: int = 0,
-):
-    pw = await async_playwright().start()
-
-    match browser:
-        case "chromium":
-            bt = pw.chromium
-        case "firefox":
-            bt = pw.firefox
-        case "webkit":
-            bt = pw.webkit
-        case _:
-            raise Exception("browser is not of type chromium, firefox, or webkit")
-
-    bw = await bt.launch(headless=headless, timeout=timeout)
-    ctx = await bw.new_context()
-
-    ctx.set_default_timeout(timeout)
-
-    return (pw, bw, ctx)
+queue = asyncio.Queue(maxsize=3)
+mutex = asyncio.Lock()
 
 
-async def handle_popup(popup: Page) -> None:
-    # await popup.wait_for_load_state()
-    await popup.close()
+@dataclass
+class ServerSentEvent:
+    data: str
+    event: str | None = None
+    id: int | None = None
+    retry: int | None = None
+
+    def encode(self) -> bytes:
+        message = f"data: {self.data}"
+        if self.event is not None:
+            message = f"{message}\nevent: {self.event}"
+        if self.id is not None:
+            message = f"{message}\nid: {self.id}"
+        if self.retry is not None:
+            message = f"{message}\nretry: {self.retry}"
+        message = f"{message}\n\n"
+        return message.encode("utf-8")
 
 
-async def craft_filename(page: Page) -> str:
-    album = await page.evaluate("document.querySelector('h2').innerText")
-    artist = await page.evaluate("document.querySelectorAll('.pageSpan2')[0].innerText")
+async def render_task_list_ui() -> str:
+    elms = []
 
-    el = await page.query_selector('text="Format:"')
-    format = await page.evaluate(
-        """
-            (element) => {
-                let sibling = element.nextElementSibling;
-                return sibling.innerText
-            }
-        """,
-        el,
+    if len(task_list) == 0:
+        elms.append("Nothing to see here...")
+
+    for index in range(0, len(task_list)):
+        elms.append(
+            render_template("thing.html", item=task_list[index], elementIndex=index)
+        )
+
+    return "".join(elms)
+
+
+async def process_album(album_id: str):
+    global active_tasks
+
+    while True:
+        await mutex.acquire()
+
+        if active_tasks >= 4:
+            mutex.release()
+            continue
+
+        active_tasks += 1
+        mutex.release()
+        await server_root(album_id)
+
+        await mutex.acquire()
+        task_list.remove(album_id)
+        mutex.release()
+
+        return
+
+
+@app.route("/remove-queue-element")
+async def remove_queue_element() -> str:
+    task_list.pop(int(request.args["index"]))
+    return await render_task_list_ui()
+
+
+@app.route("/do-the-thing", methods=["POST"])
+async def add_task() -> str:
+    album_id = (await request.form)["AlbumID"]
+
+    await mutex.acquire()
+    task_list.append(album_id)
+    mutex.release()
+
+    # await process_album(album_id)
+
+    return await render_template(
+        "thing.html",
+        item=(await request.form)["AlbumID"],
+        elementIndex=len(task_list) - 1,
     )
 
-    event: Union[str, None] = None
-    try:
-        event = re.findall(
-            r"C\d+|M\d\-\d+",
-            await page.evaluate("document.querySelectorAll('.pageSpan2')[1].innerText"),
-        )[0]
-    except Exception:
-        event = None
 
-    return f"{artist} — {album}{f' [{event}]' if event is not None else ''} [{format}]"
+# TODO
+@app.route("/stream")
+async def sse():
+    if "text/event-stream" not in request.accept_mimetypes:
+        abort(400)
 
+    async def send_events():
+        while True:
+            # event = ServerSentEvent(data=render_task_list_ui(), event="list-reload")
+            # yield event.encode()
+            yield f"data: {await render_task_list_ui()} \n\n"
 
-async def mediafire(album_name: str, dl_page: Page) -> None:
-    extension: str = re.findall(
-        r"\.[a-zA-Z0-9]+",
-        await dl_page.evaluate("document.querySelector('.filetype').innerText"),
-    )[0].lower()
-
-    async with dl_page.expect_download() as dl_info:
-        await dl_page.evaluate("document.querySelector('#downloadButton').click()")
-
-    dl_handler = await dl_info.value
-
-    await dl_handler.save_as(os.path.join(DOWNLOAD_ROOT, album_name + extension))
+    events = [event async for event in send_events()]
+    return Response(events, mimetype="text/event-stream")
 
 
-async def mega(album_name: str, dl_page: Page) -> None:
-    while (
-        await dl_page.evaluate("document.querySelector('.js-default-download')") is None
-    ):
-        await dl_page.wait_for_timeout(500)
-
-    extension = await dl_page.evaluate("document.querySelector('.extension').innerText")
-
-    async with dl_page.expect_download() as dl_info:
-        await dl_page.evaluate("document.querySelector('.js-default-download').click()")
-
-    dl_handler = await dl_info.value
-
-    await dl_handler.save_as(os.path.join(DOWNLOAD_ROOT, album_name + extension))
-
-
-async def main(url: str) -> None:
-    # url = "https://doujinstyle.com/?p=page&type=1&id=22378"
-    # url = "https://doujinstyle.com/?p=page&type=1&id=16315"
-
-    if not os.path.exists(DOWNLOAD_ROOT) or not os.path.isdir(DOWNLOAD_ROOT):
-        os.makedirs(DOWNLOAD_ROOT)
-
-    pw, browser, ctx = await usePlaywright()
-
-    page = await ctx.new_page()
-    await page.goto(url)
-
-    album_name = await craft_filename(page)
-
-    async with ctx.expect_page() as p_info:
-        await page.evaluate("document.querySelector('#downloadForm').click()")
-
-    dl_page = await p_info.value
-    await dl_page.wait_for_load_state()
-
-    dl_page.on("popup", handle_popup)
-
-    # TODO: sanitize filename
-    # TODO: check if file is already downloaded
-    match urlparse(dl_page.url).netloc:
-        case "www.mediafire.com":
-            await mediafire(album_name, dl_page)
-        case "mega.nz":
-            await mega(album_name, dl_page)
-        case _:
-            raise Exception("Not an handled download url")
-
-    await dl_page.close()
-
-    await ctx.close()
-    await browser.close()
-    await pw.stop()
-
-
-@app.route("/", methods=["GET"])
-async def server_root():
-    album_id = int(request.args.get("id", -1))
-
-    if album_id == -1:
-        return "Album ID is not set"
-
-    print("Now downloading: {}".format(album_id))
-    await main(f"https://doujinstyle.com/?p=page&type=1&id={album_id}")
-    print("Finished downloading: {}".format(album_id))
-
-    return f"Got album ID {album_id}"
+@app.route("/")
+async def hello() -> str:
+    return await render_template("index.html", name="bocchi")
 
 
 if __name__ == "__main__":
-    print(f"Opening web server at http://127.0.0.1:{FLASK_PORT}/")
-    app.run(port=FLASK_PORT)
+    app.run(port=5500)

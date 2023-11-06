@@ -1,0 +1,11 @@
+.download-queue-element {
+    display: flex;
+    align-items: center;
+
+    padding: 10px;
+}
+
+.download-queue-element > .delete {
+    margin-right: 10px;
+    cursor: pointer;
+}
