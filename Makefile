@@ -12,7 +12,9 @@ build:
 	cp -r ./views ./build/views
 
 	GOOS=windows GOARCH=386 go build -o ./build/$(APP_NAME).exe $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-x86.zip $(APP_NAME).exe views/
+	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-windows-x86.zip $(APP_NAME).exe views/
+	cd build && sha256sum $(APP_NAME)-v$(VERSION)-windows-x86.zip > $(APP_NAME)-v$(VERSION)-windows-x86.zip.sha256
 
 	GOOS=windows GOARCH=amd64 go build -o ./build/$(APP_NAME).exe $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-x64.zip $(APP_NAME).exe views/
+	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-windows-x64.zip $(APP_NAME).exe views/
+	cd build && sha256sum $(APP_NAME)-v$(VERSION)-windows-x64.zip > $(APP_NAME)-v$(VERSION)-windows-x64.zip.sha256
