@@ -1,0 +1,32 @@
+{{ block "index" . }}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Doujinstyle Downloader</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script>
+        <script src="./js/updateUI.js" type="module"></script>
+        <script src="./js/functions.js"></script>
+        <link href="./css/style.css" rel="stylesheet">
+    </head>
+    <body>
+        <form
+            hx-post="/addTask"
+            hx-target="#tasks"
+            {{/* hx-swap="beforeend" */}} 
+            hx-on::after-request="if(event.detail.successful) {this.reset()} else {window.alert(event.detail.xhr.responseText); this.reset()}"
+            hx-swap="focus-scroll:true"
+        >
+            <input type="number" name="AlbumID" value="" placeholder="Insert the albumID here" required>
+            <button type="submit" value="submit">
+                Add download task
+            </button>
+        </form>
+
+        <div id="tasks">
+            {{ template "tasks" . }}
+        </div>
+    </body>
+</html>
+{{ end }}

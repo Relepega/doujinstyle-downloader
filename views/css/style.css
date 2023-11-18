@@ -1,0 +1,165 @@
+:root {
+	--paddings: 7px 10px;
+	--border-radius-small: 5px;
+	--border-radius-big: 10px;
+	--gap: 15px;
+	--spacing: 10px;
+}
+
+html,
+body {
+	font-family: arial;
+	background-color: rgb(20, 20, 20);
+	color: whitesmoke;
+	padding: 5px;
+	margin: 0;
+}
+
+form {
+	height: 50px;
+}
+
+form > input[type='number'],
+form > button {
+	padding: var(--paddings);
+}
+
+form > button {
+	margin-left: 5px;
+}
+
+#tasks {
+	display: grid;
+	grid-template-columns: 1fr 1fr 2fr;
+	grid-template-rows: max-content 50%;
+	gap: 10px 20px;
+	grid-auto-flow: column;
+	grid-template-areas:
+		'queue-header active-header ended-header'
+		'queue-values active-values ended-values';
+
+	height: calc(100dvh - 100px);
+}
+
+#tasks > div:nth-child(1) {
+	grid-area: queue-header;
+}
+#tasks > div:nth-child(2) {
+	grid-area: queue-values;
+}
+#tasks > div:nth-child(3) {
+	grid-area: active-header;
+}
+#tasks > div:nth-child(4) {
+	grid-area: active-values;
+}
+#tasks > div:nth-child(5) {
+	grid-area: ended-header;
+}
+#tasks > div:nth-child(6) {
+	grid-area: ended-values;
+}
+
+#tasks > div {
+	height: calc(190% - 50px);
+	overflow-y: auto;
+}
+
+#tasks > div > h2,
+.header-btns {
+	margin: var(--spacing) calc(var(--gap) * 2);
+}
+
+.header-btns {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--gap);
+}
+
+.header-btns > .btn {
+	width: max-content;
+	background: rgb(139 139 139 / 75%);
+}
+
+.header-btns > .btn:hover {
+	background: rgba(98, 98, 98, 0.75) !important;
+}
+
+@media screen and (max-width: 768px) {
+	#tasks {
+		display: initial;
+	}
+
+	#tasks > div {
+		max-height: 250px;
+		/* overflow-y: initial; */
+	}
+
+	.header-btns {
+		margin-bottom: var(--gap);
+	}
+}
+
+.btn {
+	cursor: pointer;
+	padding: var(--paddings);
+	border-radius: var(--border-radius-small);
+	user-select: none;
+}
+
+.download-queue-element {
+	display: flex;
+	align-items: center;
+
+	gap: var(--gap);
+	padding: var(--paddings);
+
+	border: 1px solid grey;
+	border-radius: var(--border-radius-big);
+	background-color: rgba(0, 0, 0, 0.3);
+}
+
+.download-queue-element.success {
+	background-color: rgba(61, 141, 74, 0.3);
+}
+
+.download-queue-element.failure {
+	background-color: rgba(163, 61, 61, 0.3);
+}
+
+.download-queue-element + .download-queue-element {
+	margin-top: 15px;
+}
+
+.download-queue-element > .delete {
+	/* margin-right: 10px; */
+	background: red;
+}
+
+.download-queue-element > .delete:hover {
+	background: rgb(200, 0, 0);
+}
+
+.download-queue-element > .err {
+	border-left: 2px solid rgba(0, 0, 0, 0.5);
+	padding-left: var(--gap);
+	margin: var(--gap);
+}
+
+.download-queue-element > .err > p {
+	max-height: calc(10rem - 1rem / 2);
+	overflow-y: auto;
+}
+
+.err-btns {
+	display: flex;
+	gap: 10px;
+}
+
+.err-btns > .err-btn {
+	background: rgba(0, 0, 0, 0.3);
+}
+
+.err-btns > .err-btn:hover {
+	background: rgba(0, 0, 0, 0.5);
+}
