@@ -28,7 +28,7 @@ func NewTemplates() *Templates {
 	}
 }
 
-const SERVICE_URL = "127.0.0.1:42069"
+const SERVICE_URL = "127.0.0.1:5522"
 
 func main() {
 	err := playwright.Install()

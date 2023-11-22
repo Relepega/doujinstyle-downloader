@@ -1,6 +1,8 @@
-VERSION = 0.1.0.b1
 APP_NAME = doujinstyle-downloader
 APP_ENTRYPOINT = ./cmd/main.go
+VERSION = 0.1.0.b2
+
+TAR_EXCLUDE = {'*.zip','*.sha256'}
 
 .PHONY: build
 
@@ -11,10 +13,17 @@ build:
 
 	cp -r ./views ./build/views
 
-	GOOS=windows GOARCH=386 go build -o ./build/$(APP_NAME).exe $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-windows-x86.zip $(APP_NAME).exe views/
-	cd build && sha256sum $(APP_NAME)-v$(VERSION)-windows-x86.zip > $(APP_NAME)-v$(VERSION)-windows-x86.zip.sha256
-
 	GOOS=windows GOARCH=amd64 go build -o ./build/$(APP_NAME).exe $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-windows-x64.zip $(APP_NAME).exe views/
+	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-windows-x64.zip --exclude=$(TAR_EXCLUDE) *
 	cd build && sha256sum $(APP_NAME)-v$(VERSION)-windows-x64.zip > $(APP_NAME)-v$(VERSION)-windows-x64.zip.sha256
+	cd build && rm *.exe
+
+	GOOS=darwin GOARCH=arm64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
+	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-darwin-arm64.zip --exclude=$(TAR_EXCLUDE) *
+	cd build && sha256sum $(APP_NAME)-v$(VERSION)-darwin-arm64.zip > $(APP_NAME)-v$(VERSION)-darwin-arm64.zip.sha256
+	cd build && rm $(APP_NAME)
+
+	GOOS=linux GOARCH=amd64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
+	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-linux-x64.zip --exclude=$(TAR_EXCLUDE) *
+	cd build && sha256sum $(APP_NAME)-v$(VERSION)-linux-x64.zip > $(APP_NAME)-v$(VERSION)-linux-x64.zip.sha256
+	cd build && rm $(APP_NAME)
