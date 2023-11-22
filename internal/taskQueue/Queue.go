@@ -178,7 +178,7 @@ func (q *Queue) ClearAllCompleted() {
 	var filtered []Task
 
 	for _, t := range q.tasks {
-		if t.Done {
+		if !t.Done {
 			filtered = append(filtered, t)
 		}
 	}
