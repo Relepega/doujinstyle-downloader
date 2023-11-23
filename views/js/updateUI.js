@@ -6,9 +6,8 @@ async function updateContent() {
   let activeScroll = document.getElementById("active").scrollTop;
   let endedScroll = document.getElementById("ended").scrollTop;
 
-  const res = await fetch("http://127.0.0.1:42069/renderTasks");
+  const res = await fetch("http://127.0.0.1:5522/renderTasks");
   const newContent = await res.text();
-  const parsed = new DOMParser().parseFromString(newContent, "text/html");
 
   tasksContainer.innerHTML = newContent;
   htmx.process(tasksContainer);
