@@ -30,7 +30,7 @@ If you want to run this program on another os/arch, you have to build it
 yourself. More informations (here)[#Build]
 
 You can download it
-(here)[https://github.com/Relepega/doujinstyle-downloader/releases].
+[here](https://github.com/Relepega/doujinstyle-downloader/releases).
 
 To install the app, you just need to download the release zip, unzip it inside a
 folder with a name you can remember (optional), then open the app! No
@@ -42,7 +42,7 @@ installation required!
 package from the AUR.
 
 1. Open the application.
-2. Navigate to (http://127.0.0.1:5522/)[http://127.0.0.1:5522/].
+2. Navigate to [http://127.0.0.1:5522/](http://127.0.0.1:5522/).
 3. Get the ID of the music you want to download from the page url and copy it
    (e.g: in this url `https://doujinstyle.com/?p=page&type=1&id=22816` the id is
    `22816`)
