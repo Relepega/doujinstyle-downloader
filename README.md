@@ -27,7 +27,7 @@ I will "officially" build for these OSes and architectures: Windows (x64), Linux
 (x64) and MacOS (ARM).
 
 If you want to run this program on another os/arch, you have to build it
-yourself. More informations (here)[#Build]
+yourself. More informations [here](#Build)
 
 You can download it
 [here](https://github.com/Relepega/doujinstyle-downloader/releases).
