@@ -10,25 +10,6 @@ import (
 )
 
 func Mega(albumName string, dlPage *playwright.Page) error {
-	// locator := (*dlPage).Locator(".js-default-download")
-	// err := locator.WaitFor(playwright.LocatorWaitForOptions{
-	// 	State: playwright.WaitForSelectorStateVisible,
-	// })
-	// if err != nil {
-	// 	fmt.Println("here")
-	// 	locator = (*dlPage).Locator(".mega-button.fm-download-as-zip")
-	// 	err = locator.WaitFor(playwright.LocatorWaitForOptions{
-	// 		State: playwright.WaitForSelectorStateVisible,
-	// 	})
-	//
-	// 	if err != nil {
-	// 		return fmt.Errorf(
-	// 			"No download button found. Required manual intervention.\nLog: %v",
-	// 			err,
-	// 		)
-	// 	}
-	// }
-
 	for {
 		val, _ := (*dlPage).Evaluate(
 			"() => document.querySelector('#loading').classList.contains('hidden')",
@@ -61,7 +42,6 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 
 	timeout := 0.0
 	downloadHandler, err := (*dlPage).ExpectDownload(func() error {
-		// return (*dlPage).Locator(".js-default-download").Click()
 		_, err := (*dlPage).Evaluate(`() => {
 			const selectors = ['.js-default-download', '.fm-download-as-zip']
 			selectors.forEach(sel => {
@@ -90,6 +70,25 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 			if visible {
 				errVal, _ := errorDiv.InnerText()
 				return fmt.Errorf("%v", errVal)
+			}
+
+			// Empty folder
+			msg, _ := (*dlPage).Evaluate(
+				"document.querySelector('.mega-dialog.warning > header > .info-container > .text').innerText",
+			)
+			msgVal, _ := msg.(string)
+			if msgVal != "" {
+				return fmt.Errorf("Mega: %s", msgVal)
+			}
+			msgVal = ""
+
+			// Folder too big to download withing the browser
+			msg, _ = (*dlPage).Evaluate(
+				"document.querySelector('.mega-dialog.confirmation > header > .info-container > #msgDialog-title').innerText",
+			)
+			msgVal, _ = msg.(string)
+			if msgVal != "" {
+				return fmt.Errorf("Mega: %s", msgVal)
 			}
 
 			time.Sleep(time.Second)

@@ -35,6 +35,7 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 
 	err = page.WaitForLoadState()
 	if err != nil {
+		_ = page.Close()
 		return err
 	}
 
@@ -42,6 +43,7 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 		"document.querySelectorAll('h3')[0].innerText == 'Insufficient information to display content.'",
 	)
 	if err != nil {
+		_ = page.Close()
 		return err
 	}
 
@@ -52,6 +54,7 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 
 	albumName, err = CraftFilename(page)
 	if err != nil {
+		_ = page.Close()
 		return err
 	}
 	// fmt.Printf("Filename: %s\n", albumName)
@@ -61,11 +64,15 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 		return nil
 	})
 	if err != nil {
+		_ = dlPage.Close()
+		_ = page.Close()
 		return err
 	}
 
 	err = dlPage.WaitForLoadState()
 	if err != nil {
+		_ = dlPage.Close()
+		_ = page.Close()
 		return err
 	}
 
@@ -75,6 +82,8 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 
 	urlParse, err = url.Parse(dlPage.URL())
 	if err != nil {
+		_ = dlPage.Close()
+		_ = page.Close()
 		return err
 	}
 
