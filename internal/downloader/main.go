@@ -2,24 +2,49 @@ package downloader
 
 import (
 	"fmt"
-	"net/url"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/playwright-community/playwright-go"
 )
 
-const DOWNLOAD_ROOT = "./Downloads"
+const (
+	DOWNLOAD_ROOT           = "./Downloads"
+	DOUJINSTYLE_ALBUM_URL   = "https://doujinstyle.com/?p=page&type=1&id="
+	DEFAULT_DOUJINSTYLE_ERR = "Doujinstyle.com: 'Insufficient information to display content.'"
+	DEFAULT_DOWNLOAD_ERR    = "Not an handled download url, album url: "
+)
 
-func Download(albumID string, ctx *playwright.BrowserContext) error {
+func createDownloadFolder() error {
 	if _, err := os.Stat(DOWNLOAD_ROOT); os.IsNotExist(err) {
 		err = os.MkdirAll(DOWNLOAD_ROOT, 0755)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("Error creating download folder:", err)
+			return err
 		}
 	}
 
+	return nil
+}
+
+func handleDownloadPage(albumName string, dlPage *playwright.Page) error {
+	pageUrl := (*dlPage).URL()
+
+	dlPage_hostname := strings.Split(pageUrl, "/")[2]
+
+	switch dlPage_hostname {
+	case "www.mediafire.com":
+		return Mediafire(albumName, dlPage)
+	case "mega.nz":
+		return Mega(albumName, dlPage)
+	default:
+		return fmt.Errorf(DEFAULT_DOWNLOAD_ERR + pageUrl)
+	}
+}
+
+func Download(albumID string, ctx *playwright.BrowserContext) error {
 	var (
-		urlParse      *url.URL
 		page          playwright.Page
 		dlPage        playwright.Page
 		albumName     string
@@ -27,17 +52,25 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 		pageNotExists interface{}
 	)
 
-	page, err := (*ctx).NewPage()
+	err := createDownloadFolder()
 	if err != nil {
 		return err
 	}
-	page.Goto("https://doujinstyle.com/?p=page&type=1&id=" + albumID)
+
+	page, err = (*ctx).NewPage()
+	if err != nil {
+		_ = page.Close()
+		return err
+	}
+
+	page.Goto(DOUJINSTYLE_ALBUM_URL + albumID)
 
 	err = page.WaitForLoadState()
 	if err != nil {
 		_ = page.Close()
 		return err
 	}
+	time.Sleep(time.Second)
 
 	pageNotExists, err = page.Evaluate(
 		"document.querySelectorAll('h3')[0].innerText == 'Insufficient information to display content.'",
@@ -49,7 +82,11 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 
 	val, _ = pageNotExists.(bool)
 	if val {
-		err = fmt.Errorf("Doujinstyle.com: 'Insufficient information to display content.'")
+		err = fmt.Errorf(DEFAULT_DOUJINSTYLE_ERR)
+	}
+	if err != nil {
+		_ = page.Close()
+		return err
 	}
 
 	albumName, err = CraftFilename(page)
@@ -60,8 +97,8 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 	// fmt.Printf("Filename: %s\n", albumName)
 
 	dlPage, err = (*ctx).ExpectPage(func() error {
-		page.Evaluate("document.querySelector('#downloadForm').click()")
-		return nil
+		_, err := page.Evaluate("document.querySelector('#downloadForm').click()")
+		return err
 	})
 	if err != nil {
 		_ = dlPage.Close()
@@ -71,39 +108,16 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 
 	err = dlPage.WaitForLoadState()
 	if err != nil {
-		_ = dlPage.Close()
 		_ = page.Close()
+		_ = dlPage.Close()
 		return err
 	}
+	time.Sleep(time.Second)
 
-	// dlPage.On("popup", func(p playwright.Page) {
-	// 	p.Close()
-	// })
+	err = handleDownloadPage(albumName, &dlPage)
 
-	urlParse, err = url.Parse(dlPage.URL())
-	if err != nil {
-		_ = dlPage.Close()
-		_ = page.Close()
-		return err
-	}
-
-	switch urlParse.Hostname() {
-	case "www.mediafire.com":
-		{
-			err = Mediafire(albumName, &dlPage)
-		}
-	case "mega.nz":
-		{
-			err = Mega(albumName, &dlPage)
-		}
-	default:
-		{
-			err = fmt.Errorf("Not an handled download url, album url: " + dlPage.URL())
-		}
-	}
-
-	dlPage.Close()
-	page.Close()
+	_ = page.Close()
+	_ = dlPage.Close()
 
 	return err
 }

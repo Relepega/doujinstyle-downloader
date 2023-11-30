@@ -99,6 +99,7 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 		Timeout: &timeout,
 	})
 	if err != nil {
+		fmt.Println("Error expecting download:", err)
 		return err
 	}
 

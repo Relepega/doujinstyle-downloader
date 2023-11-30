@@ -6,8 +6,6 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-const PLAYWRIGHT_DEBUG = false
-
 func WithBrowserType(opts ...string) string {
 	o := "chromium"
 
@@ -19,7 +17,11 @@ func WithBrowserType(opts ...string) string {
 }
 
 func WithHeadless(opts ...bool) bool {
-	o := !PLAYWRIGHT_DEBUG
+	playwrightDebug := true
+
+	fmt.Printf("Playwright dbg: %v\n", playwrightDebug)
+
+	o := !playwrightDebug
 
 	for _, opt := range opts {
 		o = opt
