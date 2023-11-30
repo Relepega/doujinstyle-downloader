@@ -1,0 +1,20 @@
+changelog:
+ categories:
+  - title: Bug Fixes 🐛
+    labels:
+      - fix
+  - title: New Features 🚀
+    labels:
+      - feat
+  - title: Refactoring 🛠️
+    labels:
+      - refactor
+  - title: Documentation Updates 📚
+    labels:
+      - docs
+  - title: Build Updates ⚙️
+    labels:
+      - docs
+  - title: Performance Improvements 🚀
+    labels:
+      - perf
