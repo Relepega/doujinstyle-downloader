@@ -26,6 +26,8 @@ func sanitizePath(s string) string {
 		"-",
 		"\"",
 		"ˮ",
+		"?",
+		"？",
 	)
 	sb := strings.Builder{}
 

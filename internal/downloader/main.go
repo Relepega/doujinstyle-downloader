@@ -38,6 +38,10 @@ func handleDownloadPage(albumName string, dlPage *playwright.Page) error {
 		return Mediafire(albumName, dlPage)
 	case "mega.nz":
 		return Mega(albumName, dlPage)
+	case "drive.google.com":
+		return GDrive(albumName, dlPage)
+	case "www.jottacloud.com":
+		return Jottacloud(albumName, dlPage)
 	default:
 		return fmt.Errorf(DEFAULT_DOWNLOAD_ERR + pageUrl)
 	}

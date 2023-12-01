@@ -79,7 +79,6 @@ func Mediafire(albumName string, dlPage *playwright.Page) error {
 
 	err = downloadHandler.SaveAs(fp)
 	if err != nil {
-		// fmt.Printf("error on saveas: %v\n", err)
 		return fmt.Errorf("%v\n--------------\n%v", err, downloadHandler.Failure())
 	}
 

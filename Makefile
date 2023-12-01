@@ -1,6 +1,6 @@
 APP_NAME = doujinstyle-downloader
 APP_ENTRYPOINT = ./cmd/main.go
-VERSION = 0.1.0.b2
+VERSION = 0.1.0.b3
 
 TAR_EXCLUDE = {'*.zip','*.sha256'}
 
@@ -26,4 +26,6 @@ build:
 	GOOS=linux GOARCH=amd64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
 	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-linux-x64.zip --exclude=$(TAR_EXCLUDE) *
 	cd build && sha256sum $(APP_NAME)-v$(VERSION)-linux-x64.zip > $(APP_NAME)-v$(VERSION)-linux-x64.zip.sha256
+
 	cd build && rm $(APP_NAME)
+	cd build && rm -r views

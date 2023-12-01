@@ -18,4 +18,4 @@ async function updateContent() {
   document.getElementById("ended").scrollTop += endedScroll;
 }
 
-setInterval(updateContent, 1000 * 2);
+setInterval(updateContent, 1000 * 5);
