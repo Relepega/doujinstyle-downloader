@@ -20,9 +20,20 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 			break
 		}
 
+		val = nil
+
 		// if err == nil {
 		// 	break
 		// }
+
+		// empty folder
+		val, err := (*dlPage).Evaluate(
+			"document.querySelectorAll('.fm-empty-cloud-txt')[2].innerText",
+		)
+		if err != nil {
+			return fmt.Errorf("mega: %v", val)
+		}
+		val = nil
 
 		time.Sleep(time.Second * 5)
 	}
@@ -80,6 +91,7 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 			if msgVal != "" {
 				return fmt.Errorf("Mega: %s", msgVal)
 			}
+			msg = nil
 			msgVal = ""
 
 			// Folder too big to download withing the browser

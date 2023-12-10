@@ -5,4 +5,5 @@ use (
 	./internal/downloader
 	./internal/playwrightWrapper
 	./internal/taskQueue
+    ./internal/settingsManager
 )
