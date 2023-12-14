@@ -10,10 +10,12 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-func GDrive(albumName string, dlPage *playwright.Page) error {
-	pageUrl := (*dlPage).URL()
+func GDrive(albumName string, dlPage playwright.Page) error {
+	defer dlPage.Close()
 
-	newPage, err := (*dlPage).Context().NewPage()
+	pageUrl := dlPage.URL()
+
+	newPage, err := dlPage.Context().NewPage()
 
 	_, err = newPage.Goto(
 		"https://drive.google.com/u/0/uc?id=" + strings.Split(pageUrl, "/")[5] + "&export=download",
@@ -50,15 +52,7 @@ func GDrive(albumName string, dlPage *playwright.Page) error {
 		return err
 	}
 
-	err = newPage.Close()
-	if err != nil {
-		return err
-	}
-
-	err = (*dlPage).Close()
-	if err != nil {
-		return err
-	}
+	_ = newPage.Close()
 
 	time.Sleep(time.Second)
 

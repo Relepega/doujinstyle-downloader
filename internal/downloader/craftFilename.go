@@ -45,11 +45,33 @@ func sanitizePath(s string) string {
 	return res
 }
 
+func getExhibitions(strVal string) string {
+	re := regexp.MustCompile("^(C[0-9]+)|(M[0-9]-[0-9]+)|(AC[0-9])$")
+	matches := []string{}
+
+	for _, substr := range strings.Split(strVal, ", ") {
+		if re.MatchString(substr) {
+			matches = append(matches, substr)
+		}
+	}
+
+	var fullStr string
+
+	if len(matches) == 0 {
+		fullStr = ""
+	} else {
+		fullStr = " [" + strings.Join(matches, ", ") + "]"
+	}
+
+	return fullStr
+}
+
 func CraftFilename(page playwright.Page) (string, error) {
 	album, err := page.Evaluate("document.querySelector('h2').innerText")
 	if err != nil {
 		return "", err
 	}
+
 	artist, err := page.Evaluate("document.querySelectorAll('.pageSpan2')[0].innerText")
 	if err != nil {
 		return "", err
@@ -62,9 +84,6 @@ func CraftFilename(page playwright.Page) (string, error) {
 		return "", err
 	}
 
-	var event string
-
-	re := regexp.MustCompile("C[0-9]+|M[0-9]-[0-9]+")
 	val, err := page.Evaluate("document.querySelectorAll('.pageSpan2')[1].innerText")
 	if err != nil {
 		return "", err
@@ -73,13 +92,7 @@ func CraftFilename(page playwright.Page) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("value is not a string: %v", val)
 	}
-	matches := re.FindAllString(strVal, -1)
-
-	if len(matches) == 0 {
-		event = ""
-	} else {
-		event = " [" + strings.Join(matches, ", ") + "]"
-	}
+	event := getExhibitions(strVal)
 
 	return sanitizePath(fmt.Sprintf("%s — %s%s [%s]", artist, album, event, format)), nil
 }

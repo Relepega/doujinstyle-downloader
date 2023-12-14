@@ -9,9 +9,11 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-func Mega(albumName string, dlPage *playwright.Page) error {
+func Mega(albumName string, dlPage playwright.Page) error {
+	defer dlPage.Close()
+
 	for {
-		val, _ := (*dlPage).Evaluate(
+		val, _ := dlPage.Evaluate(
 			"() => document.querySelector('#loading').classList.contains('hidden')",
 		)
 
@@ -27,7 +29,7 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 		// }
 
 		// empty folder
-		val, err := (*dlPage).Evaluate(
+		val, err := dlPage.Evaluate(
 			"document.querySelectorAll('.fm-empty-cloud-txt')[2].innerText",
 		)
 		if err != nil {
@@ -38,7 +40,7 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 		time.Sleep(time.Second * 5)
 	}
 
-	ext, err := (*dlPage).Evaluate("document.querySelector('.extension').innerText")
+	ext, err := dlPage.Evaluate("document.querySelector('.extension').innerText")
 	if err != nil {
 		err = nil
 		ext = ".zip"
@@ -52,8 +54,8 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 	}
 
 	timeout := 0.0
-	downloadHandler, err := (*dlPage).ExpectDownload(func() error {
-		_, err := (*dlPage).Evaluate(`() => {
+	downloadHandler, err := dlPage.ExpectDownload(func() error {
+		_, err := dlPage.Evaluate(`() => {
 			const selectors = ['.js-default-download', '.fm-download-as-zip']
 			selectors.forEach(sel => {
 				let el = document.querySelector(sel)
@@ -64,10 +66,10 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 			})
 		}`)
 
-		errorDiv := (*dlPage).Locator(".default-warning > .txt")
+		errorDiv := dlPage.Locator(".default-warning > .txt")
 
 		for {
-			val, _ := (*dlPage).Evaluate(
+			val, _ := dlPage.Evaluate(
 				"() => document.querySelector('.transfer-task-status').innerText",
 			)
 
@@ -84,7 +86,7 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 			}
 
 			// Empty folder
-			msg, _ := (*dlPage).Evaluate(
+			msg, _ := dlPage.Evaluate(
 				"document.querySelector('.mega-dialog.warning > header > .info-container > .text').innerText",
 			)
 			msgVal, _ := msg.(string)
@@ -95,7 +97,7 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 			msgVal = ""
 
 			// Folder too big to download withing the browser
-			msg, _ = (*dlPage).Evaluate(
+			msg, _ = dlPage.Evaluate(
 				"document.querySelector('.mega-dialog.confirmation > header > .info-container > #msgDialog-title').innerText",
 			)
 			msgVal, _ = msg.(string)
@@ -115,7 +117,7 @@ func Mega(albumName string, dlPage *playwright.Page) error {
 		return err
 	}
 
-	err = (*dlPage).Close()
+	err = dlPage.Close()
 	if err != nil {
 		return err
 	}

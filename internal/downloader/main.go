@@ -35,13 +35,13 @@ func handleDownloadPage(albumName string, dlPage *playwright.Page) error {
 
 	switch dlPage_hostname {
 	case "www.mediafire.com":
-		return Mediafire(albumName, dlPage)
+		return Mediafire(albumName, *dlPage)
 	case "mega.nz":
-		return Mega(albumName, dlPage)
+		return Mega(albumName, *dlPage)
 	case "drive.google.com":
-		return GDrive(albumName, dlPage)
+		return GDrive(albumName, *dlPage)
 	case "www.jottacloud.com":
-		return Jottacloud(albumName, dlPage)
+		return Jottacloud(albumName, *dlPage)
 	default:
 		return fmt.Errorf(DEFAULT_DOWNLOAD_ERR + pageUrl)
 	}
@@ -62,8 +62,8 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 	}
 
 	page, err = (*ctx).NewPage()
+	defer page.Close()
 	if err != nil {
-		_ = page.Close()
 		return err
 	}
 
@@ -71,7 +71,6 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 
 	err = page.WaitForLoadState()
 	if err != nil {
-		_ = page.Close()
 		return err
 	}
 	time.Sleep(time.Second)
@@ -80,7 +79,6 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 		"document.querySelectorAll('h3')[0].innerText == 'Insufficient information to display content.'",
 	)
 	if err != nil {
-		_ = page.Close()
 		return err
 	}
 
@@ -89,13 +87,11 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 		err = fmt.Errorf(DEFAULT_DOUJINSTYLE_ERR)
 	}
 	if err != nil {
-		_ = page.Close()
 		return err
 	}
 
 	albumName, err = CraftFilename(page)
 	if err != nil {
-		_ = page.Close()
 		return err
 	}
 	// fmt.Printf("Filename: %s\n", albumName)
@@ -104,24 +100,18 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 		_, err := page.Evaluate("document.querySelector('#downloadForm').click()")
 		return err
 	})
+	defer dlPage.Close()
 	if err != nil {
-		_ = dlPage.Close()
-		_ = page.Close()
 		return err
 	}
 
 	err = dlPage.WaitForLoadState()
 	if err != nil {
-		_ = page.Close()
-		_ = dlPage.Close()
 		return err
 	}
 	time.Sleep(time.Second)
 
 	err = handleDownloadPage(albumName, &dlPage)
-
-	_ = page.Close()
-	_ = dlPage.Close()
 
 	return err
 }

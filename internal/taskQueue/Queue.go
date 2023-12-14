@@ -236,10 +236,10 @@ func (q *Queue) Run(interrupt chan os.Signal) {
 					continue
 				}
 
-				go func(q *Queue, t Task, ctx *playwright.BrowserContext) {
+				go func(q *Queue, t *Task, ctx *playwright.BrowserContext) {
 					err := downloader.Download(t.AlbumID, ctx)
-					q.MarkTaskAsDone(t, err)
-				}(q, *task, &ctx)
+					q.MarkTaskAsDone(*t, err)
+				}(q, task, &ctx)
 
 			}
 		}

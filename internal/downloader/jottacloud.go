@@ -9,8 +9,10 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-func Jottacloud(albumName string, dlPage *playwright.Page) error {
-	res, err := (*dlPage).Evaluate(
+func Jottacloud(albumName string, dlPage playwright.Page) error {
+	defer dlPage.Close()
+
+	res, err := dlPage.Evaluate(
 		"document.querySelector('[data-testid=FileViewerHeaderFileName]').childNodes[0].textContent.split('.')[1]",
 	)
 	if err != nil {
@@ -24,15 +26,15 @@ func Jottacloud(albumName string, dlPage *playwright.Page) error {
 	if err == nil {
 		return nil
 	}
-	downloadHandler, err := (*dlPage).ExpectDownload(func() error {
-		_, err := (*dlPage).Evaluate("document.querySelector('.css-118jy9p.e16wmiuy0').click()")
+	downloadHandler, err := dlPage.ExpectDownload(func() error {
+		_, err := dlPage.Evaluate("document.querySelector('.css-118jy9p.e16wmiuy0').click()")
 		return err
 	})
 	if err != nil {
 		return err
 	}
 
-	err = (*dlPage).Close()
+	err = dlPage.Close()
 	if err != nil {
 		return err
 	}
