@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"relepega/doujinstyle-downloader/internal/configManager"
 	"strings"
 	"time"
 
@@ -12,6 +13,11 @@ import (
 )
 
 func Mediafire(albumName string, dlPage playwright.Page) error {
+	runBeforeUnloadOpt := true
+	pageCloseOptions := playwright.PageCloseOptions{
+		RunBeforeUnload: &runBeforeUnloadOpt,
+	}
+
 	for {
 		res, err := dlPage.Evaluate(
 			"() => document.querySelector(\".DownloadStatus.DownloadStatus--uploading\")",
@@ -49,6 +55,12 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 		extension = strings.ToLower(re.FindString(extension))
 	}
 
+	appConfig, err := configManager.NewConfig()
+	if err != nil {
+		return err
+	}
+	DOWNLOAD_ROOT := appConfig.Download.Directory
+
 	fp := filepath.Join(DOWNLOAD_ROOT, albumName+extension)
 	_, err = os.Stat(fp)
 	if err == nil {
@@ -70,13 +82,10 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 	})
 
 	if popupErr == nil {
-		popupPage.Close()
+		popupPage.Close(pageCloseOptions)
 	}
 
-	runBeforeUnloadOpt := true
-	err = dlPage.Close(playwright.PageCloseOptions{
-		RunBeforeUnload: &runBeforeUnloadOpt,
-	})
+	err = dlPage.Close(pageCloseOptions)
 	if err != nil {
 		downloadHandler.Cancel()
 		return err

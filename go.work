@@ -2,8 +2,8 @@ go 1.21.5
 
 use (
 	./cmd
+    ./internal/configManager
 	./internal/downloader
 	./internal/playwrightWrapper
 	./internal/taskQueue
-    ./internal/settingsManager
 )

@@ -1,16 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	taskqueue "relepega/doujinstyle-downloader/internal/taskQueue"
+	"relepega/doujinstyle-downloader/internal/configManager"
+	"relepega/doujinstyle-downloader/internal/taskQueue"
 	"syscall"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/playwright-community/playwright-go"
 )
 
@@ -28,8 +31,6 @@ func NewTemplates() *Templates {
 	}
 }
 
-const SERVICE_URL = "127.0.0.1:5522"
-
 func main() {
 	err := playwright.Install()
 	if err != nil {
@@ -39,14 +40,22 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
-	q := taskqueue.NewQueue(2)
+	appConfig, err := configManager.NewConfig()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	q := taskQueue.NewQueue(int(appConfig.Download.ConcurrentJobs))
 	q.Run(interrupt)
 
 	e := echo.New()
 
 	templates := NewTemplates()
 	e.Renderer = templates
-	// e.Use(middleware.Logger())
+
+	if appConfig.Dev.ServerLogging {
+		e.Use(middleware.Logger())
+	}
 
 	e.Static("/css", "./views/css")
 	e.Static("/js", "./views/js")
@@ -116,6 +125,8 @@ func main() {
 		return c.Render(http.StatusOK, "index", q.NewQueueFree())
 	})
 
-	e.Logger.Fatal(e.Start(SERVICE_URL))
+	serverAddress := fmt.Sprintf("%s:%d", appConfig.Server.Host, appConfig.Server.Port)
+
+	e.Logger.Fatal(e.Start(serverAddress))
 	<-interrupt
 }

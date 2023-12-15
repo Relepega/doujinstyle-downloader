@@ -3,6 +3,7 @@ package downloader
 import (
 	"fmt"
 	"os"
+	"relepega/doujinstyle-downloader/internal/configManager"
 	"strings"
 	"time"
 
@@ -10,13 +11,18 @@ import (
 )
 
 const (
-	DOWNLOAD_ROOT           = "./Downloads"
 	DOUJINSTYLE_ALBUM_URL   = "https://doujinstyle.com/?p=page&type=1&id="
 	DEFAULT_DOUJINSTYLE_ERR = "Doujinstyle.com: 'Insufficient information to display content.'"
 	DEFAULT_DOWNLOAD_ERR    = "Not an handled download url, album url: "
 )
 
 func createDownloadFolder() error {
+	appConfig, err := configManager.NewConfig()
+	if err != nil {
+		return err
+	}
+	DOWNLOAD_ROOT := appConfig.Download.Directory
+
 	if _, err := os.Stat(DOWNLOAD_ROOT); os.IsNotExist(err) {
 		err = os.MkdirAll(DOWNLOAD_ROOT, 0755)
 		if err != nil {

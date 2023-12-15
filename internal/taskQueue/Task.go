@@ -1,4 +1,4 @@
-package taskqueue
+package taskQueue
 
 type Task struct {
 	Active  bool
