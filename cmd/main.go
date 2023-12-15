@@ -82,7 +82,7 @@ func main() {
 
 	e.POST("/addTask", func(c echo.Context) error {
 		albumID := c.FormValue("AlbumID")
-		t := taskqueue.NewTask(albumID)
+		t := taskQueue.NewTask(albumID)
 
 		if q.IsInList(t) {
 			return c.String(
