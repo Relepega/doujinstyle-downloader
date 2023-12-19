@@ -9,4 +9,5 @@ Directory = './Downloads'
 ConcurrentJobs = 2
 
 [Dev]
-PlaywrightDebug = false
+PlaywrightDebug = true
+ServerLogging = false

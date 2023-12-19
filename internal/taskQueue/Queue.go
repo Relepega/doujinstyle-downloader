@@ -198,50 +198,48 @@ func (q *Queue) ResetFailedTasks() {
 }
 
 func (q *Queue) Run(interrupt chan os.Signal) {
-	go func(q *Queue, interrupt chan os.Signal) {
-		pw, bw, ctx, err := playwrightwrapper.UsePlaywright(
-			playwrightwrapper.WithBrowserType(),
-			playwrightwrapper.WithHeadless(),
-			playwrightwrapper.WithTimeout(),
-		)
-		if err != nil {
-			log.Fatalf("Queue.Run() error: Cannot open playwright browser: %v", err)
-		}
+	pw, bw, ctx, err := playwrightwrapper.UsePlaywright(
+		playwrightwrapper.WithBrowserType(),
+		playwrightwrapper.WithHeadless(),
+		playwrightwrapper.WithTimeout(),
+	)
+	if err != nil {
+		log.Fatalf("Queue.Run() error: Cannot open playwright browser: %v", err)
+	}
 
-		// open empty page so that the context won't close
-		emptyPage, _ := ctx.NewPage()
-		emptyPage.Goto("https://google.com")
+	// open empty page so that the context won't close
+	emptyPage, _ := ctx.NewPage()
+	emptyPage.Goto("https://google.com")
 
-		for {
-			select {
-			case <-interrupt:
-				// fmt.Println("I don't get called")
-				emptyPage.Close()
-				playwrightwrapper.ClosePlaywright(pw, bw, ctx)
+	for {
+		select {
+		case <-interrupt:
+			// fmt.Println("I don't get called")
+			emptyPage.Close()
+			playwrightwrapper.ClosePlaywright(pw, bw, ctx)
 
-				os.Exit(0)
-			default:
-				// time.Sleep(time.Second)
+			os.Exit(0)
+		default:
+			// time.Sleep(time.Second)
 
-				if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {
-					continue
-				}
-
-				task, err := q.ActivateFreeTask()
-				if err != nil {
-					continue
-				}
-
-				if task == nil {
-					continue
-				}
-
-				go func(q *Queue, t *Task, ctx *playwright.BrowserContext) {
-					err := downloader.Download(t.AlbumID, ctx)
-					q.MarkTaskAsDone(*t, err)
-				}(q, task, &ctx)
-
+			if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {
+				continue
 			}
+
+			task, err := q.ActivateFreeTask()
+			if err != nil {
+				continue
+			}
+
+			if task == nil {
+				continue
+			}
+
+			go func(q *Queue, t *Task, ctx *playwright.BrowserContext) {
+				err := downloader.Download(t.AlbumID, ctx)
+				q.MarkTaskAsDone(*t, err)
+			}(q, task, &ctx)
+
 		}
-	}(q, interrupt)
+	}
 }

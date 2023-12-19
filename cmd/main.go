@@ -46,7 +46,10 @@ func main() {
 	}
 
 	q := taskQueue.NewQueue(int(appConfig.Download.ConcurrentJobs))
-	q.Run(interrupt)
+
+	go func(interrupt chan os.Signal) {
+		q.Run(interrupt)
+	}(interrupt)
 
 	e := echo.New()
 

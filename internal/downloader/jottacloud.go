@@ -2,8 +2,8 @@ package downloader
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
+	"relepega/doujinstyle-downloader/internal/appUtils"
 	"relepega/doujinstyle-downloader/internal/configManager"
 	"time"
 
@@ -29,10 +29,11 @@ func Jottacloud(albumName string, dlPage playwright.Page) error {
 	DOWNLOAD_ROOT := appConfig.Download.Directory
 
 	fp := filepath.Join(DOWNLOAD_ROOT, albumName+extension)
-	_, err = os.Stat(fp)
-	if err == nil {
+	fileExists, _ := appUtils.FileExists(fp)
+	if fileExists {
 		return nil
 	}
+
 	downloadHandler, err := dlPage.ExpectDownload(func() error {
 		_, err := dlPage.Evaluate("document.querySelector('.css-118jy9p.e16wmiuy0').click()")
 		return err

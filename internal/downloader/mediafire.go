@@ -2,9 +2,9 @@ package downloader
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
+	"relepega/doujinstyle-downloader/internal/appUtils"
 	"relepega/doujinstyle-downloader/internal/configManager"
 	"strings"
 	"time"
@@ -17,6 +17,8 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 	pageCloseOptions := playwright.PageCloseOptions{
 		RunBeforeUnload: &runBeforeUnloadOpt,
 	}
+
+	timeout := 0.0
 
 	for {
 		res, err := dlPage.Evaluate(
@@ -35,7 +37,11 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 
 	var extension string
 
-	defer dlPage.Close()
+	defer func() {
+		if dlPage != nil {
+			dlPage.Close(pageCloseOptions)
+		}
+	}()
 
 	ext, err := dlPage.Evaluate("document.querySelector('.filetype').innerText")
 	if ext == nil {
@@ -62,40 +68,43 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 	DOWNLOAD_ROOT := appConfig.Download.Directory
 
 	fp := filepath.Join(DOWNLOAD_ROOT, albumName+extension)
-	_, err = os.Stat(fp)
-	if err == nil {
+	fileExists, _ := appUtils.FileExists(fp)
+	if fileExists {
 		return nil
 	}
 
-	downloadHandler, err := dlPage.ExpectDownload(func() error {
+	downloadHandle, err := dlPage.ExpectDownload(func() error {
 		_, err := dlPage.Evaluate("document.querySelector('#downloadButton').click()")
-		// err := dlPage.Locator("#downloadButton").Click()
-		return err
-	})
-	if err != nil {
-		downloadHandler.Cancel()
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	popupPage, popupErr := dlPage.ExpectPopup(func() error {
+		popupPage, _ := dlPage.ExpectPopup(func() error {
+			return nil
+		}, playwright.PageExpectPopupOptions{
+			Timeout: &timeout,
+		})
+		if popupPage != nil {
+			popupPage.Close(pageCloseOptions)
+		}
+
 		return nil
+	}, playwright.PageExpectDownloadOptions{
+		Timeout: &timeout,
 	})
-
-	if popupErr == nil {
-		popupPage.Close(pageCloseOptions)
+	if err != nil {
+		return fmt.Errorf("%v\n", err)
 	}
 
-	err = dlPage.Close(pageCloseOptions)
+	err = dlPage.Close()
 	if err != nil {
-		downloadHandler.Cancel()
 		return err
 	}
+	dlPage = nil
 
-	time.Sleep(time.Second)
-
-	err = downloadHandler.SaveAs(fp)
+	err = downloadHandle.SaveAs(fp)
 	if err != nil {
-		return fmt.Errorf("%v\n--------------\n%v", err, downloadHandler.Failure())
+		return err
 	}
 
 	return nil

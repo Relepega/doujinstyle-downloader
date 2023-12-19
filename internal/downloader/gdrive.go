@@ -2,8 +2,8 @@ package downloader
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
+	"relepega/doujinstyle-downloader/internal/appUtils"
 	"relepega/doujinstyle-downloader/internal/configManager"
 	"strings"
 	"time"
@@ -46,8 +46,8 @@ func GDrive(albumName string, dlPage playwright.Page) error {
 	DOWNLOAD_ROOT := appConfig.Download.Directory
 
 	fp := filepath.Join(DOWNLOAD_ROOT, albumName+extension)
-	_, err = os.Stat(fp)
-	if err == nil {
+	fileExists, _ := appUtils.FileExists(fp)
+	if fileExists {
 		return nil
 	}
 

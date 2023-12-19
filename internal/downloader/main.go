@@ -106,7 +106,6 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 		_, err := page.Evaluate("document.querySelector('#downloadForm').click()")
 		return err
 	})
-	defer dlPage.Close()
 	if err != nil {
 		return err
 	}
