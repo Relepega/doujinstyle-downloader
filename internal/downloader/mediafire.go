@@ -12,14 +12,13 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
+func handlePopup(p playwright.Page) bool {
+	p.Close()
+
+	return false
+}
+
 func Mediafire(albumName string, dlPage playwright.Page) error {
-	runBeforeUnloadOpt := true
-	pageCloseOptions := playwright.PageCloseOptions{
-		RunBeforeUnload: &runBeforeUnloadOpt,
-	}
-
-	timeout := 0.0
-
 	for {
 		res, err := dlPage.Evaluate(
 			"() => document.querySelector(\".DownloadStatus.DownloadStatus--uploading\")",
@@ -37,11 +36,7 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 
 	var extension string
 
-	defer func() {
-		if dlPage != nil {
-			dlPage.Close(pageCloseOptions)
-		}
-	}()
+	defer dlPage.Close()
 
 	ext, err := dlPage.Evaluate("document.querySelector('.filetype').innerText")
 	if ext == nil {
@@ -73,36 +68,20 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 		return nil
 	}
 
-	downloadHandle, err := dlPage.ExpectDownload(func() error {
-		_, err := dlPage.Evaluate("document.querySelector('#downloadButton').click()")
+	download, err := dlPage.ExpectDownload(func() error {
+		_, err = dlPage.Evaluate("document.querySelector('#downloadButton').click()")
+		return err
+	})
+	if err != nil {
+		err := download.Cancel()
 		if err != nil {
 			return err
 		}
 
-		popupPage, _ := dlPage.ExpectPopup(func() error {
-			return nil
-		}, playwright.PageExpectPopupOptions{
-			Timeout: &timeout,
-		})
-		if popupPage != nil {
-			popupPage.Close(pageCloseOptions)
-		}
-
-		return nil
-	}, playwright.PageExpectDownloadOptions{
-		Timeout: &timeout,
-	})
-	if err != nil {
-		return fmt.Errorf("%v\n", err)
-	}
-
-	err = dlPage.Close()
-	if err != nil {
 		return err
 	}
-	dlPage = nil
 
-	err = downloadHandle.SaveAs(fp)
+	err = download.SaveAs(fp)
 	if err != nil {
 		return err
 	}

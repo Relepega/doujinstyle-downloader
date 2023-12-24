@@ -1,0 +1,91 @@
+package downloader
+
+import (
+	"fmt"
+
+	"github.com/playwright-community/playwright-go"
+)
+
+func Mediafire(albumName string, dlPage playwright.Page) error {
+	runBeforeUnloadOpt := true
+	pageCloseOptions := playwright.PageCloseOptions{
+		RunBeforeUnload: &runBeforeUnloadOpt,
+	}
+	//
+	timeout := 0.0
+	// forceClickEvt := true
+
+	defer dlPage.Close()
+
+	dlPage.OnPopup(func(page playwright.Page) {
+		page.Close(pageCloseOptions)
+	})
+
+	// dlPage.OnDownload(func(download playwright.Download) {
+	// 	// Get the path of the downloaded file
+	// 	err := download.SaveAs("./testfile")
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	log.Printf("Downloaded file saved")
+	// })
+
+	// dlPage.On("Popup", func(popup playwright.Page) {
+	// 	// Close the popup
+	// 	if err := popup.Close(); err != nil {
+	// 		log.Fatalf("could not close popup: %v", err)
+	// 	}
+	// })
+	//
+	// dlPage.On("Download", func(download playwright.Download) {
+	// 	// Get the path of the downloaded file
+	// 	err := download.SaveAs("./testfile")
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	log.Printf("Downloaded file saved")
+	// })
+
+	fp := "./testfile"
+
+	// _, err := dlPage.Evaluate("document.querySelector('#downloadButton').click()")
+	// if err != nil {
+	// 	return err
+	// }
+
+	downloadHandle, err := dlPage.ExpectDownload(func() error {
+		_, err := dlPage.Evaluate("document.querySelector('#downloadButton').click()")
+		if err != nil {
+			return err
+		}
+		return nil
+	}, playwright.PageExpectDownloadOptions{
+		// Predicate: func(d playwright.Download) bool {
+		// 	_ = d.Page().Close(pageCloseOptions)
+		//
+		// 	d.SaveAs(fp)
+		// 	return true
+		// },
+		Timeout: &timeout,
+	})
+	if err != nil {
+		fmt.Println("Happens here")
+		return err
+	}
+
+	// err = dlPage.Close()
+	// if err != nil {
+	// 	return err
+	// }
+	// dlPage = nil
+
+	err = downloadHandle.SaveAs(fp)
+	if err != nil {
+		return err
+	}
+
+	for {
+	}
+
+	return nil
+}

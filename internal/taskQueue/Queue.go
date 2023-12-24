@@ -209,7 +209,6 @@ func (q *Queue) Run(interrupt chan os.Signal) {
 
 	// open empty page so that the context won't close
 	emptyPage, _ := ctx.NewPage()
-	emptyPage.Goto("https://google.com")
 
 	for {
 		select {
