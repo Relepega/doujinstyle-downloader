@@ -16,21 +16,14 @@ func GDrive(albumName string, dlPage playwright.Page) error {
 
 	pageUrl := dlPage.URL()
 
-	newPage, err := dlPage.Context().NewPage()
-
-	_, err = newPage.Goto(
+	_, err := dlPage.Goto(
 		"https://drive.google.com/u/0/uc?id=" + strings.Split(pageUrl, "/")[5] + "&export=download",
 	)
 	if err != nil {
 		return err
 	}
 
-	err = newPage.WaitForLoadState()
-	if err != nil {
-		return err
-	}
-
-	res, err := newPage.Evaluate(
+	res, err := dlPage.Evaluate(
 		"document.querySelector('a').innerText.split('.').toReversed()[0]",
 	)
 	if err != nil {
@@ -51,15 +44,13 @@ func GDrive(albumName string, dlPage playwright.Page) error {
 		return nil
 	}
 
-	downloadHandler, err := newPage.ExpectDownload(func() error {
-		_, err := newPage.Evaluate("document.querySelector('#uc-download-link').click()")
+	downloadHandler, err := dlPage.ExpectDownload(func() error {
+		_, err := dlPage.Evaluate("document.querySelector('#uc-download-link').click()")
 		return err
 	})
 	if err != nil {
 		return err
 	}
-
-	_ = newPage.Close()
 
 	time.Sleep(time.Second)
 

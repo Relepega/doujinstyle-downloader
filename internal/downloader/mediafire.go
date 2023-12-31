@@ -63,25 +63,24 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 	DOWNLOAD_ROOT := appConfig.Download.Directory
 
 	fp := filepath.Join(DOWNLOAD_ROOT, albumName+extension)
-	fileExists, _ := appUtils.FileExists(fp)
+	fileExists, err := appUtils.FileExists(fp)
+	if err != nil {
+		return err
+	}
 	if fileExists {
 		return nil
 	}
 
-	download, err := dlPage.ExpectDownload(func() error {
-		_, err = dlPage.Evaluate("document.querySelector('#downloadButton').click()")
-		return err
-	})
+	href, err := dlPage.Evaluate("document.querySelector('#downloadButton').href")
 	if err != nil {
-		err := download.Cancel()
-		if err != nil {
-			return err
-		}
-
 		return err
 	}
+	downloadUrl, ok := href.(string)
+	if !ok {
+		return fmt.Errorf("Mediafire: Couldn't get download url")
+	}
 
-	err = download.SaveAs(fp)
+	err = appUtils.DownloadFile(fp, downloadUrl)
 	if err != nil {
 		return err
 	}

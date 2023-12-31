@@ -7,14 +7,17 @@ import (
 func ClosePlaywright(
 	pw *playwright.Playwright,
 	bw playwright.Browser,
-	ctx playwright.BrowserContext,
 ) error {
-	err := ctx.Close()
-	if err != nil {
-		return err
+	contexts := bw.Contexts()
+
+	for i := 0; i < len(contexts); i++ {
+		err := contexts[i].Close()
+		if err != nil {
+			return err
+		}
 	}
 
-	err = bw.Close()
+	err := bw.Close()
 	if err != nil {
 		return err
 	}

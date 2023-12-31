@@ -213,14 +213,11 @@ func (q *Queue) Run(interrupt chan os.Signal) {
 	for {
 		select {
 		case <-interrupt:
-			// fmt.Println("I don't get called")
 			emptyPage.Close()
-			playwrightwrapper.ClosePlaywright(pw, bw, ctx)
+			playwrightwrapper.ClosePlaywright(pw, bw)
 
 			os.Exit(0)
 		default:
-			// time.Sleep(time.Second)
-
 			if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {
 				continue
 			}
@@ -234,10 +231,10 @@ func (q *Queue) Run(interrupt chan os.Signal) {
 				continue
 			}
 
-			go func(q *Queue, t *Task, ctx *playwright.BrowserContext) {
-				err := downloader.Download(t.AlbumID, ctx)
+			go func(q *Queue, t *Task, bw *playwright.Browser) {
+				err := downloader.Download(t.AlbumID, bw)
 				q.MarkTaskAsDone(*t, err)
-			}(q, task, &ctx)
+			}(q, task, &bw)
 
 		}
 	}

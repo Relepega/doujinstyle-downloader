@@ -72,23 +72,32 @@ func checkDMCA(p *playwright.Page) (bool, error) {
 	return false, nil
 }
 
-func Download(albumID string, ctx *playwright.BrowserContext) error {
+func Download(albumID string, bw *playwright.Browser) error {
 	err := createDownloadFolder()
 	if err != nil {
 		return err
 	}
 
-	page, err := (*ctx).NewPage()
+	ctx, err := (*bw).NewContext()
+	if err != nil {
+		return err
+	}
+	defer ctx.Close()
+
+	page, err := ctx.NewPage()
 	if err != nil {
 		return err
 	}
 	defer page.Close()
 
-	page.Goto(DOUJINSTYLE_ALBUM_URL + albumID)
+	_, err = page.Goto(DOUJINSTYLE_ALBUM_URL + albumID)
+	if err != nil {
+		return err
+	}
 
 	err = page.WaitForLoadState()
 	if err != nil {
-		return err
+		return fmt.Errorf("Page took too long to load")
 	}
 
 	isDMCA, err := checkDMCA(&page)
@@ -105,7 +114,7 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 	}
 	// fmt.Printf("Filename: %s\n", albumName)
 
-	dlPage, err := (*ctx).ExpectPage(func() error {
+	dlPage, err := ctx.ExpectPage(func() error {
 		_, err := page.Evaluate("document.querySelector('#downloadForm').click()")
 		return err
 	})
@@ -113,7 +122,9 @@ func Download(albumID string, ctx *playwright.BrowserContext) error {
 		return err
 	}
 
-	err = dlPage.WaitForLoadState()
+	err = dlPage.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
+		State: playwright.LoadStateDomcontentloaded,
+	})
 	if err != nil {
 		runBeforeUnloadOpt := true
 
