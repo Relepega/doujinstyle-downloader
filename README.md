@@ -96,13 +96,17 @@ I welcome any and all contributions! Here are some ways you can get started:
 
 ### QnA
 
-Q. I get the following error:
+**Q**. I get the following error:
 `{"time":"2023-11-28T20:42:34.1949499+01:00","level":"FATAL","prefix":"echo","file":"main.go","line":"119","message":"listen tcp 127.0.0.1:5522: bind: An attempt was made to access a socket in a way forbidden by its access permissions."}`.
 How do i fix it?
 
-A. The error is either caused by another process using the port 5522, or by
-HyperV. If the former, you need to stop the other process before opening this
-app. If the latter, you can fix it by using the command `Restart-Service hns`.
+**A**. The error is either caused by another process using the port 5522, or by
+HyperV. To fix it you have 3 choices:
+- By stopping the process that is using that port
+app.
+- (Hyper-V only) By using the command `Restart-Service hns` in a powershell prompt.
+- Change the application port in the `config.toml` file (you can edit it with a notepad app)
+
 If none of these helps you out, you can open a new issue. You need to accurately
 describe what the issue is, your os, os version, app version and the steps to
 reproduce the issue (if any).
