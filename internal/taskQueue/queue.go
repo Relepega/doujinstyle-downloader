@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"relepega/doujinstyle-downloader/downloader"
-	playwrightwrapper "relepega/doujinstyle-downloader/internal/playwrightWrapper"
 	"sync"
+
+	"github.com/relepega/doujinstyle-downloader/internal/downloader"
+	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 
 	"github.com/playwright-community/playwright-go"
 )
@@ -198,10 +199,10 @@ func (q *Queue) ResetFailedTasks() {
 }
 
 func (q *Queue) Run(interrupt chan os.Signal) {
-	pw, bw, ctx, err := playwrightwrapper.UsePlaywright(
-		playwrightwrapper.WithBrowserType(),
-		playwrightwrapper.WithHeadless(),
-		playwrightwrapper.WithTimeout(),
+	pw, bw, ctx, err := playwrightWrapper.UsePlaywright(
+		playwrightWrapper.WithBrowserType(),
+		playwrightWrapper.WithHeadless(),
+		playwrightWrapper.WithTimeout(),
 	)
 	if err != nil {
 		log.Fatalf("Queue.Run() error: Cannot open playwright browser: %v", err)
@@ -214,7 +215,7 @@ func (q *Queue) Run(interrupt chan os.Signal) {
 		select {
 		case <-interrupt:
 			emptyPage.Close()
-			playwrightwrapper.ClosePlaywright(pw, bw)
+			playwrightWrapper.ClosePlaywright(pw, bw)
 
 			os.Exit(0)
 		default:

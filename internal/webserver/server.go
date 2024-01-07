@@ -1,4 +1,4 @@
-package main
+package webserver
 
 import (
 	"fmt"
@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"relepega/doujinstyle-downloader/internal/configManager"
-	"relepega/doujinstyle-downloader/internal/taskQueue"
 	"syscall"
+
+	"github.com/relepega/doujinstyle-downloader/internal/configManager"
+	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/playwright-community/playwright-go"
 )
 
 type Templates struct {
@@ -31,12 +31,7 @@ func NewTemplates() *Templates {
 	}
 }
 
-func main() {
-	err := playwright.Install()
-	if err != nil {
-		log.Fatalf("Couldn't install playwright dependencies: %v", err)
-	}
-
+func StartWebserver() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 

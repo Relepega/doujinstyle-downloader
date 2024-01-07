@@ -3,8 +3,9 @@ package downloader
 import (
 	"fmt"
 	"os"
-	"relepega/doujinstyle-downloader/internal/configManager"
 	"strings"
+
+	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 
 	"github.com/playwright-community/playwright-go"
 )

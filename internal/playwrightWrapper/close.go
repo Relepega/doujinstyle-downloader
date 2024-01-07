@@ -1,4 +1,4 @@
-package playwrightwrapper
+package playwrightWrapper
 
 import (
 	"github.com/playwright-community/playwright-go"

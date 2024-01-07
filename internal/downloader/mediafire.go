@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
-	"relepega/doujinstyle-downloader/internal/appUtils"
-	"relepega/doujinstyle-downloader/internal/configManager"
 	"strings"
 	"time"
+
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 
 	"github.com/playwright-community/playwright-go"
 )

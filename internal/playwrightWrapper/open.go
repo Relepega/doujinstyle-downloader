@@ -1,8 +1,9 @@
-package playwrightwrapper
+package playwrightWrapper
 
 import (
 	"fmt"
-	"relepega/doujinstyle-downloader/internal/configManager"
+
+	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 
 	"github.com/playwright-community/playwright-go"
 )
@@ -19,7 +20,6 @@ func WithBrowserType(opts ...string) string {
 
 func WithHeadless(opts ...bool) bool {
 	appConfig, _ := configManager.NewConfig()
-
 	playwrightDebug := appConfig.Dev.PlaywrightDebug
 
 	// fmt.Printf("Playwright dbg: %v\n", playwrightDebug)
