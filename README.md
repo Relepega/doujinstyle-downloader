@@ -28,10 +28,10 @@ I will "officially" build for these OSes and architectures: Windows (x64), Linux
 (x64) and MacOS (ARM).
 
 If you want to run this program on another os/arch, you have to build it
-yourself. More informations [here](#Build)
+yourself. More informations [in the build section](#Build).
 
 You can download it
-[here](https://github.com/Relepega/doujinstyle-downloader/releases).
+[in the releases page](https://github.com/Relepega/doujinstyle-downloader/releases).
 
 To install the app, you just need to download the release zip, unzip it inside a
 folder with a name you can remember (optional), then open the app! No
@@ -97,16 +97,26 @@ I welcome any and all contributions! Here are some ways you can get started:
 ### QnA
 
 **Q**. I get the following error:
-`{"time":"2023-11-28T20:42:34.1949499+01:00","level":"FATAL","prefix":"echo","file":"main.go","line":"119","message":"listen tcp 127.0.0.1:5522: bind: An attempt was made to access a socket in a way forbidden by its access permissions."}`.
+`listen tcp ...: bind: An attempt was made to access a socket in a way forbidden by its access permissions.`.
 How do i fix it?
 
 **A**. The error is either caused by another process using the port 5522, or by
 HyperV. To fix it you have 3 choices:
-- By stopping the process that is using that port
-app.
-- (Hyper-V only) By using the command `Restart-Service hns` in a powershell prompt.
-- Change the application port in the `config.toml` file (you can edit it with a notepad app)
+
+- By stopping the process that is using that port app.
+- (Hyper-V only) By using the command `Restart-Service hns` in a powershell
+  prompt.
+- Change the application port in the `config.toml` file (you can edit it with a
+  notepad app)
 
 If none of these helps you out, you can open a new issue. You need to accurately
 describe what the issue is, your os, os version, app version and the steps to
 reproduce the issue (if any).
+
+**Q**. I get the following error:
+`listen tcp ... bind: The requested address is not valid in its context.` How do
+i fix it?
+
+**A**. Change the `Host` value in the [server] section in the config file to a
+valid IP address. Either change it to 127.0.0.1 if you're unsure of what to do
+or use the valid current network IP address of your device.
