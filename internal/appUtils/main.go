@@ -7,6 +7,18 @@ import (
 	"os"
 )
 
+func CreateFolder(fname string) error {
+	if _, err := os.Stat(fname); os.IsNotExist(err) {
+		err = os.MkdirAll(fname, 0755)
+		if err != nil {
+			fmt.Println("Error creating folder:", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func FileExists(fp string) (bool, error) {
 	_, err := os.Stat(fp)
 	if err != nil {

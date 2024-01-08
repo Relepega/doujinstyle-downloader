@@ -1,4 +1,5 @@
 build/
 Downloads/
+Logs/
 tmp/
 config.toml

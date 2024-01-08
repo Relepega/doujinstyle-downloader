@@ -2,10 +2,7 @@ package downloader
 
 import (
 	"fmt"
-	"os"
 	"strings"
-
-	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 
 	"github.com/playwright-community/playwright-go"
 )
@@ -16,24 +13,6 @@ const (
 	DEFAULT_DOWNLOAD_ERR        = "Not an handled download url, album url: "
 	DEFAULT_PAGE_NOT_LOADED_ERR = "The download page did not load in a reasonable amount of time."
 )
-
-func createDownloadFolder() error {
-	appConfig, err := configManager.NewConfig()
-	if err != nil {
-		return err
-	}
-	DOWNLOAD_ROOT := appConfig.Download.Directory
-
-	if _, err := os.Stat(DOWNLOAD_ROOT); os.IsNotExist(err) {
-		err = os.MkdirAll(DOWNLOAD_ROOT, 0755)
-		if err != nil {
-			fmt.Println("Error creating download folder:", err)
-			return err
-		}
-	}
-
-	return nil
-}
 
 func handleDownloadPage(albumName string, dlPage playwright.Page) error {
 	pageUrl := dlPage.URL()
@@ -74,11 +53,6 @@ func checkDMCA(p *playwright.Page) (bool, error) {
 }
 
 func Download(albumID string, bw *playwright.Browser) error {
-	err := createDownloadFolder()
-	if err != nil {
-		return err
-	}
-
 	ctx, err := (*bw).NewContext()
 	if err != nil {
 		return err

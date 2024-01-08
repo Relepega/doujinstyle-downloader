@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -52,7 +53,23 @@ func StartWebserver() {
 	e.Renderer = templates
 
 	if appConfig.Dev.ServerLogging {
-		e.Use(middleware.Logger())
+		e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+			LogStatus:   true,
+			LogURI:      true,
+			LogError:    true,
+			HandleError: true, // forwards error to the global error handler, so it can decide appropriate status code
+			LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+				const defaultLog = "[HTTP REQUEST] uri=%v status=%v"
+
+				if v.Error == nil {
+					slog.Info(fmt.Sprintf(defaultLog, v.URI, v.Status))
+				} else {
+					slog.Error(fmt.Sprintf(defaultLog+" %v", v.URI, v.Status, v.Error.Error()))
+				}
+
+				return nil
+			},
+		}))
 	}
 
 	e.Static("/css", "./views/css")
