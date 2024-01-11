@@ -39,7 +39,7 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 
 	defer dlPage.Close()
 
-	ext, err := dlPage.Evaluate("document.querySelector('.filetype').innerText")
+	ext, _ := dlPage.Evaluate("document.querySelector('.filetype').innerText")
 	if ext == nil {
 		ext, _ = dlPage.Evaluate(`() => {
 			let data = document.querySelector('.dl-btn-label').title.split('.')

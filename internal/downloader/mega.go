@@ -24,8 +24,6 @@ func Mega(albumName string, dlPage playwright.Page) error {
 			break
 		}
 
-		val = nil
-
 		// if err == nil {
 		// 	break
 		// }
@@ -37,14 +35,12 @@ func Mega(albumName string, dlPage playwright.Page) error {
 		if err != nil && val != nil {
 			return fmt.Errorf("mega: %v", val)
 		}
-		val = nil
 
 		time.Sleep(time.Second * 5)
 	}
 
 	ext, err := dlPage.Evaluate("document.querySelector('.extension').innerText")
 	if err != nil {
-		err = nil
 		ext = ".zip"
 	}
 	extension := fmt.Sprintf("%v", ext)
@@ -101,10 +97,8 @@ func Mega(albumName string, dlPage playwright.Page) error {
 			if msgVal != "" {
 				return fmt.Errorf("Mega: %s", msgVal)
 			}
-			msg = nil
-			msgVal = ""
 
-			// Folder too big to download withing the browser
+			// Folder too big to download within the browser
 			msg, _ = dlPage.Evaluate(
 				"document.querySelector('.mega-dialog.confirmation > header > .info-container > #msgDialog-title').innerText",
 			)
