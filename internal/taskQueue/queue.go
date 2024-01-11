@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"sync"
 
 	"github.com/relepega/doujinstyle-downloader/internal/downloader"
@@ -15,7 +14,7 @@ import (
 
 type Queue struct {
 	mu             sync.Mutex
-	interrupt      chan os.Signal
+	Interrupt      chan os.Signal
 	maxConcurrency int
 	runningTasks   int
 	tasks          []Task
@@ -28,7 +27,7 @@ type UIQueue struct {
 
 func NewQueue(maxConcurrency int) *Queue {
 	return &Queue{
-		interrupt:      make(chan os.Signal, 1),
+		Interrupt:      make(chan os.Signal, 1),
 		maxConcurrency: maxConcurrency,
 		runningTasks:   0,
 		tasks:          []Task{},
@@ -202,10 +201,6 @@ func (q *Queue) ResetFailedTasks() {
 }
 
 func (q *Queue) Run() {
-	go func() {
-		signal.Notify(q.interrupt, os.Interrupt)
-	}()
-
 	pw, bw, ctx, err := playwrightWrapper.UsePlaywright(
 		playwrightWrapper.WithBrowserType(),
 		playwrightWrapper.WithHeadless(),
@@ -220,7 +215,7 @@ func (q *Queue) Run() {
 
 	for {
 		select {
-		case <-q.interrupt:
+		case <-q.Interrupt:
 			emptyPage.Close()
 			playwrightWrapper.ClosePlaywright(pw, bw)
 			return

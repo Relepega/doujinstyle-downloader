@@ -132,9 +132,9 @@ func StartWebserver() {
 
 	go func(serverAddress string) {
 		if err := e.Start(serverAddress); err != nil && err != http.ErrServerClosed {
-			e.Logger.Fatal("Shutting down the server")
+			log.Fatalln("Shutting down the server")
 		} else {
-			e.Logger.Info("Server shut down gracefully")
+			log.Println("Server shut down gracefully")
 		}
 	}(serverAddress)
 
@@ -143,12 +143,13 @@ func StartWebserver() {
 	quit := make(chan os.Signal, 1)
 
 	signal.Notify(quit, os.Interrupt)
+	signal.Notify(q.Interrupt, os.Interrupt)
 	<-quit
 	<-quit
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := e.Shutdown(ctx); err != nil {
-		e.Logger.Fatal(err)
+		log.Fatalln(err)
 	}
 }
