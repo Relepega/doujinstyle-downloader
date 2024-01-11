@@ -17,6 +17,18 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+func serverLoggerHandler(c echo.Context, v middleware.RequestLoggerValues) error {
+	const defaultLog = "[HTTP REQUEST] uri=%v status=%v"
+
+	if v.Error == nil {
+		slog.Info(fmt.Sprintf(defaultLog, v.URI, v.Status))
+	} else {
+		slog.Error(fmt.Sprintf(defaultLog+" %v", v.URI, v.Status, v.Error.Error()))
+	}
+
+	return nil
+}
+
 func StartWebserver() {
 	appConfig, err := configManager.NewConfig()
 	if err != nil {
@@ -32,21 +44,11 @@ func StartWebserver() {
 
 	if appConfig.Dev.ServerLogging {
 		e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-			LogStatus:   true,
-			LogURI:      true,
-			LogError:    true,
-			HandleError: true, // forwards error to the global error handler, so it can decide appropriate status code
-			LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-				const defaultLog = "[HTTP REQUEST] uri=%v status=%v"
-
-				if v.Error == nil {
-					slog.Info(fmt.Sprintf(defaultLog, v.URI, v.Status))
-				} else {
-					slog.Error(fmt.Sprintf(defaultLog+" %v", v.URI, v.Status, v.Error.Error()))
-				}
-
-				return nil
-			},
+			LogStatus:     true,
+			LogURI:        true,
+			LogError:      true,
+			HandleError:   true, // forwards error to the global error handler, so it can decide appropriate status code
+			LogValuesFunc: serverLoggerHandler,
 		}))
 	}
 

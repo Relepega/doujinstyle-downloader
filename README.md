@@ -4,6 +4,11 @@ A User-friendly app made for effortlessly downloading music from
 [doujinstyle](https://doujinstyle.com/) written in Go, using html templates and
 [htmx.js](https://htmx.org/).
 
+![GitHub tag checks state](https://img.shields.io/github/checks-status/relepega/doujinstyle-downloader/HEAD)
+[![Version](https://img.shields.io/badge/version-v1.0.0-beta-5-success.svg)](https://github.com/relepega/doujinstyle-downloader/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/relepega/doujinstyle-downloader)](https://goreportcard.com/report/github.com/relepega/doujinstyle-downloader)
+[![codebeat badge](https://codebeat.co/badges/4fd08f5a-b2d8-49b9-b0d4-a37cd6f6c3dc)](https://codebeat.co/projects/github-com-relepega-doujinstyle-downloader-main)
+
 ## Table of content
 
 - [doujinstyle-downloader](#doujinstyle-downloader)
