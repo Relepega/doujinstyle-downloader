@@ -1,37 +1,28 @@
 {{ block "task" . }}
-<div id="{{ .AlbumID }}" class='download-queue-element {{ if .Done }} {{ if .Error }} failure {{ else }} success {{ end }} {{ end }}'>
+<div id="{{ .AlbumID }}"
+    class='download-queue-element {{ if .Done }} {{ if .Error }} failure {{ else }} success {{ end }} {{ end }}'>
     {{ if eq .Active false }}
-        <div
-            class="btn delete"
-            hx-get="/removeTask"
-            hx-vals='{ "id": {{ .AlbumID }} }'
-            hx-on::after-request="if(event.detail.successful) document.getElementById({{ .AlbumID }}).remove()"
-            hx-target="#tasks" 
-            hx-swap="focus-scroll:true"
-        >
-            X
-        </div>
+    <div class="btn delete" hx-get="/api/task/remove" hx-vals='{ "id": {{ .AlbumID }} }'
+        hx-on::after-request="if(event.detail.successful) document.getElementById({{ .AlbumID }}).remove()"
+        hx-target="#tasks" hx-swap="focus-scroll:true">
+        X
+    </div>
     {{ end }}
 
     <p>{{ .AlbumID }}</p>
     {{ if .Error }}
-        <div class="err">
-            <h4>An error occurred:</h4>
-            <p id="{{ .AlbumID }}-error">{{ .Error }}</p>
-            <div class="err-btns">
-                <div class="btn err-btn copy-error" onClick="copyErrorMessage('{{ .AlbumID }}')">Copy Error</div>
-                <div 
-                    class="btn err-btn retry"
-                    hx-get="/redoTask"
-                    hx-vals='{ "id": {{ .AlbumID }} }'
-                    hx-on::after-request="document.getElementById({{ .AlbumID }}).remove()"
-                    hx-target="#tasks"
-                    hx-swap="focus-scroll:true"
-                >
-                    Download Again
-                </div>
+    <div class="err">
+        <h4>An error occurred:</h4>
+        <p id="{{ .AlbumID }}-error">{{ .Error }}</p>
+        <div class="err-btns">
+            <div class="btn err-btn copy-error" onClick="copyErrorMessage('{{ .AlbumID }}')">Copy Error</div>
+            <div class="btn err-btn retry" hx-get="/api/task/retry" hx-vals='{ "id": {{ .AlbumID }} }'
+                hx-on::after-request="document.getElementById({{ .AlbumID }}).remove()" hx-target="#tasks"
+                hx-swap="focus-scroll:true">
+                Download Again
             </div>
         </div>
+    </div>
     {{ end }}
 </div>
 {{ end }}
@@ -39,9 +30,9 @@
 {{ block "active_tasks" . }}
 <div id="active">
     {{ range $idx, $taskEl := .Tasks }}
-        {{ if eq .Active true }}
-            {{ template "task" $taskEl }}
-        {{ end }}
+    {{ if eq .Active true }}
+    {{ template "task" $taskEl }}
+    {{ end }}
     {{ end }}
 </div>
 {{ end }}
@@ -49,9 +40,9 @@
 {{ block "ended_tasks" . }}
 <div id="ended">
     {{ range $idx, $taskEl := .Tasks }}
-        {{ if eq .Done true }}
-            {{ template "task" $taskEl }}
-        {{ end }}
+    {{ if eq .Done true }}
+    {{ template "task" $taskEl }}
+    {{ end }}
     {{ end }}
 </div>
 {{ end }}
@@ -59,45 +50,45 @@
 {{ block "queued_tasks" . }}
 <div id="queue">
     {{ range $idx, $taskEl := .Tasks }}
-        {{ if and (eq .Done false) (eq .Active false) }}
-            {{ template "task" $taskEl }}
-        {{ end }}
+    {{ if and (eq .Done false) (eq .Active false) }}
+    {{ template "task" $taskEl }}
+    {{ end }}
     {{ end }}
 </div>
 {{ end }}
 
 {{ block "tasks" . }}
-    <div>
-        <h2>Queued Tasks:</h2>
-        <div class="header-btns">
-            <div class="btn" hx-get="/clearQueue" hx-target="#tasks" hx-swap="focus-scroll:true">
-               Clear all
-            </div>
+<div>
+    <h2>Queued Tasks:</h2>
+    <div class="header-btns">
+        <div class="btn" hx-get="/api/queue/clear" hx-target="#tasks" hx-swap="focus-scroll:true">
+            Clear all
         </div>
     </div>
-    {{ template "queued_tasks" .}}
+</div>
+{{ template "queued_tasks" .}}
 
-    <div>
-        <h2>Active Tasks:</h2>
-    </div>
-    {{ template "active_tasks" . }}
+<div>
+    <h2>Active Tasks:</h2>
+</div>
+{{ template "active_tasks" . }}
 
-    <div>
-        <h2>Ended Tasks:</h2>
-        <div class="header-btns">
-            <div class="btn" hx-get="/clearAllCompleted" hx-target="#tasks" hx-swap="focus-scroll:true">
-                Clear all 
-            </div>
-            <div class="btn" hx-get="/clearSuccessfullyCompleted" hx-target="#tasks" hx-swap="focus-scroll:true">
-                Clear successful 
-            </div>
-            <div class="btn" hx-get="/clearFailedCompleted" hx-target="#tasks" hx-swap="focus-scroll:true">
-                Clear failed
-            </div>
-            <div class="btn" hx-get="/retryFailed" hx-target="#tasks" hx-swap="focus-scroll:true">
-                Retry all failed
-            </div>
+<div>
+    <h2>Ended Tasks:</h2>
+    <div class="header-btns">
+        <div class="btn" hx-get="/api/queue/clearAllCompleted" hx-target="#tasks" hx-swap="focus-scroll:true">
+            Clear all
+        </div>
+        <div class="btn" hx-get="/api/queue/clearSuccessfullyCompleted" hx-target="#tasks" hx-swap="focus-scroll:true">
+            Clear successful
+        </div>
+        <div class="btn" hx-get="/api/queue/clearFailedCompleted" hx-target="#tasks" hx-swap="focus-scroll:true">
+            Clear failed
+        </div>
+        <div class="btn" hx-get="/api/queue/retryFailed" hx-target="#tasks" hx-swap="focus-scroll:true">
+            Retry all failed
         </div>
     </div>
-    {{ template "ended_tasks" . }}
+</div>
+{{ template "ended_tasks" . }}
 {{ end }}

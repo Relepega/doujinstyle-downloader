@@ -1,15 +1,14 @@
 package webserver
 
 import (
+	"context"
 	"fmt"
-	"html/template"
-	"io"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
+	"time"
 
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
@@ -18,35 +17,14 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type Templates struct {
-	templates *template.Template
-}
-
-func (t *Templates) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	return t.templates.ExecuteTemplate(w, name, data)
-}
-
-func NewTemplates() *Templates {
-	return &Templates{
-		templates: template.Must(template.ParseGlob("./views/*.html")),
-	}
-}
-
 func StartWebserver() {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
-
 	appConfig, err := configManager.NewConfig()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	// Setup
 	q := taskQueue.NewQueue(int(appConfig.Download.ConcurrentJobs))
-
-	go func(interrupt chan os.Signal) {
-		q.Run(interrupt)
-	}(interrupt)
-
 	e := echo.New()
 
 	templates := NewTemplates()
@@ -75,11 +53,16 @@ func StartWebserver() {
 	e.Static("/css", "./views/css")
 	e.Static("/js", "./views/js")
 
-	e.GET("/renderTasks", func(c echo.Context) error {
+	apiGroup := e.Group("/api")
+
+	taskGroup := apiGroup.Group("/task")
+	queueGroup := apiGroup.Group("/queue")
+
+	taskGroup.GET("/render", func(c echo.Context) error {
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
-	e.GET("/removeTask", func(c echo.Context) error {
+	taskGroup.GET("/remove", func(c echo.Context) error {
 		albumID := c.QueryParam("id")
 
 		q.RemoveTask(albumID)
@@ -87,7 +70,7 @@ func StartWebserver() {
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
-	e.GET("/redoTask", func(c echo.Context) error {
+	taskGroup.GET("/retry", func(c echo.Context) error {
 		albumID := c.QueryParam("id")
 
 		q.ResetTask(albumID)
@@ -95,7 +78,7 @@ func StartWebserver() {
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
-	e.POST("/addTask", func(c echo.Context) error {
+	taskGroup.POST("/add", func(c echo.Context) error {
 		albumID := c.FormValue("AlbumID")
 		t := taskQueue.NewTask(albumID)
 
@@ -111,27 +94,27 @@ func StartWebserver() {
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
-	e.GET("/clearQueue", func(c echo.Context) error {
+	queueGroup.GET("/clear", func(c echo.Context) error {
 		q.ClearQueuedTasks()
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
-	e.GET("/clearAllCompleted", func(c echo.Context) error {
+	queueGroup.GET("/clearAllCompleted", func(c echo.Context) error {
 		q.ClearAllCompleted()
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
-	e.GET("/clearSuccessfullyCompleted", func(c echo.Context) error {
+	queueGroup.GET("/clearSuccessfullyCompleted", func(c echo.Context) error {
 		q.ClearSuccessfullyCompleted()
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
-	e.GET("/clearFailedCompleted", func(c echo.Context) error {
+	queueGroup.GET("/clearFailedCompleted", func(c echo.Context) error {
 		q.ClearFailedCompleted()
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
-	e.GET("/retryFailed", func(c echo.Context) error {
+	queueGroup.GET("/retryFailed", func(c echo.Context) error {
 		q.ResetFailedTasks()
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
@@ -142,6 +125,30 @@ func StartWebserver() {
 
 	serverAddress := fmt.Sprintf("%s:%d", appConfig.Server.Host, appConfig.Server.Port)
 
-	e.Logger.Fatal(e.Start(serverAddress))
-	<-interrupt
+	// Start queue and server
+	go func() {
+		q.Run()
+	}()
+
+	go func(serverAddress string) {
+		if err := e.Start(serverAddress); err != nil && err != http.ErrServerClosed {
+			e.Logger.Fatal("Shutting down the server")
+		} else {
+			e.Logger.Info("Server shut down gracefully")
+		}
+	}(serverAddress)
+
+	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
+	// Use a buffered channel to avoid missing signals as recommended for signal.Notify
+	quit := make(chan os.Signal, 1)
+
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	<-quit
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := e.Shutdown(ctx); err != nil {
+		e.Logger.Fatal(err)
+	}
 }

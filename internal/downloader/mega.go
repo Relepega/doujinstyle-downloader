@@ -34,7 +34,7 @@ func Mega(albumName string, dlPage playwright.Page) error {
 		val, err := dlPage.Evaluate(
 			"document.querySelectorAll('.fm-empty-cloud-txt')[2].innerText",
 		)
-		if err != nil {
+		if err != nil && val != nil {
 			return fmt.Errorf("mega: %v", val)
 		}
 		val = nil
