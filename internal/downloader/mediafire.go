@@ -13,13 +13,9 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-func handlePopup(p playwright.Page) bool {
-	p.Close()
+func Mediafire(albumName string, dlPage playwright.Page, progress *int8) error {
+	defer dlPage.Close()
 
-	return false
-}
-
-func Mediafire(albumName string, dlPage playwright.Page) error {
 	for {
 		res, err := dlPage.Evaluate(
 			"() => document.querySelector(\".DownloadStatus.DownloadStatus--uploading\")",
@@ -36,8 +32,6 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 	}
 
 	var extension string
-
-	defer dlPage.Close()
 
 	ext, _ := dlPage.Evaluate("document.querySelector('.filetype').innerText")
 	if ext == nil {
@@ -81,7 +75,7 @@ func Mediafire(albumName string, dlPage playwright.Page) error {
 		return fmt.Errorf("Mediafire: Couldn't get download url")
 	}
 
-	err = appUtils.DownloadFile(fp, downloadUrl)
+	err = appUtils.DownloadFile(fp, downloadUrl, progress)
 	if err != nil {
 		return err
 	}

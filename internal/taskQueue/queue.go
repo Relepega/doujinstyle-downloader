@@ -234,7 +234,7 @@ func (q *Queue) Run() {
 			}
 
 			go func(q *Queue, t *Task, bw *playwright.Browser) {
-				err := downloader.Download(t.AlbumID, bw)
+				err := downloader.Download(t.AlbumID, bw, &t.DownloadProgress)
 				q.MarkTaskAsDone(*t, err)
 			}(q, task, &bw)
 

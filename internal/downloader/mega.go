@@ -3,6 +3,8 @@ package downloader
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
@@ -11,7 +13,7 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-func Mega(albumName string, dlPage playwright.Page) error {
+func Mega(albumName string, dlPage playwright.Page, progress *int8) error {
 	defer dlPage.Close()
 
 	for {
@@ -72,6 +74,8 @@ func Mega(albumName string, dlPage playwright.Page) error {
 
 		errorDiv := dlPage.Locator(".default-warning > .txt")
 
+		re := regexp.MustCompile(`\d`)
+
 		for {
 			val, _ := dlPage.Evaluate(
 				"() => document.querySelector('.transfer-task-status').innerText",
@@ -107,6 +111,17 @@ func Mega(albumName string, dlPage playwright.Page) error {
 				return fmt.Errorf("Mega: %s", msgVal)
 			}
 
+			// get download percentage
+			pageTitle, _ := dlPage.Evaluate("document.title")
+			pageTitleStr, ok := pageTitle.(string)
+			if ok {
+				match := re.FindString(pageTitleStr)
+				conv, err := strconv.ParseInt(match, 10, 8)
+				if err == nil {
+					*progress = int8(conv)
+				}
+			}
+
 			time.Sleep(time.Second)
 		}
 
@@ -115,7 +130,6 @@ func Mega(albumName string, dlPage playwright.Page) error {
 		Timeout: &timeout,
 	})
 	if err != nil {
-		fmt.Println("Error expecting download:", err)
 		return err
 	}
 

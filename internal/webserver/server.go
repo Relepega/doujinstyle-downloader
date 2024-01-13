@@ -121,6 +121,10 @@ func StartWebserver() {
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
+	e.GET("/updateInterval", func(c echo.Context) error {
+		return c.String(http.StatusOK, fmt.Sprintf("%f", appConfig.WebUi.UpdateInterval))
+	})
+
 	e.GET("/", func(c echo.Context) error {
 		return c.Render(http.StatusOK, "index", q.NewQueueFree())
 	})

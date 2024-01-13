@@ -11,11 +11,28 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-func Jottacloud(albumName string, dlPage playwright.Page) error {
+func Jottacloud(albumName string, dlPage playwright.Page, progress *int8) error {
 	defer dlPage.Close()
 
+	fnSelector := "[data-testid=FileViewerHeaderFileName]"
+
+	for {
+		res, err := dlPage.Evaluate(
+			"() => document.querySelector('" + fnSelector + "')",
+		)
+		if err != nil {
+			return err
+		}
+
+		if res != nil {
+			break
+		}
+
+		time.Sleep(time.Second * 1)
+	}
+
 	res, err := dlPage.Evaluate(
-		"document.querySelector('[data-testid=FileViewerHeaderFileName]').childNodes[0].textContent.split('.')[1]",
+		"document.querySelector('" + fnSelector + "').childNodes[0].textContent.split('.')[1]",
 	)
 	if err != nil {
 		return err
@@ -30,29 +47,26 @@ func Jottacloud(albumName string, dlPage playwright.Page) error {
 	DOWNLOAD_ROOT := appConfig.Download.Directory
 
 	fp := filepath.Join(DOWNLOAD_ROOT, albumName+extension)
-	fileExists, _ := appUtils.FileExists(fp)
+	fileExists, err := appUtils.FileExists(fp)
+	if err != nil {
+		return err
+	}
 	if fileExists {
 		return nil
 	}
 
-	downloadHandler, err := dlPage.ExpectDownload(func() error {
-		_, err := dlPage.Evaluate("document.querySelector('.css-118jy9p.e16wmiuy0').click()")
-		return err
-	})
+	href, err := dlPage.Evaluate("document.querySelector(\"a[download]\").href")
 	if err != nil {
 		return err
 	}
-
-	err = dlPage.Close()
-	if err != nil {
-		return err
+	downloadUrl, ok := href.(string)
+	if !ok {
+		return fmt.Errorf("Jottacloud: Couldn't get download url")
 	}
 
-	time.Sleep(time.Second)
-
-	err = downloadHandler.SaveAs(fp)
+	err = appUtils.DownloadFile(fp, downloadUrl, progress)
 	if err != nil {
-		return fmt.Errorf("%v\n--------------\n%v", err, downloadHandler.Failure())
+		return err
 	}
 
 	return nil

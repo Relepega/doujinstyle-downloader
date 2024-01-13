@@ -3,6 +3,7 @@ module github.com/relepega/doujinstyle-downloader
 go 1.21.5
 
 require (
+	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/playwright-community/playwright-go v0.4001.0

@@ -1,7 +1,7 @@
 # doujinstyle-downloader
 
 A User-friendly app made for effortlessly downloading music from
-[doujinstyle](https://doujinstyle.com/) written in Go, using html templates and
+[doujinstyle](https://doujinstyle.com/) written in Go, using HTML Templates and
 [htmx.js](https://htmx.org/).
 
 ![GitHub tag checks state](https://img.shields.io/github/checks-status/relepega/doujinstyle-downloader/HEAD)
@@ -68,15 +68,12 @@ package from the AUR.
 To build the app yourself, follow these steps:
 
 0. (Arch Linux only): install the `playwright` package from the AUR.
-1. Install these packages to get started: `git`, `go`.
+1. Install these packages to get started: `git`, `go`, `make`.
 2. Clone the repo
    `git clone https://github.com/Relepega/doujinstyle-downloader.git`.
-3. Run the command `go build -o ./build/doujinstyle-downloader ./cmd/main.go`.
-   Append the `.exe` suffix if you're building for Windows.
-4. Make sure to copy the views folder into build `cp -r ./views ./build/views`.
-5. (Optional) create an archive for sharing the app:
-   `cd build && tar -a -c -f doujinstyle-downloader-dist.zip *`
-6. Done!
+3. Run the command `go get && make`. You will find the built binaries into the
+   Build folder.
+4. Done!
 
 ## Contributing
 
@@ -97,7 +94,8 @@ I welcome any and all contributions! Here are some ways you can get started:
 2. Clone the forked repository
 3. Add your contributions (code or documentation)
 4. Commit and push
-5. Wait for pull request to be merged
+5. Create a Pull Request
+6. Wait for it to be merged
 
 ### QnA
 

@@ -9,7 +9,8 @@
     </div>
     {{ end }}
 
-    <p>{{ .AlbumID }}</p>
+    <p>{{ .AlbumID }} {{ if and ( eq .Active true) (gt .DownloadProgress -1) }}(Downloading... {{ .DownloadProgress
+        }}%){{ end }}</p>
     {{ if .Error }}
     <div class="err">
         <h4>An error occurred:</h4>

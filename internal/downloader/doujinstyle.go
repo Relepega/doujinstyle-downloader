@@ -14,20 +14,20 @@ const (
 	DEFAULT_PAGE_NOT_LOADED_ERR = "The download page did not load in a reasonable amount of time."
 )
 
-func handleDownloadPage(albumName string, dlPage playwright.Page) error {
+func handleDownloadPage(albumName string, dlPage playwright.Page, progress *int8) error {
 	pageUrl := dlPage.URL()
 
 	dlPage_hostname := strings.Split(pageUrl, "/")[2]
 
 	switch dlPage_hostname {
 	case "www.mediafire.com":
-		return Mediafire(albumName, dlPage)
+		return Mediafire(albumName, dlPage, progress)
 	case "mega.nz":
-		return Mega(albumName, dlPage)
+		return Mega(albumName, dlPage, progress)
 	case "drive.google.com":
-		return GDrive(albumName, dlPage)
+		return GDrive(albumName, dlPage, progress)
 	case "www.jottacloud.com":
-		return Jottacloud(albumName, dlPage)
+		return Jottacloud(albumName, dlPage, progress)
 	default:
 		return fmt.Errorf(DEFAULT_DOWNLOAD_ERR + pageUrl)
 	}
@@ -52,7 +52,7 @@ func checkDMCA(p *playwright.Page) (bool, error) {
 	return false, nil
 }
 
-func Download(albumID string, bw *playwright.Browser) error {
+func Download(albumID string, bw *playwright.Browser, progress *int8) error {
 	ctx, err := (*bw).NewContext()
 	if err != nil {
 		return err
@@ -65,14 +65,11 @@ func Download(albumID string, bw *playwright.Browser) error {
 	}
 	defer page.Close()
 
-	_, err = page.Goto(DOUJINSTYLE_ALBUM_URL + albumID)
+	_, err = page.Goto(DOUJINSTYLE_ALBUM_URL+albumID, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	})
 	if err != nil {
 		return err
-	}
-
-	err = page.WaitForLoadState()
-	if err != nil {
-		return fmt.Errorf("Page took too long to load")
 	}
 
 	isDMCA, err := checkDMCA(&page)
@@ -87,7 +84,6 @@ func Download(albumID string, bw *playwright.Browser) error {
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("Filename: %s\n", albumName)
 
 	dlPage, err := ctx.ExpectPage(func() error {
 		_, err := page.Evaluate("document.querySelector('#downloadForm').click()")
@@ -112,7 +108,7 @@ func Download(albumID string, bw *playwright.Browser) error {
 		return fmt.Errorf(DEFAULT_PAGE_NOT_LOADED_ERR)
 	}
 
-	err = handleDownloadPage(albumName, dlPage)
+	err = handleDownloadPage(albumName, dlPage, progress)
 
 	return err
 }
