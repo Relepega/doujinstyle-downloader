@@ -16,6 +16,18 @@ import (
 func Mediafire(albumName string, dlPage playwright.Page, progress *int8) error {
 	defer dlPage.Close()
 
+	var err error
+
+	if strings.Contains(dlPage.URL(), "/folder/") {
+		err = fmt.Errorf("Mediafire: Folder download is not supported yet.")
+	} else {
+		err = file(albumName, dlPage, progress)
+	}
+
+	return err
+}
+
+func file(albumName string, dlPage playwright.Page, progress *int8) error {
 	for {
 		res, err := dlPage.Evaluate(
 			"() => document.querySelector(\".DownloadStatus.DownloadStatus--uploading\")",
