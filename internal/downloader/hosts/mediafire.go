@@ -1,4 +1,4 @@
-package downloader
+package hosts
 
 import (
 	"fmt"
@@ -13,13 +13,34 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
+type fileData struct {
+	Directory string
+	Filename  string
+	Url       string
+	IsFolder  bool
+}
+
+func isFolder(url string) bool {
+	if strings.Contains(url, "/folder/") {
+		return true
+	}
+
+	return false
+}
+
+func getFolderFiles() []fileData {
+	files := make([]fileData, 0)
+	return files
+}
+
 func Mediafire(albumName string, dlPage playwright.Page, progress *int8) error {
 	defer dlPage.Close()
 
 	var err error
 
-	if strings.Contains(dlPage.URL(), "/folder/") {
-		err = fmt.Errorf("Mediafire: Folder download is not supported yet.")
+	if isFolder(dlPage.URL()) {
+		// err = fmt.Errorf("Mediafire: Folder download is not supported yet.")
+		// files := make([]int, 0)
 	} else {
 		err = file(albumName, dlPage, progress)
 	}

@@ -1,4 +1,4 @@
-package downloader
+package services
 
 import "testing"
 
@@ -18,8 +18,9 @@ var getExhibitionsTests = []getExhibitionsTest{
 }
 
 func TestGetExhibition(t *testing.T) {
+	d := &doujinstyle{}
 	for i, test := range getExhibitionsTests {
-		output := getExhibitions(test.test)
+		output := d.getExhibitions(test.test)
 		if output != test.expected {
 			t.Errorf(
 				"downloader.getExhibitions [%d/%d] Got \"%v\", expected \"%v\"",
