@@ -5,7 +5,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 )
 
 func CreateFolder(fname string) error {
@@ -108,4 +110,41 @@ func DownloadFile(fp string, url string, progress *int8) (err error) {
 	os.Remove(tempfn)
 
 	return nil
+}
+
+func SanitizePath(s string) string {
+	r := strings.NewReplacer(
+		"\\",
+		"١",
+		"*",
+		"＊",
+		"/",
+		"∕",
+		">",
+		"˃",
+		"<",
+		"˂",
+		":",
+		"˸",
+		"|",
+		"-",
+		"\"",
+		"ˮ",
+		"?",
+		"？",
+	)
+	sb := strings.Builder{}
+
+	for _, c := range s {
+		sb.WriteString(r.Replace(string(c)))
+	}
+
+	res := strings.TrimRight(sb.String(), " ")
+	res = strings.TrimLeft(res, " ")
+
+	// replace all the dots only at the end of the string
+	re := regexp.MustCompile(`\.$`)
+	res = re.ReplaceAllString(res, "ˌ")
+
+	return res
 }
