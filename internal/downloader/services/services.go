@@ -2,28 +2,30 @@ package services
 
 import "github.com/playwright-community/playwright-go"
 
-type ServiceNumber int
-
-const (
-	Doujinstyle ServiceNumber = iota
-)
-
 type Service interface {
 	checkDMCA(p *playwright.Page) (bool, error)
 	evaluateFilename(p playwright.Page) (string, error)
 	Process() error
 }
 
+const SERVICE_ERROR_404 = "Error 404, page not found"
+
 func NewService(
-	service ServiceNumber,
+	serviceNumber int,
 	urlSlug string,
 	bw *playwright.Browser,
 	progress *int8,
 ) Service {
-	switch service {
+	switch serviceNumber {
 	case 0:
 		return &doujinstyle{
 			albumID:  urlSlug,
+			bw:       bw,
+			progress: progress,
+		}
+	case 1:
+		return &sukiDesuOst{
+			urlSlug:  urlSlug,
 			bw:       bw,
 			progress: progress,
 		}

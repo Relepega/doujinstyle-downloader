@@ -12,7 +12,6 @@ import (
 
 const (
 	DOUJINSTYLE_ALBUM_URL       = "https://doujinstyle.com/?p=page&type=1&id="
-	DOUJINSTYLE_DEFAULT_ERR     = "Doujinstyle.com: 'Insufficient information to display content.'"
 	DEFAULT_PAGE_NOT_LOADED_ERR = "The download page did not load in a reasonable amount of time."
 )
 
@@ -24,18 +23,12 @@ type doujinstyle struct {
 }
 
 func (d *doujinstyle) checkDMCA(p *playwright.Page) (bool, error) {
-	locator := (*p).Locator("h3")
-	htmlElements, err := locator.All()
-	if err != nil {
-		return false, err
-	}
+	valInterface, _ := (*p).Evaluate(
+		"() => document.querySelector('h3').innerText == 'Insufficient information to display content.'",
+	)
+	valBool, _ := valInterface.(bool)
 
-	text, err := htmlElements[0].InnerHTML()
-	if err != nil {
-		return false, err
-	}
-
-	if text == "Insufficient information to display content." {
+	if valBool {
 		return true, nil
 	}
 
@@ -67,7 +60,7 @@ func (d *doujinstyle) Process() error {
 		return err
 	}
 	if isDMCA {
-		return fmt.Errorf(DOUJINSTYLE_DEFAULT_ERR)
+		return fmt.Errorf("Doujinstyle: %s", SERVICE_ERROR_404)
 	}
 
 	albumName, err := d.evaluateFilename(page)
@@ -98,26 +91,7 @@ func (d *doujinstyle) Process() error {
 		return fmt.Errorf(DEFAULT_PAGE_NOT_LOADED_ERR)
 	}
 
-	// switch dlPage_hostname {
-	// case "www.mediafire.com":
-	// 	return Mediafire(albumName, dlPage, progress)
-	// case "mega.nz":
-	// 	return Mega(albumName, dlPage, progress)
-	// case "drive.google.com":
-	// 	return GDrive(albumName, dlPage, progress)
-	// case "www.jottacloud.com":
-	// 	return Jottacloud(albumName, dlPage, progress)
-	// default:
-	// 	return fmt.Errorf(DEFAULT_DOWNLOAD_ERR + pageUrl)
-	// }
-
-	// err = handleDownloadPage(albumName, dlPage, d.progress)
-
 	dlPageUrl := dlPage.URL()
-	// host := hosts.NewHost(dlPageUrl, &albumName, dlPage)
-	// if host == nil {
-	// 	return fmt.Errorf(DEFAULT_DOWNLOAD_ERR + dlPageUrl)
-	// }
 
 	hostDownloader, err := hosts.Switch(dlPageUrl)
 	if err != nil {

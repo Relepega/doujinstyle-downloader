@@ -7,8 +7,8 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/services"
 )
 
-func Download(urlSlug string, bw *playwright.Browser, progress *int8) error {
-	service := services.NewService(services.Doujinstyle, urlSlug, bw, progress)
+func Download(urlSlug string, bw *playwright.Browser, progress *int8, serviceNumber int) error {
+	service := services.NewService(serviceNumber, urlSlug, bw, progress)
 	if service == nil {
 		return fmt.Errorf("Not a valid service")
 	}
