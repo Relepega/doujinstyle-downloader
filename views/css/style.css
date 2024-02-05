@@ -19,8 +19,9 @@ form {
 	height: 50px;
 }
 
-form > input[type='number'],
-form > button {
+form > input,
+form > button,
+form > select {
 	padding: var(--paddings);
 }
 

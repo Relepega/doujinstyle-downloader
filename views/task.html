@@ -1,24 +1,24 @@
 {{ block "task" . }}
-<div id="{{ .AlbumID }}"
+<div id="{{ .UrlSlug }}"
     class='download-queue-element {{ if .Done }} {{ if .Error }} failure {{ else }} success {{ end }} {{ end }}'>
     {{ if eq .Active false }}
-    <div class="btn delete" hx-get="/api/task/remove" hx-vals='{ "id": {{ .AlbumID }} }'
-        hx-on::after-request="if(event.detail.successful) document.getElementById({{ .AlbumID }}).remove()"
+    <div class="btn delete" hx-get="/api/task/remove" hx-vals='{ "id": "{{ .UrlSlug }}" }'
+        hx-on::after-request='if(event.detail.successful) document.getElementById("{{ .UrlSlug }}").remove()'
         hx-target="#tasks" hx-swap="focus-scroll:true">
         X
     </div>
     {{ end }}
 
-    <p>{{ .AlbumID }} {{ if and ( eq .Active true) (gt .DownloadProgress -1) }}(Downloading... {{ .DownloadProgress
+    <p>{{ .UrlSlug }} {{ if and ( eq .Active true) (gt .DownloadProgress -1) }}(Downloading... {{ .DownloadProgress
         }}%){{ end }}</p>
     {{ if .Error }}
     <div class="err">
         <h4>An error occurred:</h4>
-        <p id="{{ .AlbumID }}-error">{{ .Error }}</p>
+        <p id="{{ .UrlSlug }}-error">{{ .Error }}</p>
         <div class="err-btns">
-            <div class="btn err-btn copy-error" onClick="copyErrorMessage('{{ .AlbumID }}')">Copy Error</div>
-            <div class="btn err-btn retry" hx-get="/api/task/retry" hx-vals='{ "id": {{ .AlbumID }} }'
-                hx-on::after-request="document.getElementById({{ .AlbumID }}).remove()" hx-target="#tasks"
+            <div class="btn err-btn copy-error" onClick="copyErrorMessage('{{ .UrlSlug }}')">Copy Error</div>
+            <div class="btn err-btn retry" hx-get="/api/task/retry" hx-vals='{ "id": "{{ .UrlSlug }}" }'
+                hx-on::after-request="document.getElementById('{{ .UrlSlug }}').remove()" hx-target="#tasks"
                 hx-swap="focus-scroll:true">
                 Download Again
             </div>

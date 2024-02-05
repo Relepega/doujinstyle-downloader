@@ -15,7 +15,14 @@
     <form hx-post="/api/task/add" hx-target="#tasks" {{/* hx-swap="beforeend" */}}
         hx-on::after-request="if(event.detail.successful) {this.reset()} else {window.alert(event.detail.xhr.responseText); this.reset()}"
         hx-swap="focus-scroll:true">
-        <input type="number" name="AlbumID" value="" placeholder="Insert the albumID here" required>
+        <input name="AlbumID" value="" placeholder="Insert the albumID here" required>
+
+        <label for="ServiceNumber">Select a service to download from:</label>
+        <select id="ServiceNumber" name="ServiceNumber">
+            <option value="0">Doujinstyle</option>
+            <option value="1">SukiDesuOst</option>
+
+        </select>
         <button type="submit" value="submit">
             Add download task
         </button>

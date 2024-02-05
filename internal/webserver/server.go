@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
@@ -82,7 +83,17 @@ func StartWebserver() {
 
 	taskGroup.POST("/add", func(c echo.Context) error {
 		albumID := c.FormValue("AlbumID")
-		t := taskQueue.NewTask(albumID)
+		sNumberStr := c.FormValue("ServiceNumber")
+
+		sNumberInt, err := strconv.Atoi(sNumberStr)
+		if err != nil {
+			return c.String(
+				http.StatusInternalServerError,
+				err.Error(),
+			)
+		}
+
+		t := taskQueue.NewTask(albumID, sNumberInt)
 
 		if q.IsInList(t) {
 			return c.String(
