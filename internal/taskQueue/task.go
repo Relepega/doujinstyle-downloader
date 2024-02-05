@@ -3,18 +3,20 @@ package taskQueue
 type Task struct {
 	Active           bool
 	Done             bool
+	ServiceNumber    int
 	DownloadProgress int8
 	Error            error
-	AlbumID          string
+	UrlSlug          string
 }
 
-func NewTask(s string) *Task {
+func NewTask(s string, serviceNumber int) *Task {
 	return &Task{
 		Active:           false,
 		Done:             false,
+		ServiceNumber:    serviceNumber,
 		DownloadProgress: -1, // -1: The downloader cannot calculate the download progress
 		Error:            nil,
-		AlbumID:          s,
+		UrlSlug:          s,
 	}
 }
 

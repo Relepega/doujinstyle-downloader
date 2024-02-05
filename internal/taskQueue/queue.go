@@ -54,7 +54,7 @@ func (q *Queue) RemoveTask(albumID string) {
 
 	var newTaskList []Task
 	for _, el := range q.tasks {
-		if el.AlbumID != albumID {
+		if el.UrlSlug != albumID {
 			newTaskList = append(newTaskList, el)
 		}
 	}
@@ -81,7 +81,7 @@ func (q *Queue) IsInList(t *Task) bool {
 	defer q.mu.Unlock()
 
 	for _, task := range q.tasks {
-		if task.AlbumID == t.AlbumID {
+		if task.UrlSlug == t.UrlSlug {
 			return true
 		}
 	}
@@ -110,7 +110,7 @@ func (q *Queue) ResetTask(albumID string) {
 	defer q.mu.Unlock()
 
 	for i, t := range q.tasks {
-		if t.AlbumID == albumID {
+		if t.UrlSlug == albumID {
 			q.tasks[i].Reset()
 		}
 	}
@@ -121,7 +121,7 @@ func (q *Queue) MarkTaskAsDone(t Task, err error) {
 	defer q.mu.Unlock()
 
 	for i, rt := range q.tasks {
-		if rt.AlbumID == t.AlbumID {
+		if rt.UrlSlug == t.UrlSlug {
 			q.tasks[i].MarkAsDone(err)
 			q.runningTasks--
 			return
@@ -234,7 +234,7 @@ func (q *Queue) Run() {
 			}
 
 			go func(q *Queue, t *Task, bw *playwright.Browser) {
-				err := downloader.Download(t.AlbumID, bw, &t.DownloadProgress)
+				err := downloader.Download(t.UrlSlug, bw, &t.DownloadProgress, t.ServiceNumber)
 				q.MarkTaskAsDone(*t, err)
 			}(q, task, &bw)
 
