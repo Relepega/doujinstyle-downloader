@@ -41,3 +41,7 @@ build:
 
 debug:
 	air
+
+update-deps:
+	go get -t -u ./...
+	go mod tidy
