@@ -13,7 +13,7 @@
 
 <body>
     <form hx-post="/api/task/add" hx-target="#tasks" {{/* hx-swap="beforeend" */}}
-        hx-on::after-request="if(event.detail.successful) {this.reset()} else {window.alert(event.detail.xhr.responseText); this.reset()}"
+        hx-on::after-request='if(event.detail.successful) {this.AlbumID.value = ""} else {window.alert(event.detail.xhr.responseText); this.reset()}'
         hx-swap="focus-scroll:true">
         <input name="AlbumID" value="" placeholder="Insert the albumID here" required>
 
