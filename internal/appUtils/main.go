@@ -67,14 +67,15 @@ func DownloadFile(fp string, url string, progress *int8) (err error) {
 
 	// Copy chunk by chunk
 	for {
-		n, err := resp.Body.Read(buf)
-		if err != nil && err != io.EOF {
-			return err
+		n, readErr := resp.Body.Read(buf)
+		if readErr != nil && readErr != io.EOF {
+			return readErr
 		}
 
-		if err == io.EOF {
-			break
-		}
+		// this is here just in case there's the need for this check
+		// if n == 0 {
+		// 	continue
+		// }
 
 		// Update the current size
 		currentSize += int64(n)
@@ -83,10 +84,24 @@ func DownloadFile(fp string, url string, progress *int8) (err error) {
 		*progress = int8((float64(currentSize) / float64(totalSize)) * 100)
 
 		// Write the chunk to the temp file
-		_, err = tempf.Write(buf[:n])
+		_, err := tempf.Write(buf[:n])
 		if err != nil {
-			return err
+			return readErr
 		}
+
+		if readErr == io.EOF {
+			break
+		}
+	}
+
+	tempfn := tempf.Name()
+
+	// Check if the total size matches the Content-Length header
+	if currentSize != totalSize {
+		tempf.Close()
+		os.Remove(tempfn)
+
+		return fmt.Errorf("downloaded file size differs from the one reported by the server")
 	}
 
 	// Reset the file pointer to the beginning of the file
@@ -105,7 +120,6 @@ func DownloadFile(fp string, url string, progress *int8) (err error) {
 	_, err = io.Copy(out, tempf)
 
 	// delete temp file
-	tempfn := tempf.Name()
 	tempf.Close()
 	os.Remove(tempfn)
 
