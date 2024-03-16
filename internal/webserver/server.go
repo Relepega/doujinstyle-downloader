@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
+	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
 
 	"github.com/labstack/echo/v4"
@@ -143,29 +144,35 @@ func StartWebserver() {
 	serverAddress := fmt.Sprintf("%s:%d", appConfig.Server.Host, appConfig.Server.Port)
 
 	// Start queue and server
-	go func() {
-		q.Run()
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	playwrightContainer, err := playwrightWrapper.UsePlaywright(
+		playwrightWrapper.WithBrowserType(),
+		playwrightWrapper.WithHeadless(),
+		playwrightWrapper.WithTimeout(),
+	)
+	if err != nil {
+		log.Fatalf("Cannot open playwright browser: %v", err)
+	}
+
+	go func(playwrightContainer *playwrightWrapper.PwContainer) {
+		q.Run(playwrightContainer)
+	}(playwrightContainer)
 
 	go func(serverAddress string) {
 		if err := e.Start(serverAddress); err != nil && err != http.ErrServerClosed {
 			log.Fatalln("Shutting down the server")
-		} else {
-			log.Println("Server shut down gracefully")
 		}
 	}(serverAddress)
 
 	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
-	// Use a buffered channel to avoid missing signals as recommended for signal.Notify
-	quit := make(chan os.Signal, 1)
-
-	signal.Notify(quit, os.Interrupt)
-	signal.Notify(q.Interrupt, os.Interrupt)
-	<-quit
-	<-quit
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	<-ctx.Done()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
+
+	q.Shutdown(playwrightContainer)
+
 	if err := e.Shutdown(ctx); err != nil {
 		log.Fatalln(err)
 	}

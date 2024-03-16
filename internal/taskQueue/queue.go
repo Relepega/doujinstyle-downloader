@@ -1,9 +1,8 @@
 package taskQueue
 
 import (
+	"context"
 	"fmt"
-	"log"
-	"os"
 	"sync"
 
 	"github.com/relepega/doujinstyle-downloader/internal/downloader"
@@ -14,10 +13,11 @@ import (
 
 type Queue struct {
 	mu             sync.Mutex
-	Interrupt      chan os.Signal
 	maxConcurrency int
 	runningTasks   int
 	tasks          []Task
+	ctx            context.Context
+	cancel         context.CancelFunc
 }
 
 type UIQueue struct {
@@ -26,11 +26,14 @@ type UIQueue struct {
 }
 
 func NewQueue(maxConcurrency int) *Queue {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Queue{
-		Interrupt:      make(chan os.Signal, 1),
 		maxConcurrency: maxConcurrency,
 		runningTasks:   0,
 		tasks:          []Task{},
+		ctx:            ctx,
+		cancel:         cancel,
 	}
 }
 
@@ -200,44 +203,41 @@ func (q *Queue) ResetFailedTasks() {
 	}
 }
 
-func (q *Queue) Run() {
-	pw, bw, ctx, err := playwrightWrapper.UsePlaywright(
-		playwrightWrapper.WithBrowserType(),
-		playwrightWrapper.WithHeadless(),
-		playwrightWrapper.WithTimeout(),
-	)
-	if err != nil {
-		log.Fatalf("Queue.Run() error: Cannot open playwright browser: %v", err)
-	}
-
+func (q *Queue) Run(pwc *playwrightWrapper.PwContainer) {
 	// open empty page so that the context won't close
-	emptyPage, _ := ctx.NewPage()
+	emptyPage, _ := pwc.BrowserContext.NewPage()
+	defer emptyPage.Close()
 
 	for {
-		select {
-		case <-q.Interrupt:
-			emptyPage.Close()
-			playwrightWrapper.ClosePlaywright(pw, bw)
-			return
-		default:
-			if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {
-				continue
-			}
+		if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {
+			continue
+		}
 
-			task, err := q.ActivateFreeTask()
-			if err != nil {
-				continue
-			}
+		task, err := q.ActivateFreeTask()
+		if err != nil {
+			continue
+		}
 
-			if task == nil {
-				continue
-			}
+		if task == nil {
+			continue
+		}
 
-			go func(q *Queue, t *Task, bw *playwright.Browser) {
+		go func(q *Queue, t *Task, bw *playwright.Browser) {
+			select {
+			case <-q.ctx.Done():
+				// If the context is cancelled, break function
+				return
+			default:
 				err := downloader.Download(t.UrlSlug, bw, &t.DownloadProgress, t.ServiceNumber)
 				q.MarkTaskAsDone(*t, err)
-			}(q, task, &bw)
-
-		}
+			}
+		}(q, task, &pwc.Browser)
 	}
+}
+
+func (q *Queue) Shutdown(pwc *playwrightWrapper.PwContainer) {
+	pwc.Close()
+
+	// Cancel the context, which will stop all tasks
+	q.cancel()
 }
