@@ -8,6 +8,12 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
+type PwContainer struct {
+	Playwright     *playwright.Playwright
+	Browser        playwright.Browser
+	BrowserContext playwright.BrowserContext
+}
+
 func WithBrowserType(opts ...string) string {
 	o := "chromium"
 
@@ -47,10 +53,10 @@ func UsePlaywright(
 	browserType string,
 	headless bool,
 	timeout float64,
-) (*playwright.Playwright, playwright.Browser, playwright.BrowserContext, error) {
+) (*PwContainer, error) {
 	pw, err := playwright.Run()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("could not start playwright: %v", err)
+		return nil, fmt.Errorf("could not start playwright: %v", err)
 	}
 
 	var bw playwright.BrowserType
@@ -63,7 +69,7 @@ func UsePlaywright(
 	case "webkit":
 		bw = pw.WebKit
 	default:
-		return nil, nil, nil, fmt.Errorf("Incorrect browser type")
+		return nil, fmt.Errorf("Incorrect browser type")
 	}
 
 	browser, err := bw.Launch(
@@ -73,13 +79,40 @@ func UsePlaywright(
 		},
 	)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("Couldn't start a new browser: %v", err)
+		return nil, fmt.Errorf("Couldn't start a new browser: %v", err)
 	}
 
 	ctx, err := browser.NewContext()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("Couldn't start a new browser context: %v", err)
+		return nil, fmt.Errorf("Couldn't start a new browser context: %v", err)
 	}
 
-	return pw, browser, ctx, nil
+	return &PwContainer{
+		Playwright:     pw,
+		Browser:        browser,
+		BrowserContext: ctx,
+	}, nil
+}
+
+func (pwc *PwContainer) Close() error {
+	contexts := pwc.Browser.Contexts()
+
+	for i := 0; i < len(contexts); i++ {
+		err := contexts[i].Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	err := pwc.Browser.Close()
+	if err != nil {
+		return err
+	}
+
+	err = pwc.Playwright.Stop()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
