@@ -1,14 +1,10 @@
 package taskQueue
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
-	"github.com/relepega/doujinstyle-downloader/internal/downloader"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
-
-	"github.com/playwright-community/playwright-go"
 )
 
 type Queue struct {
@@ -16,8 +12,6 @@ type Queue struct {
 	maxConcurrency int
 	runningTasks   int
 	tasks          []Task
-	ctx            context.Context
-	cancel         context.CancelFunc
 }
 
 type UIQueue struct {
@@ -26,14 +20,10 @@ type UIQueue struct {
 }
 
 func NewQueue(maxConcurrency int) *Queue {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	return &Queue{
 		maxConcurrency: maxConcurrency,
 		runningTasks:   0,
 		tasks:          []Task{},
-		ctx:            ctx,
-		cancel:         cancel,
 	}
 }
 
@@ -203,41 +193,35 @@ func (q *Queue) ResetFailedTasks() {
 	}
 }
 
-func (q *Queue) Run(pwc *playwrightWrapper.PwContainer) {
+func (q *Queue) Run(pwc *playwrightWrapper.PwContainer, qQuitCh <-chan *int) {
 	// open empty page so that the context won't close
 	emptyPage, _ := pwc.BrowserContext.NewPage()
 	defer emptyPage.Close()
 
 	for {
-		if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {
-			continue
-		}
-
-		task, err := q.ActivateFreeTask()
-		if err != nil {
-			continue
-		}
-
-		if task == nil {
-			continue
-		}
-
-		go func(q *Queue, t *Task, bw *playwright.Browser) {
-			select {
-			case <-q.ctx.Done():
-				// If the context is cancelled, break function
-				return
-			default:
-				err := downloader.Download(t.UrlSlug, bw, &t.DownloadProgress, t.ServiceNumber)
-				q.MarkTaskAsDone(*t, err)
+		select {
+		case _ = <-qQuitCh:
+			// quit all the ongoing tasks and then return
+			return
+		default:
+			// run task scheduler
+			if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {
+				continue
 			}
-		}(q, task, &pwc.Browser)
+
+			task, err := q.ActivateFreeTask()
+			if err != nil {
+				continue
+			}
+
+			if task == nil {
+				continue
+			}
+
+			go func(q *Queue, t *Task, pwc *playwrightWrapper.PwContainer) {
+				t.Run(pwc)
+				q.MarkTaskAsDone(*t, err)
+			}(q, task, pwc)
+		}
 	}
-}
-
-func (q *Queue) Shutdown(pwc *playwrightWrapper.PwContainer) {
-	pwc.Close()
-
-	// Cancel the context, which will stop all tasks
-	q.cancel()
 }
