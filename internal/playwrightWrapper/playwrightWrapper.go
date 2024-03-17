@@ -54,6 +54,8 @@ func UsePlaywright(
 	headless bool,
 	timeout float64,
 ) (*PwContainer, error) {
+	HandleInterrupts := false
+
 	pw, err := playwright.Run()
 	if err != nil {
 		return nil, fmt.Errorf("could not start playwright: %v", err)
@@ -74,8 +76,11 @@ func UsePlaywright(
 
 	browser, err := bw.Launch(
 		playwright.BrowserTypeLaunchOptions{
-			Headless: &headless,
-			Timeout:  &timeout,
+			Headless:      &headless,
+			Timeout:       &timeout,
+			HandleSIGHUP:  &HandleInterrupts,
+			HandleSIGINT:  &HandleInterrupts,
+			HandleSIGTERM: &HandleInterrupts,
 		},
 	)
 	if err != nil {
@@ -98,20 +103,26 @@ func (pwc *PwContainer) Close() error {
 	contexts := pwc.Browser.Contexts()
 
 	for i := 0; i < len(contexts); i++ {
+		pages := contexts[i].Pages()
+
+		for j := 0; j < len(pages); j++ {
+			_ = pages[j].Close()
+		}
+
 		err := contexts[i].Close()
 		if err != nil {
-			return err
+			return fmt.Errorf("playwright context error: %v", err)
 		}
 	}
 
 	err := pwc.Browser.Close()
 	if err != nil {
-		return err
+		return fmt.Errorf("playwright browser error: %v", err)
 	}
 
 	err = pwc.Playwright.Stop()
 	if err != nil {
-		return err
+		return fmt.Errorf("playwright driver error: %v", err)
 	}
 
 	return nil
