@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"time"
 
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
@@ -143,10 +142,7 @@ func StartWebserver() {
 
 	serverAddress := fmt.Sprintf("%s:%d", appConfig.Server.Host, appConfig.Server.Port)
 
-	// Start queue and server
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
+	// Start playwright, queue and server
 	playwrightContainer, err := playwrightWrapper.UsePlaywright(
 		playwrightWrapper.WithBrowserType(),
 		playwrightWrapper.WithHeadless(),
@@ -156,9 +152,9 @@ func StartWebserver() {
 		log.Fatalf("Cannot open playwright browser: %v", err)
 	}
 
-	go func(playwrightContainer *playwrightWrapper.PwContainer) {
-		q.Run(playwrightContainer)
-	}(playwrightContainer)
+	c := make(chan *int)
+
+	go q.Run(playwrightContainer, c)
 
 	go func(serverAddress string) {
 		if err := e.Start(serverAddress); err != nil && err != http.ErrServerClosed {
@@ -167,11 +163,17 @@ func StartWebserver() {
 	}(serverAddress)
 
 	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	<-ctx.Done()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	c <- nil
+
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	q.Shutdown(playwrightContainer)
+	err = playwrightContainer.Close()
+	log.Println("Error closing playwright: ", err)
 
 	if err := e.Shutdown(ctx); err != nil {
 		log.Fatalln(err)
