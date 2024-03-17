@@ -1,5 +1,10 @@
 package taskQueue
 
+import (
+	"github.com/relepega/doujinstyle-downloader/internal/downloader"
+	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
+)
+
 type Task struct {
 	Active           bool
 	Done             bool
@@ -35,7 +40,22 @@ func (t *Task) MarkAsDone(e error) {
 }
 
 func (t *Task) Reset() {
+	if t.Active {
+		return
+	}
+
 	t.Active = false
 	t.Done = false
 	t.Error = nil
+}
+
+func (t *Task) Run(pwc *playwrightWrapper.PwContainer) error {
+	err := downloader.Download(
+		t.UrlSlug,
+		&pwc.Browser,
+		&t.DownloadProgress,
+		t.ServiceNumber,
+	)
+
+	return err
 }
