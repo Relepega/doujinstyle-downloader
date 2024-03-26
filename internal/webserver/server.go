@@ -30,6 +30,23 @@ func serverLoggerHandler(c echo.Context, v middleware.RequestLoggerValues) error
 	return nil
 }
 
+func sse(c echo.Context) {
+	// Set headers for SSE
+	c.Response().Header().Set("Content-Type", "text/event-stream")
+	c.Response().Header().Set("Cache-Control", "no-cache")
+	c.Response().Header().Set("Connection", "keep-alive")
+
+	// Create a context for handling client disconnection
+	_, cancel := context.WithCancel(c.Request().Context())
+	defer cancel()
+
+	// Simulate sending events (you can replace this with real data)
+	for i := 0; i < 10; i++ {
+		fmt.Fprintf(c.Response().Writer, "data: %s\n\n", fmt.Sprintf("Event %d", i))
+		c.Response().Flush()
+	}
+}
+
 func StartWebserver() {
 	appConfig, err := configManager.NewConfig()
 	if err != nil {
@@ -134,6 +151,11 @@ func StartWebserver() {
 
 	e.GET("/updateInterval", func(c echo.Context) error {
 		return c.String(http.StatusOK, fmt.Sprintf("%f", appConfig.WebUi.UpdateInterval))
+	})
+
+	e.GET("/event-stream", func(c echo.Context) error {
+		sse(c)
+		return nil
 	})
 
 	e.GET("/", func(c echo.Context) error {
