@@ -40,7 +40,7 @@ func NewConfig() *Config {
 	cfg.Server.Host = "127.0.0.1"
 	cfg.Server.Port = 5522
 
-	cfg.Download.Directory = "./downloads"
+	cfg.Download.Directory = "./Downloads"
 	cfg.Download.ConcurrentJobs = 2
 
 	cfg.Dev.PlaywrightDebug = false
