@@ -28,8 +28,22 @@ func isFolder(url string) bool {
 	return false
 }
 
+func getFolderKey(url string) string {
+	urlElems := strings.Split(url, "/")
+
+	lastUrlElem := len(urlElems) - 1
+
+	folderkey := urlElems[lastUrlElem-1]
+
+	if urlElems[lastUrlElem] == "" {
+		folderkey = urlElems[lastUrlElem-2]
+	}
+
+	return folderkey
+}
+
 func fetchFolderContent(folderKey string, dir string) ([]*fileData, error) {
-	fd := make([]*fileData, 0)
+	fd := []*fileData{}
 
 	// parse folders json
 	url := fmt.Sprintf("https://www.mediafire.com/api/1.5/folder/get_content.php?content_type=folders&version=1.5&folder_key=%s&response_format=json", folderKey)
@@ -39,6 +53,9 @@ func fetchFolderContent(folderKey string, dir string) ([]*fileData, error) {
 	if err != nil {
 		return nil, err
 	}
+	if foldersData.Response.Result != "Success" {
+		return nil, fmt.Errorf("Mediafire API: Couldn't get folder content")
+	}
 
 	// parse files json
 	url = fmt.Sprintf("https://www.mediafire.com/api/1.5/folder/get_content.php?content_type=files&version=1.5&folder_key=%s&response_format=json", folderKey)
@@ -47,6 +64,9 @@ func fetchFolderContent(folderKey string, dir string) ([]*fileData, error) {
 	err = appUtils.ParseJson[MediafireFolderContent](url, &filesData)
 	if err != nil {
 		return nil, err
+	}
+	if filesData.Response.Result != "Success" {
+		return nil, fmt.Errorf("Mediafire API: Couldn't get files data")
 	}
 
 	for _, f := range filesData.Response.FolderContent.Files {
@@ -95,16 +115,9 @@ func Mediafire(albumName string, dlPage playwright.Page, progress *int8) error {
 		return err
 	}
 
-	urlElems := strings.Split(dlPage.URL(), "/")
+	folderKey := getFolderKey(dlPage.URL())
 
-	lastUrlElem := len(urlElems) - 2
-
-	folderkey := urlElems[lastUrlElem]
-	if folderkey == "" {
-		folderkey = urlElems[lastUrlElem-1]
-	}
-
-	files, err := fetchFolderContent(folderkey, albumName)
+	files, err := fetchFolderContent(folderKey, albumName)
 	if err != nil {
 		return err
 	}

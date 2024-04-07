@@ -37,6 +37,7 @@ func StartWebserver() {
 	}
 
 	// Setup
+	ch := make(chan string)
 	q := taskQueue.NewQueue(int(appConfig.Download.ConcurrentJobs))
 	e := echo.New()
 
