@@ -130,7 +130,11 @@ source.addEventListener("replace-node", function(event) {
     const data = JSON.parse(event.data)
     console.log("replace-node parsed data: ", data)
 
-    document.getElementById(data.targetNodeID).remove()
+    const node = document.getElementById(data.targetNodeID)
+    if (node) {
+        node.remove()
+    }
+
     document.querySelector(data.receiverNode).insertAdjacentHTML(data.position, data.newContent)
 })
 
