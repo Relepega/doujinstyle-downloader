@@ -1,6 +1,7 @@
 package appUtils
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +32,20 @@ func FileExists(fp string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func DirectoryExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+
+	if err == nil {
+		return true, nil
+	}
+
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+
+	return false, err
 }
 
 func DownloadFile(fp string, url string, progress *int8) (err error) {
@@ -161,4 +176,19 @@ func SanitizePath(s string) string {
 	res = re.ReplaceAllString(res, "ˌ")
 
 	return res
+}
+
+func ParseJson[T any](url string, data *T) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

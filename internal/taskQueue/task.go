@@ -12,6 +12,7 @@ type Task struct {
 	DownloadProgress int8
 	Error            error
 	UrlSlug          string
+	ch               chan int8
 }
 
 func NewTask(s string, serviceNumber int) *Task {
@@ -47,6 +48,11 @@ func (t *Task) Reset() {
 	t.Active = false
 	t.Done = false
 	t.Error = nil
+}
+
+func (t *Task) SetDownloadProgress(p int8) {
+	t.DownloadProgress = p
+	t.ch <- p
 }
 
 func (t *Task) Run(pwc *playwrightWrapper.PwContainer) error {
