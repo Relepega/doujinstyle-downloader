@@ -1,0 +1,23 @@
+{{ block "queued_tasks" . }}
+    {{ range $idx, $taskEl := .Tasks }}
+        {{ if and (eq .Done false) (eq .Active false) }}
+            {{ template "task" $taskEl }}
+        {{ end }}
+    {{ end }}
+{{ end }}
+
+{{ block "active_tasks" . }}
+    {{ range $idx, $taskEl := .Tasks }}
+        {{ if eq .Active true }}
+            {{ template "task" $taskEl }}
+        {{ end }}
+    {{ end }}
+{{ end }}
+
+{{ block "ended_tasks" . }}
+    {{ range $idx, $taskEl := .Tasks }}
+        {{ if eq .Done true }}
+            {{ template "task" $taskEl }}
+        {{ end }}
+    {{ end }}
+{{ end }}

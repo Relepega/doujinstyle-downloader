@@ -4,87 +4,137 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
+	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
 )
 
 type Queue struct {
-	mu             sync.Mutex
-	maxConcurrency int
-	runningTasks   int
 	tasks          []Task
+	lock           sync.RWMutex
+	runningTasks   int8
+	maxConcurrency int8
+
+	Quit chan *int
+
+	pub *pubsub.Publisher
 }
 
-type UIQueue struct {
+type UIQueueData struct {
 	QueueLength int
 	Tasks       []Task
 }
 
-func NewQueue(maxConcurrency int) *Queue {
+func NewQueue(MaxConcurrency int8, publisher *pubsub.Publisher) *Queue {
 	return &Queue{
-		maxConcurrency: maxConcurrency,
+		tasks:          make([]Task, 0),
 		runningTasks:   0,
-		tasks:          []Task{},
+		maxConcurrency: MaxConcurrency,
+
+		Quit: make(chan *int),
+
+		pub: publisher,
 	}
 }
 
-func (q *Queue) NewQueueFree() *UIQueue {
-	return &UIQueue{
+func (q *Queue) GetUIData() *UIQueueData {
+	return &UIQueueData{
 		QueueLength: q.GetQueueLength(),
 		Tasks:       q.GetTasks(),
 	}
 }
 
-func (q *Queue) AddTask(t *Task) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	q.tasks = append(q.tasks, *t)
-}
-
-func (q *Queue) RemoveTask(albumID string) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	var newTaskList []Task
-	for _, el := range q.tasks {
-		if el.UrlSlug != albumID {
-			newTaskList = append(newTaskList, el)
-		}
-	}
-
-	q.tasks = newTaskList
-}
-
-func (q *Queue) GetTasks() []Task {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	return q.tasks
-}
-
 func (q *Queue) GetQueueLength() int {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
 	return len(q.tasks)
 }
 
-func (q *Queue) IsInList(t *Task) bool {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	for _, task := range q.tasks {
-		if task.UrlSlug == t.UrlSlug {
+func (q *Queue) isTaskInList(task *Task) bool {
+	for _, t := range q.tasks {
+		if t.AlbumID == task.AlbumID {
 			return true
 		}
 	}
-
 	return false
 }
 
+func (q *Queue) AddTask(task *Task) error {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	if q.isTaskInList(task) {
+		return fmt.Errorf("task already in list")
+	}
+
+	q.tasks = append(q.tasks, *task)
+
+	return nil
+}
+
+func (q *Queue) RemoveTask(task *Task) error {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	if !q.isTaskInList(task) {
+		return fmt.Errorf("task not in list")
+	}
+
+	for i, t := range q.tasks {
+		// remove only if inactive
+		if t.AlbumID == task.AlbumID && !t.Active {
+			q.tasks = append(q.tasks[:i], q.tasks[i+1:]...)
+			break
+		}
+	}
+
+	return nil
+}
+
+func (q *Queue) RemoveTaskFromAlbumID(AlbumID string) error {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	for i, t := range q.tasks {
+		if t.AlbumID == AlbumID {
+			q.tasks = append(q.tasks[:i], q.tasks[i+1:]...)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("task not in list")
+}
+
+func (q *Queue) GetTasks() []Task {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	return q.tasks
+}
+
+func (q *Queue) GetTask(albumID string) (*Task, error) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	for _, t := range q.tasks {
+		if t.AlbumID == albumID {
+			return &t, nil
+		}
+	}
+
+	return nil, fmt.Errorf("task not in list")
+}
+
+func (q *Queue) GetLength() int {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	return len(q.tasks)
+}
+
 func (q *Queue) ActivateFreeTask() (*Task, error) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
 	for i, t := range q.tasks {
 		if !t.Active && !t.Done {
@@ -99,32 +149,35 @@ func (q *Queue) ActivateFreeTask() (*Task, error) {
 }
 
 func (q *Queue) ResetTask(albumID string) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
 	for i, t := range q.tasks {
-		if t.UrlSlug == albumID {
+		if t.AlbumID == albumID {
 			q.tasks[i].Reset()
 		}
 	}
 }
 
 func (q *Queue) MarkTaskAsDone(t Task, err error) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
-	for i, rt := range q.tasks {
-		if rt.UrlSlug == t.UrlSlug {
+	for i, task := range q.tasks {
+		if task.AlbumID == t.AlbumID {
 			q.tasks[i].MarkAsDone(err)
 			q.runningTasks--
+
+			q.publishUIUpdate("mark-task-as-done", &q.tasks[i])
+
 			return
 		}
 	}
 }
 
 func (q *Queue) ClearQueuedTasks() {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
 	var filtered []Task
 
@@ -138,8 +191,8 @@ func (q *Queue) ClearQueuedTasks() {
 }
 
 func (q *Queue) ClearSuccessfullyCompleted() {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
 	var filtered []Task
 
@@ -153,8 +206,8 @@ func (q *Queue) ClearSuccessfullyCompleted() {
 }
 
 func (q *Queue) ClearFailedCompleted() {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
 	var filtered []Task
 
@@ -168,8 +221,8 @@ func (q *Queue) ClearFailedCompleted() {
 }
 
 func (q *Queue) ClearAllCompleted() {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
 	var filtered []Task
 
@@ -182,9 +235,9 @@ func (q *Queue) ClearAllCompleted() {
 	q.tasks = filtered
 }
 
-func (q *Queue) ResetFailedTasks() {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+func (q *Queue) ResetFailed() {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
 	for i, t := range q.tasks {
 		if t.Done && (t.Error != nil) {
@@ -193,14 +246,21 @@ func (q *Queue) ResetFailedTasks() {
 	}
 }
 
-func (q *Queue) Run(pwc *playwrightWrapper.PwContainer, qQuitCh <-chan *int) {
+func (q *Queue) publishUIUpdate(evt string, data interface{}) {
+	q.pub.Publish(&pubsub.PublishEvent{
+		EvtType: evt,
+		Data:    data,
+	})
+}
+
+func (q *Queue) Run(pwc *playwrightWrapper.PwContainer) {
 	// open empty page so that the context won't close
 	emptyPage, _ := pwc.BrowserContext.NewPage()
 	defer emptyPage.Close()
 
 	for {
 		select {
-		case _ = <-qQuitCh:
+		case _ = <-q.Quit:
 			// quit all the ongoing tasks and then return
 			return
 		default:
@@ -218,8 +278,10 @@ func (q *Queue) Run(pwc *playwrightWrapper.PwContainer, qQuitCh <-chan *int) {
 				continue
 			}
 
+			q.publishUIUpdate("activate-task", task)
+
 			go func(q *Queue, t *Task, pwc *playwrightWrapper.PwContainer) {
-				t.Run(pwc)
+				err := t.Run(pwc)
 				q.MarkTaskAsDone(*t, err)
 			}(q, task, pwc)
 		}

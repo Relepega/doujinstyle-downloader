@@ -1,0 +1,41 @@
+{{ block "task_controls" . }}
+    <div>
+        <h2>Queued Tasks:</h2>
+        <div class="header-btns">
+            <div class="btn" id="clear-queued">
+                Clear all
+            </div>
+        </div>
+    </div>
+    <div id="queued">
+        {{ template "queued_tasks" .}}
+    </div>
+
+    <div>
+        <h2>Active Tasks:</h2>
+    </div>
+    <div id="active">
+        {{ template "active_tasks" . }}
+    </div>
+
+    <div>
+        <h2>Ended Tasks:</h2>
+        <div class="header-btns">
+            <div class="btn" id="clear-all-completed">
+                Clear all
+            </div>
+            <div class="btn" id="clear-success-completed">
+                Clear successful
+            </div>
+            <div class="btn" id="clear-fail-completed">
+                Clear failed
+            </div>
+            <div class="btn" id="retry-fail-completed">
+                Retry all failed
+            </div>
+        </div>
+    </div>
+    <div id="ended">
+        {{ template "ended_tasks" . }}
+    </div>
+{{ end }}

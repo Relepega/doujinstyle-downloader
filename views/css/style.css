@@ -8,7 +8,8 @@
 
 html,
 body {
-	font-family: arial;
+	font-family: sans-serif;
+    /* font-family: arial; */
 	background-color: rgb(20, 20, 20);
 	color: whitesmoke;
 	padding: 5px;
@@ -29,7 +30,7 @@ form > button {
 	margin-left: 5px;
 }
 
-#tasks {
+#tasks-controls-control {
 	display: grid;
 	grid-template-columns: 1fr 1fr 2fr;
 	grid-template-rows: max-content 50%;
@@ -42,31 +43,31 @@ form > button {
 	height: calc(100dvh - 100px);
 }
 
-#tasks > div:nth-child(1) {
+#tasks-controls > div:nth-child(1) {
 	grid-area: queue-header;
 }
-#tasks > div:nth-child(2) {
+#tasks-controls > div:nth-child(2) {
 	grid-area: queue-values;
 }
-#tasks > div:nth-child(3) {
+#tasks-controls > div:nth-child(3) {
 	grid-area: active-header;
 }
-#tasks > div:nth-child(4) {
+#tasks-controls > div:nth-child(4) {
 	grid-area: active-values;
 }
-#tasks > div:nth-child(5) {
+#tasks-controls > div:nth-child(5) {
 	grid-area: ended-header;
 }
-#tasks > div:nth-child(6) {
+#tasks-controls > div:nth-child(6) {
 	grid-area: ended-values;
 }
 
-#tasks > div {
+#tasks-controls > div {
 	height: calc(190% - 50px);
 	overflow-y: auto;
 }
 
-#tasks > div > h2,
+#tasks-controls > div > h2,
 .header-btns {
 	margin: var(--spacing) calc(var(--gap) * 2);
 }
@@ -87,11 +88,11 @@ form > button {
 }
 
 @media screen and (max-width: 768px) {
-	#tasks {
+	#tasks-controls {
 		display: initial;
 	}
 
-	#tasks > div {
+	#tasks-controls > div {
 		max-height: 250px;
 		/* overflow-y: initial; */
 	}

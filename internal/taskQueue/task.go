@@ -1,28 +1,32 @@
 package taskQueue
 
 import (
-	"github.com/relepega/doujinstyle-downloader/internal/downloader"
-	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
+	"fmt"
+
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
 )
 
 type Task struct {
-	Active           bool
-	Done             bool
-	ServiceNumber    int
+	AlbumID string
+	Service string
+	Active  bool
+	Done    bool
+	Error   error
+
 	DownloadProgress int8
-	Error            error
-	UrlSlug          string
-	ch               chan int8
 }
 
-func NewTask(s string, serviceNumber int) *Task {
+func NewTask(AlbumID string, ServiceNumber int) *Task {
+	service := "" // TODO
+
 	return &Task{
-		Active:           false,
-		Done:             false,
-		ServiceNumber:    serviceNumber,
-		DownloadProgress: -1, // -1: The downloader cannot calculate the download progress
-		Error:            nil,
-		UrlSlug:          s,
+		AlbumID: AlbumID,
+		Service: service,
+		Active:  false,
+		Done:    false,
+		Error:   nil,
+
+		DownloadProgress: -1,
 	}
 }
 
@@ -51,17 +55,13 @@ func (t *Task) Reset() {
 }
 
 func (t *Task) SetDownloadProgress(p int8) {
-	t.DownloadProgress = p
-	t.ch <- p
+	// TODO
 }
 
 func (t *Task) Run(pwc *playwrightWrapper.PwContainer) error {
-	err := downloader.Download(
-		t.UrlSlug,
-		&pwc.Browser,
-		&t.DownloadProgress,
-		t.ServiceNumber,
-	)
+	// TODO
 
-	return err
+	fmt.Println("t.Run(): Running task...")
+
+	return nil
 }

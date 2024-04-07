@@ -1,182 +1,102 @@
 package webserver
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"log/slog"
 	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
+	"path/filepath"
 
-	"github.com/relepega/doujinstyle-downloader/internal/configManager"
-	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
-	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
-
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEEvents"
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/templates"
 )
 
-func serverLoggerHandler(c echo.Context, v middleware.RequestLoggerValues) error {
-	const defaultLog = "[HTTP REQUEST] uri=%v status=%v"
+const (
+	APIGroup  = "/api"
+	TaskGroup = APIGroup + "/task"
+)
 
-	if v.Error == nil {
-		slog.Info(fmt.Sprintf(defaultLog, v.URI, v.Status))
-	} else {
-		slog.Error(fmt.Sprintf(defaultLog+" %v", v.URI, v.Status, v.Error.Error()))
-	}
+type webserver struct {
+	address string
+	port    uint16
 
-	return nil
+	httpClient *http.Client
+
+	templates *templates.Templates
+
+	msgChan chan *SSEEvents.SSEMessage
+
+	q *taskQueue.Queue
 }
 
-func StartWebserver() {
-	appConfig, err := configManager.NewConfig()
+func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserver {
+	client := &http.Client{}
+
+	t, err := templates.NewTemplates()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	// Setup
-	ch := make(chan string)
-	q := taskQueue.NewQueue(int(appConfig.Download.ConcurrentJobs))
-	e := echo.New()
-
-	templates := NewTemplates()
-	e.Renderer = templates
-
-	if appConfig.Dev.ServerLogging {
-		e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-			LogStatus:     true,
-			LogURI:        true,
-			LogError:      true,
-			HandleError:   true, // forwards error to the global error handler, so it can decide appropriate status code
-			LogValuesFunc: serverLoggerHandler,
-		}))
-	}
-
-	e.Static("/css", "./views/css")
-	e.Static("/js", "./views/js")
-
-	apiGroup := e.Group("/api")
-
-	taskGroup := apiGroup.Group("/task")
-	queueGroup := apiGroup.Group("/queue")
-
-	taskGroup.GET("/render", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
+	t.AddFunction("Square", func(n int) int {
+		return n * n
 	})
 
-	taskGroup.GET("/remove", func(c echo.Context) error {
-		albumID := c.QueryParam("id")
-
-		q.RemoveTask(albumID)
-
-		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
-	})
-
-	taskGroup.GET("/retry", func(c echo.Context) error {
-		albumID := c.QueryParam("id")
-
-		q.ResetTask(albumID)
-
-		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
-	})
-
-	taskGroup.POST("/add", func(c echo.Context) error {
-		albumID := c.FormValue("AlbumID")
-		sNumberStr := c.FormValue("ServiceNumber")
-
-		sNumberInt, err := strconv.Atoi(sNumberStr)
-		if err != nil {
-			return c.String(
-				http.StatusInternalServerError,
-				err.Error(),
-			)
-		}
-
-		t := taskQueue.NewTask(albumID, sNumberInt)
-
-		if q.IsInList(t) {
-			return c.String(
-				http.StatusInternalServerError,
-				"AlbumID already processed or in queue.",
-			)
-		}
-
-		q.AddTask(t)
-
-		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
-	})
-
-	queueGroup.GET("/clear", func(c echo.Context) error {
-		q.ClearQueuedTasks()
-		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
-	})
-
-	queueGroup.GET("/clearAllCompleted", func(c echo.Context) error {
-		q.ClearAllCompleted()
-		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
-	})
-
-	queueGroup.GET("/clearSuccessfullyCompleted", func(c echo.Context) error {
-		q.ClearSuccessfullyCompleted()
-		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
-	})
-
-	queueGroup.GET("/clearFailedCompleted", func(c echo.Context) error {
-		q.ClearFailedCompleted()
-		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
-	})
-
-	queueGroup.GET("/retryFailed", func(c echo.Context) error {
-		q.ResetFailedTasks()
-		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
-	})
-
-	e.GET("/updateInterval", func(c echo.Context) error {
-		return c.String(http.StatusOK, fmt.Sprintf("%f", appConfig.WebUi.UpdateInterval))
-	})
-
-	e.GET("/", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "index", q.NewQueueFree())
-	})
-
-	serverAddress := fmt.Sprintf("%s:%d", appConfig.Server.Host, appConfig.Server.Port)
-
-	// Start playwright, queue and server
-	playwrightContainer, err := playwrightWrapper.UsePlaywright(
-		playwrightWrapper.WithBrowserType(),
-		playwrightWrapper.WithHeadless(),
-		playwrightWrapper.WithTimeout(),
-	)
+	dir := filepath.Join(".", "views", "templates")
+	err = t.ParseGlob(fmt.Sprintf("%s/*.tmpl", dir))
 	if err != nil {
-		log.Fatalf("Cannot open playwright browser: %v", err)
-	}
-
-	c := make(chan *int)
-
-	go q.Run(playwrightContainer, c)
-
-	go func(serverAddress string) {
-		if err := e.Start(serverAddress); err != nil && err != http.ErrServerClosed {
-			log.Fatalln("Shutting down the server")
-		}
-	}(serverAddress)
-
-	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 10 seconds.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
-	<-ctx.Done()
-	c <- nil
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	err = playwrightContainer.Close()
-	log.Println("Error closing playwright: ", err)
-
-	if err := e.Shutdown(ctx); err != nil {
 		log.Fatalln(err)
 	}
+
+	webServer := &webserver{
+		address: address,
+		port:    port,
+
+		httpClient: client,
+
+		templates: t,
+
+		q: queue,
+	}
+
+	webServer.msgChan = make(chan *SSEEvents.SSEMessage)
+
+	return webServer
+}
+
+func (ws *webserver) buildRoutes() *http.ServeMux {
+	mux := http.NewServeMux()
+
+	cssDir := http.Dir(filepath.Join(".", "views", "css"))
+	mux.Handle("/css/", http.StripPrefix("/css/", http.FileServer(cssDir)))
+
+	jsDir := http.Dir(filepath.Join(".", "views", "js"))
+	mux.Handle("/js/", http.StripPrefix("/js/", http.FileServer(jsDir)))
+
+	mux.HandleFunc("/", ws.handleIndexRoute)
+
+	mux.HandleFunc(fmt.Sprintf("POST %s", TaskGroup), ws.handleTaskAdd)
+	mux.HandleFunc(fmt.Sprintf("DELETE %s", TaskGroup), ws.handleTaskDelete)
+	mux.HandleFunc(fmt.Sprintf("PATCH %s", TaskGroup), ws.handleTaskRetry)
+
+	mux.HandleFunc("GET /events-stream", ws.handleEventStream)
+
+	mux.HandleFunc("GET /hello", ws.handleHello)
+
+	mux.HandleFunc("GET /square", ws.handleSquare)
+
+	mux.HandleFunc("POST /send-message", ws.handleSendMessage)
+
+	return mux
+}
+
+func (ws *webserver) Start() error {
+	defer close(ws.msgChan)
+
+	mux := ws.buildRoutes()
+
+	go ws.SSEMsgBroker()
+
+	fmt.Printf("Server is running on http://%s:%d\n", ws.address, ws.port)
+
+	return http.ListenAndServe(fmt.Sprintf("%s:%d", ws.address, ws.port), mux)
 }

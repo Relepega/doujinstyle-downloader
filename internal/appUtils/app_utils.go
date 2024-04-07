@@ -15,8 +15,7 @@ func CreateFolder(fname string) error {
 	if _, err := os.Stat(fname); os.IsNotExist(err) {
 		err = os.MkdirAll(fname, 0755)
 		if err != nil {
-			fmt.Println("Error creating folder:", err)
-			return err
+			return fmt.Errorf("Error creating folder: %v", err)
 		}
 	}
 
@@ -92,11 +91,13 @@ func DownloadFile(fp string, url string, progress *int8) (err error) {
 		// 	continue
 		// }
 
-		// Update the current size
-		currentSize += int64(n)
+		if progress != nil {
+			// Update the current size
+			currentSize += int64(n)
 
-		// Calculate and update the progress
-		*progress = int8((float64(currentSize) / float64(totalSize)) * 100)
+			// Calculate and update the progress
+			*progress = int8((float64(currentSize) / float64(totalSize)) * 100)
+		}
 
 		// Write the chunk to the temp file
 		_, err := tempf.Write(buf[:n])
@@ -191,4 +192,11 @@ func ParseJson[T any](url string, data *T) error {
 	}
 
 	return nil
+}
+
+func CleanString(s string) string {
+	trimmed := strings.TrimSpace(s)
+	clean := strings.ReplaceAll(trimmed, "\n", "")
+
+	return clean
 }
