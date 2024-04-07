@@ -22,43 +22,49 @@ async function taskAction(method, albumID, groupAction) {
 
 document.addEventListener("click", async function(evt) {
     // console.log(evt)
-    
-    let albumID = undefined
-
     switch (evt.srcElement.id) {
-        case "clear-queued":
+        case "clear-queued": {
             await taskAction("DELETE", "", "clear-queued")
             break
+        }
 
-        case "clear-all-completed":
-            await taskAction("DELETE", "", "clear-all-completed")
+        case "clear-all-completed": {
+            taskAction("DELETE", "", "clear-all-completed")
             break
+        }
 
-        case "clear-success-completed":
+        case "clear-success-completed": {
             await taskAction("DELETE", "", "clear-success-completed")
             break
+        }
 
-        case "clear-fail-completed":
+        case "clear-fail-completed": {
             await taskAction("DELETE", "", "clear-fail-completed")
             break
+        }
 
-        case "retry-fail-completed":
+        case "retry-fail-completed": {
             await taskAction("DELETE", "", "retry-fail-completed")
             break
+        }
 
-        case "task-ctrl-remove-task":
-            albumID = evt.srcElement.attributes["data-id"].value
+        case "task-ctrl-remove-task": {
+            const albumID = evt.srcElement.attributes["data-id"].value
             await taskAction("DELETE", albumID, "")
             break
+        }
 
-        case "task-ctrl-copy-error":
-            albumID = evt.srcElement.attributes["data-id"].value
+        case "task-ctrl-copy-error": {
+            const albumID = evt.srcElement.attributes["data-id"].value
             const el = document.getElementById(albumID + "-error")
+
             await navigator.clipboard.writeText(el.innerText)
             window.alert("Error log of album " + albumID + " copied")
-            break
 
-        case "task-ctrl-retry":
+            break
+        }
+
+        case "task-ctrl-retry": {
             const albumID = evt.srcElement.attributes["data-id"].value
 
             const formData = new FormData()
@@ -72,6 +78,7 @@ document.addEventListener("click", async function(evt) {
             })
 
             break
+        }
 
         default:
             break
