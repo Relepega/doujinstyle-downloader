@@ -16,9 +16,7 @@ type Task struct {
 	DownloadProgress int8
 }
 
-func NewTask(AlbumID string, ServiceNumber int) *Task {
-	service := "" // TODO
-
+func NewTask(AlbumID string, service string) *Task {
 	return &Task{
 		AlbumID: AlbumID,
 		Service: service,

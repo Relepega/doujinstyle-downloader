@@ -26,7 +26,7 @@ func (ws *webserver) handleError(w http.ResponseWriter, err error) {
 
 func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 	albumID := r.FormValue("AlbumID")
-	serviceNumberStr := r.FormValue("ServiceNumber")
+	service := r.FormValue("ServiceNumber")
 
 	if albumID == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -34,14 +34,14 @@ func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if serviceNumberStr == "" {
+	if service == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintln(w, "ServiceNumber is required")
 		return
 	}
 
 	// tasks = append(tasks, albumID)
-	newTask := taskQueue.NewTask(albumID, 0)
+	newTask := taskQueue.NewTask(albumID, service)
 	err := ws.q.AddTask(newTask)
 	if err != nil {
 		ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
@@ -65,7 +65,7 @@ func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 	ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("new-task", t)
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, albumID, serviceNumberStr)
+	fmt.Fprintln(w, albumID, service)
 }
 
 func (ws *webserver) handleTaskDelete(w http.ResponseWriter, r *http.Request) {
