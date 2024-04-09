@@ -7,8 +7,7 @@
 [![codebeat badge](https://codebeat.co/badges/4fd08f5a-b2d8-49b9-b0d4-a37cd6f6c3dc)](https://codebeat.co/projects/github-com-relepega-doujinstyle-downloader-main)
 
 A User-friendly app made for effortlessly downloading music from
-[doujinstyle](https://doujinstyle.com/) written in Go, using HTML Templates and
-[htmx.js](https://htmx.org/).
+[doujinstyle](https://doujinstyle.com/) written in Go, using HTML Templates.
 
 ## Table of content
 
@@ -124,3 +123,8 @@ i fix it?
 **A**. Change the `Host` value in the [server] section in the config file to a
 valid IP address. Either change it to 127.0.0.1 if you're unsure of what to do
 or use the valid current network IP address of your device.
+
+# Branch todo
+
+- [ ] Add event broadcaster to every task, so that it can be used to add a Render() method
+        and send the updated content to the ui
