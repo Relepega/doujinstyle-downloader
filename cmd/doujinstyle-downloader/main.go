@@ -54,7 +54,7 @@ func main() {
 	}
 
 	// Init new default event publisher
-	pub := pubsub.GetExistingPublisher()
+	pub := pubsub.NewGlobalPublisher("sse")
 
 	// init and run queue
 	q := taskQueue.NewQueue(cfg.Download.ConcurrentJobs, pub)

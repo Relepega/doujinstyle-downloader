@@ -1,6 +1,9 @@
 package pubsub
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 type PublishEvent struct {
 	EvtType string
@@ -13,16 +16,46 @@ type Publisher struct {
 	closed      bool
 }
 
-// This allows us to reuse an existing Publisher
+type globalPublishers struct {
+	publishers map[string]*Publisher
+	mu         sync.RWMutex
+}
+
+// This allows us to reuse existing Publisher(s)
 // and not instantiating new ones or passing the
 // existing one through a hundred functions
-var pub *Publisher = nil
+var global_pubs = globalPublishers{
+	publishers: make(map[string]*Publisher),
+}
 
 func NewPublisher() *Publisher {
 	return &Publisher{
 		subscribers: make([]chan *PublishEvent, 0),
 		closed:      false,
 	}
+}
+
+func NewGlobalPublisher(id string) *Publisher {
+	global_pubs.mu.Lock()
+	defer global_pubs.mu.Unlock()
+
+	pub := &Publisher{
+		subscribers: make([]chan *PublishEvent, 0),
+		closed:      false,
+	}
+
+	global_pubs.publishers[id] = pub
+
+	return pub
+}
+
+func GetGlobalPublisher(id string) (*Publisher, error) {
+	val, ok := global_pubs.publishers[id]
+	if !ok {
+		return nil, fmt.Errorf("Publisher not found: %s", id)
+	}
+
+	return val, nil
 }
 
 func (p *Publisher) Subscribe() <-chan *PublishEvent {
@@ -65,12 +98,4 @@ func (p *Publisher) Close() {
 	}
 
 	p.closed = true
-}
-
-func GetExistingPublisher() *Publisher {
-	if pub == nil {
-		pub = NewPublisher()
-	}
-
-	return pub
 }
