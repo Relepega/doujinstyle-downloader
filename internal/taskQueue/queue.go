@@ -24,6 +24,11 @@ type UIQueueData struct {
 	Tasks       []Task
 }
 
+type UpdateTaskProgress struct {
+	Id       string
+	Progress int8
+}
+
 func NewQueue(MaxConcurrency int8, publisher *pubsub.Publisher) *Queue {
 	return &Queue{
 		tasks:          make([]Task, 0),
@@ -258,11 +263,31 @@ func (q *Queue) Run(pwc *playwrightWrapper.PwContainer) {
 	emptyPage, _ := pwc.BrowserContext.NewPage()
 	defer emptyPage.Close()
 
+	sub := pubsub.NewGlobalPublisher("queue")
+	subscriber := sub.Subscribe()
+
 	for {
 		select {
 		case _ = <-q.Quit:
 			// quit all the ongoing tasks and then return
 			return
+
+		case evt := <-subscriber:
+			switch evt.EvtType {
+			case "update-task-progress":
+				d := evt.Data.(*UpdateTaskProgress)
+
+				t, err := q.GetTask(d.Id)
+				if err != nil {
+					continue
+				}
+
+				t.DownloadProgress = d.Progress
+				q.publishUIUpdate("update-task-content", t)
+
+			default:
+				continue
+			}
 		default:
 			// run task scheduler
 			if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {

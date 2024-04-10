@@ -15,7 +15,12 @@ const (
 )
 
 func (ws *webserver) SSEMsgBroker() {
-	subscriber := pubsub.GetExistingPublisher().Subscribe()
+	sub, err := pubsub.GetGlobalPublisher("sse")
+	if err != nil {
+		sub = pubsub.NewGlobalPublisher("sse")
+	}
+
+	subscriber := sub.Subscribe()
 
 	for {
 		select {
@@ -42,6 +47,15 @@ func (ws *webserver) SSEMsgBroker() {
 				s, _ := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNode, nodeId, "#ended", t, SSEEvents.AfterBegin).String()
 
 				ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node", s)
+
+			case "update-task-content":
+				t, _ := ws.templates.Execute("task-content", msg.Data)
+				// fmt.Println("re-rendered task: ", t)
+
+				nodeId := msg.Data.(*taskQueue.Task).AlbumID
+				s, _ := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, nodeId, "", t, SSEEvents.AfterBegin).String()
+
+				ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node-content", s)
 
 			case "error":
 				ws.msgChan <- SSEEvents.NewSSEMessageWithError(msg.Data.(error))

@@ -3,6 +3,11 @@
     id="{{ .AlbumID }}"
     class='download-queue-element {{ if .Done }} {{ if .Error }} failure {{ else }} success {{ end }} {{ end }}'
 >
+    {{ template "task-content" .}}
+</div>
+{{ end }}
+
+{{ block "task-content" . }}
     {{ if eq .Active false }}
         <div class="btn delete" id="task-ctrl-remove-task" data-id="{{ .AlbumID }}">X</div>
     {{ end }}
@@ -22,5 +27,4 @@
             </div>
         </div>
     {{ end }}
-</div>
 {{ end }}

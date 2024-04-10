@@ -63,7 +63,7 @@ const (
 )
 
 type UIRenderEvent struct {
-	Event        UIEvent          `json:"event"`        // "new-node" | "replace-node" | "remove-node"
+	Event        UIEvent          `json:"event"`        // "new-node" | "replace-node" | "replace-node-content" | "remove-node"
 	TargetNode   string           `json:"targetNodeID"` // ID of the node that should be replaced
 	ReceiverNode string           `json:"receiverNode"` // QuerySelector of the node that should receive the new content
 	NewContent   string           `json:"newContent"`   // Newly rendered content: it can be either an entire DOM node or a DOM node content
