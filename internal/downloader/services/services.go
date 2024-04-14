@@ -19,9 +19,10 @@ func NewService(service string, mediaID string) (Service, error) {
 	switch service {
 	case "doujinstyle":
 		return newDoujinstyle(mediaID), nil
+
 	case "sukidesuost":
-		// TODO
 		return newSukidesuost(mediaID), nil
+
 	default:
 		return nil, fmt.Errorf("unknown service")
 	}
