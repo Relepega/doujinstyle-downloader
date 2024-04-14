@@ -29,6 +29,15 @@ func NewHost(pageUrl string) (HostFactory, error) {
 	case "mediafire.com":
 		return newMediafire, nil
 
+	case "mega.nz":
+		return newMega, nil
+
+	case "drive.google.com":
+		return newGDrive, nil
+
+	case "jottacloud.com":
+		return newJottacloud, nil
+
 	default:
 		return nil, fmt.Errorf("%s: %s", DEFAULT_DOWNLOAD_ERR, hostname)
 	}
