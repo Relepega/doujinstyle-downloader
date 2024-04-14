@@ -61,6 +61,8 @@ func main() {
 
 	go func() {
 		pwc, err := playwrightWrapper.UsePlaywright("chromium", !cfg.Dev.PlaywrightDebug, 0.0)
+		defer pwc.Close()
+
 		if err != nil {
 			log.Fatal(err)
 		}

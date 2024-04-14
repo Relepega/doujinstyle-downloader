@@ -6,6 +6,7 @@ import (
 
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
 	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
+	eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/event_broker"
 )
 
 type Queue struct {
@@ -22,11 +23,6 @@ type Queue struct {
 type UIQueueData struct {
 	QueueLength int
 	Tasks       []Task
-}
-
-type UpdateTaskProgress struct {
-	Id       string
-	Progress int8
 }
 
 func NewQueue(MaxConcurrency int8, publisher *pubsub.Publisher) *Queue {
@@ -263,19 +259,20 @@ func (q *Queue) Run(pwc *playwrightWrapper.PwContainer) {
 	emptyPage, _ := pwc.BrowserContext.NewPage()
 	defer emptyPage.Close()
 
-	sub := pubsub.NewGlobalPublisher("queue")
-	subscriber := sub.Subscribe()
+	queue_pub := pubsub.NewGlobalPublisher("queue")
+	subscriber := queue_pub.Subscribe()
 
 	for {
 		select {
 		case _ = <-q.Quit:
 			// quit all the ongoing tasks and then return
+			_ = pwc.Close()
 			return
 
 		case evt := <-subscriber:
 			switch evt.EvtType {
 			case "update-task-progress":
-				d := evt.Data.(*UpdateTaskProgress)
+				d := evt.Data.(*eventbroker.UpdateTaskProgress)
 
 				t, err := q.GetTask(d.Id)
 				if err != nil {

@@ -39,9 +39,9 @@ func Download(serviceName, albumID string, progress *int8, pwc *playwrightWrappe
 	if err != nil {
 		return err
 	}
-	defer servicePage.Close(pageCloseOpts)
+	defer servicePage.Close()
 
-	isDMCA, err := service.CheckDMCA(&servicePage)
+	isDMCA, err := service.CheckDMCA(servicePage)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func Download(serviceName, albumID string, progress *int8, pwc *playwrightWrappe
 		return fmt.Errorf("Doujinstyle: %s", services.SERVICE_ERROR_404)
 	}
 
-	mediaName, err := service.EvaluateFilename(&servicePage)
+	mediaName, err := service.EvaluateFilename(servicePage)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func Download(serviceName, albumID string, progress *int8, pwc *playwrightWrappe
 		return err
 	}
 
-	host := hostFactory(downloadPage, mediaName, dl_path, progress)
+	host := hostFactory(downloadPage, albumID, mediaName, dl_path, progress)
 	err = host.Download()
 	if err != nil {
 		return err

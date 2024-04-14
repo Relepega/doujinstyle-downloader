@@ -4,6 +4,6 @@ type sukidesuost struct {
 	Service
 }
 
-func newSukidesuost(mediaID string) *sukidesuost {
+func newSukidesuost(mediaID string) Service {
 	return nil
 }

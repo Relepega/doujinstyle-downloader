@@ -3,6 +3,7 @@ package taskQueue
 import (
 	"fmt"
 
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/downloader"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
 )
 
@@ -60,6 +61,7 @@ func (t *Task) Run(pwc *playwrightWrapper.PwContainer) error {
 	// TODO
 
 	fmt.Println("t.Run(): Running task...")
+	downloader.Download(t.Service, t.AlbumID, &t.DownloadProgress, pwc)
 
 	return nil
 }

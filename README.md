@@ -128,3 +128,4 @@ or use the valid current network IP address of your device.
 
 - [ ] Add event broadcaster to every task, so that it can be used to add a Render() method
         and send the updated content to the ui
+- [ ] Refactor the pubsub things

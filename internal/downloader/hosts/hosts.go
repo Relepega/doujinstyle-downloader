@@ -9,7 +9,7 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-type HostFactory func(p playwright.Page, albumName, downloadPath string, progress *int8) Host
+type HostFactory func(p playwright.Page, albumID, albumName, downloadPath string, progress *int8) Host
 
 type Host interface {
 	Download() error
@@ -24,8 +24,6 @@ func NewHost(pageUrl string) (HostFactory, error) {
 	}
 
 	hostname := strings.TrimPrefix(urlObject.Hostname(), "www.")
-
-	fmt.Println("hostname: ", hostname)
 
 	switch hostname {
 	case "mediafire.com":

@@ -20,7 +20,7 @@ type doujinstyle struct {
 	mediaID string
 }
 
-func newDoujinstyle(mediaID string) *doujinstyle {
+func newDoujinstyle(mediaID string) Service {
 	return &doujinstyle{
 		mediaID: mediaID,
 	}
@@ -42,8 +42,8 @@ func (d *doujinstyle) OpenServicePage(ctx *playwright.BrowserContext) (playwrigh
 	return p, nil
 }
 
-func (d *doujinstyle) checkDMCA(p *playwright.Page) (bool, error) {
-	valInterface, err := (*p).Evaluate(
+func (d *doujinstyle) CheckDMCA(p playwright.Page) (bool, error) {
+	valInterface, err := p.Evaluate(
 		"() => document.querySelector('h3').innerText == 'Insufficient information to display content.'",
 	)
 	if err != nil {
@@ -83,7 +83,7 @@ func (d *doujinstyle) getExhibitions(strVal string) string {
 	return fullStr
 }
 
-func (d *doujinstyle) evaluateFilename(page playwright.Page) (string, error) {
+func (d *doujinstyle) EvaluateFilename(page playwright.Page) (string, error) {
 	album, err := page.Evaluate("document.querySelector('h2').innerText")
 	if err != nil {
 		return "", err

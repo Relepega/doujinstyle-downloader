@@ -8,8 +8,8 @@ import (
 
 type Service interface {
 	OpenServicePage(ctx *playwright.BrowserContext) (playwright.Page, error)
-	CheckDMCA(p *playwright.Page) (bool, error)
-	EvaluateFilename(p *playwright.Page) (string, error)
+	CheckDMCA(p playwright.Page) (bool, error)
+	EvaluateFilename(p playwright.Page) (string, error)
 	OpenDownloadPage(servicePage playwright.Page) (playwright.Page, error)
 }
 

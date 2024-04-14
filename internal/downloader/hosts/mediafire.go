@@ -10,6 +10,8 @@ import (
 
 	"github.com/playwright-community/playwright-go"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
+	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
+	eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/event_broker"
 )
 
 type mediafire struct {
@@ -17,16 +19,18 @@ type mediafire struct {
 
 	page playwright.Page
 
+	albumID   string
 	albumName string
 
 	dlPath     string
 	dlProgress *int8
 }
 
-func newMediafire(p playwright.Page, albumName, downloadPath string, progress *int8) Host {
+func newMediafire(p playwright.Page, albumID, albumName, downloadPath string, progress *int8) Host {
 	return &mediafire{
 		page: p,
 
+		albumID:   albumID,
 		albumName: albumName,
 
 		dlPath:     downloadPath,
@@ -181,7 +185,21 @@ func (m *mediafire) downloadSingleFile(filename string, dlPage playwright.Page, 
 		return fmt.Errorf("Mediafire: Couldn't get download url")
 	}
 
-	err = appUtils.DownloadFile(fp, downloadUrl, progress)
+	err = appUtils.DownloadFile(
+		fp,
+		downloadUrl,
+		progress,
+		func(p int8) {
+			pub, _ := pubsub.GetGlobalPublisher("queue")
+			pub.Publish(&pubsub.PublishEvent{
+				EvtType: "update-task-progress",
+				Data: &eventbroker.UpdateTaskProgress{
+					Id:       m.albumID,
+					Progress: p,
+				},
+			})
+		},
+	)
 	if err != nil {
 		return err
 	}

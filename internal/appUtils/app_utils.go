@@ -47,7 +47,7 @@ func DirectoryExists(path string) (bool, error) {
 	return false, err
 }
 
-func DownloadFile(fp string, url string, progress *int8) (err error) {
+func DownloadFile(fp string, url string, progress *int8, callback func(p int8)) (err error) {
 	// write to a temp file first to avoid incomplete downloads
 	tempf, err := os.CreateTemp("", "doujinstyleDownloader-")
 	if err != nil {
@@ -91,12 +91,17 @@ func DownloadFile(fp string, url string, progress *int8) (err error) {
 		// 	continue
 		// }
 
-		if progress != nil {
-			// Update the current size
-			currentSize += int64(n)
+		// Update the current size
+		currentSize += int64(n)
 
-			// Calculate and update the progress
-			*progress = int8((float64(currentSize) / float64(totalSize)) * 100)
+		// Calculate and update the progress
+		currentProgress := int8((float64(currentSize) / float64(totalSize)) * 100)
+		if progress != nil {
+			*progress = currentProgress
+		}
+
+		if callback != nil {
+			callback(currentProgress)
 		}
 
 		// Write the chunk to the temp file
