@@ -1,8 +1,6 @@
 package taskQueue
 
 import (
-	"fmt"
-
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/downloader"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
 )
@@ -21,9 +19,11 @@ func NewTask(AlbumID string, service string) *Task {
 	return &Task{
 		AlbumID: AlbumID,
 		Service: service,
-		Active:  false,
-		Done:    false,
-		Error:   nil,
+
+		Active: false,
+		Done:   false,
+
+		Error: nil,
 
 		DownloadProgress: -1,
 	}
@@ -53,15 +53,7 @@ func (t *Task) Reset() {
 	t.Error = nil
 }
 
-func (t *Task) SetDownloadProgress(p int8) {
-	// TODO
-}
-
 func (t *Task) Run(pwc *playwrightWrapper.PwContainer) error {
-	// TODO
-
-	fmt.Println("t.Run(): Running task...")
-	downloader.Download(t.Service, t.AlbumID, &t.DownloadProgress, pwc)
-
-	return nil
+	err := downloader.Download(t.Service, t.AlbumID, &t.DownloadProgress, pwc)
+	return err
 }
