@@ -2,10 +2,8 @@ package downloader
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/playwright-community/playwright-go"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/configManager"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/downloader/hosts"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/downloader/services"
@@ -63,19 +61,12 @@ func Download(serviceName, albumID string, progress *int8, pwc *playwrightWrappe
 
 	_ = servicePage.Close(pageCloseOpts)
 
-	dl_path := filepath.Join(cfg.Download.Directory, mediaName)
-
-	err = appUtils.CreateFolder(dl_path)
-	if err != nil {
-		return err
-	}
-
 	hostFactory, err := hosts.NewHost(downloadPage.URL())
 	if err != nil {
 		return err
 	}
 
-	host := hostFactory(downloadPage, albumID, mediaName, dl_path, progress)
+	host := hostFactory(downloadPage, albumID, mediaName, cfg.Download.Directory, progress)
 	err = host.Download()
 	if err != nil {
 		return err

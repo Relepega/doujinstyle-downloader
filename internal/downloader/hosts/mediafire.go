@@ -131,7 +131,7 @@ func (m *mediafire) fetchFolderContent(folderKey string, dir string) ([]*mediafi
 
 }
 
-func (m *mediafire) downloadSingleFile(filename string, dlPage playwright.Page, progress *int8, directory string) error {
+func (m *mediafire) downloadSingleFile(filename string, dlPage playwright.Page, progress *int8) error {
 	for {
 		res, err := dlPage.Evaluate(
 			"() => document.querySelector(\".DownloadStatus.DownloadStatus--uploading\")",
@@ -209,7 +209,13 @@ func (m *mediafire) downloadSingleFile(filename string, dlPage playwright.Page, 
 
 func (m *mediafire) Download() error {
 	if !m.isFolder(m.page.URL()) {
-		err := m.downloadSingleFile(m.albumName, m.page, m.dlProgress, "")
+		err := m.downloadSingleFile(m.albumName, m.page, m.dlProgress)
+		return err
+	}
+
+	m.dlPath = filepath.Join(m.dlPath, m.albumName)
+	err := appUtils.CreateFolder(m.dlPath)
+	if err != nil {
 		return err
 	}
 
@@ -246,7 +252,7 @@ func (m *mediafire) Download() error {
 
 		ok, _ := appUtils.FileExists(filepath.Join(dlPath, f.Filename))
 		if !ok {
-			m.downloadSingleFile(f.Filename, p, &dummyProg, f.Directory)
+			m.downloadSingleFile(f.Filename, p, &dummyProg)
 		}
 
 		downloadedFiles++
