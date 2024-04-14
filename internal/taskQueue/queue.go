@@ -6,7 +6,7 @@ import (
 
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
 	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
-	eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/event_broker"
+	tq_eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/tq_event_broker"
 )
 
 type Queue struct {
@@ -272,14 +272,14 @@ func (q *Queue) Run(pwc *playwrightWrapper.PwContainer) {
 		case evt := <-subscriber:
 			switch evt.EvtType {
 			case "update-task-progress":
-				d := evt.Data.(*eventbroker.UpdateTaskProgress)
+				evt_data := evt.Data.(*tq_eventbroker.UpdateTaskProgress)
 
-				t, err := q.GetTask(d.Id)
+				t, err := q.GetTask(evt_data.Id)
 				if err != nil {
 					continue
 				}
 
-				t.DownloadProgress = d.Progress
+				t.DownloadProgress = evt_data.Progress
 				q.publishUIUpdate("update-task-content", t)
 
 			default:

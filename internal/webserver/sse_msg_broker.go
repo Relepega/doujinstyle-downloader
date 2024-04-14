@@ -1,6 +1,9 @@
 package webserver
 
 import (
+	"log"
+
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
 	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEEvents"
@@ -17,7 +20,8 @@ const (
 func (ws *webserver) SSEMsgBroker() {
 	sub, err := pubsub.GetGlobalPublisher("sse")
 	if err != nil {
-		sub = pubsub.NewGlobalPublisher("sse")
+		ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+		log.Panic(err)
 	}
 
 	subscriber := sub.Subscribe()
@@ -44,16 +48,35 @@ func (ws *webserver) SSEMsgBroker() {
 				// fmt.Println("re-rendered task: ", t)
 
 				nodeId := msg.Data.(*taskQueue.Task).AlbumID
-				s, _ := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNode, nodeId, "#ended", t, SSEEvents.AfterBegin).String()
+				s, err := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNode, nodeId, "#ended", t, SSEEvents.AfterBegin).String()
+				if err != nil {
+					ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+					log.Println(err)
+					continue
+				}
 
 				ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node", s)
 
 			case "update-task-content":
-				t, _ := ws.templates.Execute("task-content", msg.Data)
+				t, err := ws.templates.Execute("task-content", msg.Data)
+				if err != nil {
+					ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+					log.Println(err)
+					continue
+				}
+
+				t = appUtils.CleanString(t)
 				// fmt.Println("re-rendered task: ", t)
 
 				nodeId := msg.Data.(*taskQueue.Task).AlbumID
-				s, _ := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, nodeId, "", t, SSEEvents.AfterBegin).String()
+				s, err := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, nodeId, nodeId, t, SSEEvents.AfterBegin).String()
+				if err != nil {
+					ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+					log.Println(err)
+					continue
+				}
+
+				// fmt.Println("sse event: ", s)
 
 				ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node-content", s)
 

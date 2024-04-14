@@ -14,7 +14,9 @@
 
     <p>
         {{ .AlbumID }} 
-        {{ if and ( eq .Active true) (gt .DownloadProgress -1) }}(Downloading... {{ .DownloadProgress}}%){{ end }}
+        {{ if and (eq .Active true) (gt .DownloadProgress -1) }}
+            (Downloading... {{ .DownloadProgress }}[PERCENTSIGN])
+        {{ end }}
     </p>
 
     {{ if .Error }}

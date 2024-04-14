@@ -1,6 +1,8 @@
-package eventbroker
+package tq_eventbroker
 
 import (
+	"fmt"
+
 	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
 )
 
@@ -20,6 +22,7 @@ func QueueEvtBroker() {
 		case evt := <-subscriber:
 			switch evt.EvtType {
 			case "update-task-progress":
+				fmt.Printf("%+v\n", evt)
 				queuePub.Publish(&pubsub.PublishEvent{
 					EvtType: "update-task-progress",
 					Data:    evt.Data,

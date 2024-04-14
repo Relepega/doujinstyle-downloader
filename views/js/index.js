@@ -142,7 +142,7 @@ source.addEventListener("replace-node-content", function(event) {
     const data = JSON.parse(event.data)
     console.log("replace-node-content parsed data: ", data)
 
-    document.getElementById(data.receiverNode).innerHTML = data.newContent
+    document.getElementById(data.receiverNode).innerHTML = data.newContent.replaceAll("[PERCENTSIGN]", "%")
 })
 
 source.addEventListener("error", async function(event) {

@@ -11,7 +11,7 @@ import (
 	"github.com/playwright-community/playwright-go"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
 	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
-	eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/event_broker"
+	tq_eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/tq_event_broker"
 )
 
 type mediafire struct {
@@ -193,7 +193,7 @@ func (m *mediafire) downloadSingleFile(filename string, dlPage playwright.Page, 
 			pub, _ := pubsub.GetGlobalPublisher("queue")
 			pub.Publish(&pubsub.PublishEvent{
 				EvtType: "update-task-progress",
-				Data: &eventbroker.UpdateTaskProgress{
+				Data: &tq_eventbroker.UpdateTaskProgress{
 					Id:       m.albumID,
 					Progress: p,
 				},

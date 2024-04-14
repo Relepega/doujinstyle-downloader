@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEEvents"
@@ -39,6 +40,10 @@ func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserve
 
 	t.AddFunction("Square", func(n int) int {
 		return n * n
+	})
+
+	t.AddFunction("Timestamp", func() string {
+		return fmt.Sprintf("%d", time.Now().Unix())
 	})
 
 	dir := filepath.Join(".", "views", "templates")
