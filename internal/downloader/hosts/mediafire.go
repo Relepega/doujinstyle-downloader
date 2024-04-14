@@ -213,12 +213,6 @@ func (m *mediafire) Download() error {
 		return err
 	}
 
-	m.dlPath = filepath.Join(m.dlPath, m.albumName)
-	err := appUtils.CreateFolder(m.dlPath)
-	if err != nil {
-		return err
-	}
-
 	folderKey := m.getFolderKey(m.page.URL())
 
 	files, err := m.fetchFolderContent(folderKey, m.albumName)
@@ -233,6 +227,8 @@ func (m *mediafire) Download() error {
 
 	var dummyProg int8
 
+	dl_root := m.dlPath
+
 	for _, f := range files {
 		p, err := m.page.Context().NewPage()
 		if err != nil {
@@ -244,7 +240,7 @@ func (m *mediafire) Download() error {
 			return err
 		}
 
-		dlPath := filepath.Join(m.dlPath, f.Directory)
+		dlPath := filepath.Join(dl_root, f.Directory)
 		folderExists, _ := appUtils.DirectoryExists(dlPath)
 		if !folderExists {
 			os.MkdirAll(dlPath, 0755)
@@ -252,6 +248,7 @@ func (m *mediafire) Download() error {
 
 		ok, _ := appUtils.FileExists(filepath.Join(dlPath, f.Filename))
 		if !ok {
+			m.dlPath = dlPath
 			m.downloadSingleFile(f.Filename, p, &dummyProg)
 		}
 
