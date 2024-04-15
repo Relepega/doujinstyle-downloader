@@ -42,10 +42,12 @@ build:
 debug:
 	air
 
-
 run:
 	go run $(APP_ENTRYPOINT)
 
 update-deps:
 	go get -t -u ./...
 	go mod tidy
+
+generate-changelog: 
+	git-chglog -o CHANGELOG.md
