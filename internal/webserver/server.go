@@ -1,6 +1,8 @@
 package webserver
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -21,7 +23,7 @@ type webserver struct {
 	address string
 	port    uint16
 
-	httpClient *http.Client
+	httpServer *http.Server
 
 	templates *templates.Templates
 
@@ -31,7 +33,7 @@ type webserver struct {
 }
 
 func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserver {
-	client := &http.Client{}
+	server := &http.Server{}
 
 	t, err := templates.NewTemplates()
 	if err != nil {
@@ -56,7 +58,7 @@ func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserve
 		address: address,
 		port:    port,
 
-		httpClient: client,
+		httpServer: server,
 
 		templates: t,
 
@@ -94,14 +96,40 @@ func (ws *webserver) buildRoutes() *http.ServeMux {
 	return mux
 }
 
-func (ws *webserver) Start() error {
+func (ws *webserver) Start(ctx context.Context) error {
 	defer close(ws.msgChan)
 
 	mux := ws.buildRoutes()
 
 	go ws.SSEMsgBroker()
 
-	fmt.Printf("Server is running on http://%s:%d\n", ws.address, ws.port)
+	netAddr := fmt.Sprintf("%s:%d", ws.address, ws.port)
 
-	return http.ListenAndServe(fmt.Sprintf("%s:%d", ws.address, ws.port), mux)
+	ws.httpServer.Addr = netAddr
+	ws.httpServer.Handler = mux
+
+	// Start the server in a goroutine
+	go func() {
+		if err := ws.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("HTTP server error: %v", err)
+		}
+		log.Println("Stopped serving new connections.")
+	}()
+
+	fmt.Printf("Server is running on http://%s\n", netAddr)
+
+	// Wait for either the context to be cancelled or for the server to stop serving new connections
+	select {
+	case <-ctx.Done():
+		// Context was cancelled, start the graceful shutdown
+		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownRelease()
+
+		if err := ws.httpServer.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("HTTP shutdown error: %v", err)
+		}
+
+		log.Println("Graceful shutdown complete.")
+		return nil
+	}
 }

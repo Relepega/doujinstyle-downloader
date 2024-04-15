@@ -10,7 +10,6 @@ import (
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/configManager"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/logger"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
 	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver"
@@ -56,31 +55,36 @@ func main() {
 	// Init new default event publisher
 	pub := pubsub.NewGlobalPublisher("sse")
 
+	// init context for graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	// init and run queue
 	q := taskQueue.NewQueue(cfg.Download.ConcurrentJobs, pub)
 
-	go func() {
-		pwc, err := playwrightWrapper.UsePlaywright("chromium", !cfg.Dev.PlaywrightDebug, 0.0)
-		defer pwc.Close()
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		q.Run(pwc)
-	}()
+	// go func() {
+	// 	pwc, err := playwrightWrapper.UsePlaywright("chromium", !cfg.Dev.PlaywrightDebug, 0.0)
+	// 	defer pwc.Close()
+	//
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	//
+	// 	q.Run(pwc)
+	// }()
 
 	// init and run webserver
 	webserver := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, q)
 
 	go func() {
-		webserver.Start()
+		err := webserver.Start(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}()
 
 	// graceful shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
 	<-ctx.Done()
-	q.Quit <- nil
+
+	log.Println("---------- SESSION END ----------")
 }
