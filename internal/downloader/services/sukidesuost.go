@@ -26,7 +26,19 @@ func newSukidesuost(mediaID string) Service {
 }
 
 func (sdo *sukidesuost) OpenServicePage(ctx *playwright.BrowserContext) (playwright.Page, error) {
-	return nil, nil
+	p, err := (*ctx).NewPage()
+	if err != nil {
+		return nil, fmt.Errorf("could not create page: %v", err)
+	}
+
+	_, err = p.Goto(SDO_ALBUM_URL+sdo.urlSlug, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not open sukidesuost page: %v", err)
+	}
+
+	return p, nil
 }
 
 func (sdo *sukidesuost) CheckDMCA(p playwright.Page) (bool, error) {
