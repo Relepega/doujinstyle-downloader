@@ -1,6 +1,6 @@
 APP_NAME = doujinstyle-downloader
 APP_ENTRYPOINT = ./cmd/doujinstyle-downloader/main.go
-VERSION = 0.2.0-b1
+VERSION = 0.3.0-b1
 
 TAR_EXCLUDE = {'*.zip','*.sha256'}
 
