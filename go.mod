@@ -3,9 +3,9 @@ module github.com/relepega/doujinstyle-downloader-reloaded
 go 1.22.1
 
 require (
-	github.com/pelletier/go-toml/v2 v2.2.0
+	github.com/pelletier/go-toml/v2 v2.2.1
 	github.com/playwright-community/playwright-go v0.4201.1
-	golang.org/x/exp v0.0.0-20240404231335-c0f41cb1a7a0
+	golang.org/x/exp v0.0.0-20240409090435-93d18d7e34b8
 )
 
 require (
