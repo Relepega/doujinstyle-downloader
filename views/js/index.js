@@ -93,9 +93,12 @@ document.addEventListener("click", async function(evt) {
 document.querySelector("form > button").addEventListener("click", async function(e) {
     e.preventDefault()
 
-    const formData = new FormData(document.querySelector("form"))
+    const form = document.querySelector("form")
+
+    const formData = new FormData(form)
     await fetch("/api/task", {method: "POST", body: formData})
-    // await fetch("/send-message", {method: "POST"})
+
+    form.AlbumID.value = ""
 })
 
 // SSE things
