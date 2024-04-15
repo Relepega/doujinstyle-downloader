@@ -52,6 +52,7 @@ package from the AUR.
 3. Get the ID of the music you want to download from the page url and copy it
    (e.g: in this url `https://doujinstyle.com/?p=page&type=1&id=22816` the id is
    `22816`)
+    - As of v0.3.0, the downloader works even with a full URL.
 4. Paste the ID into the input field of the WebUI and press the "Add download
    task" button.
 5. Wait for the download to complete. After that, the box should be moved into
