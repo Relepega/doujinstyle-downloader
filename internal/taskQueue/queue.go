@@ -1,7 +1,9 @@
 package taskQueue
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
@@ -14,8 +16,6 @@ type Queue struct {
 	lock           sync.RWMutex
 	runningTasks   int8
 	maxConcurrency int8
-
-	Quit chan *int
 
 	pub *pubsub.Publisher
 }
@@ -30,8 +30,6 @@ func NewQueue(MaxConcurrency int8, publisher *pubsub.Publisher) *Queue {
 		tasks:          make([]Task, 0),
 		runningTasks:   0,
 		maxConcurrency: MaxConcurrency,
-
-		Quit: make(chan *int),
 
 		pub: publisher,
 	}
@@ -254,7 +252,7 @@ func (q *Queue) publishUIUpdate(evt string, data interface{}) {
 	})
 }
 
-func (q *Queue) Run(pwc *playwrightWrapper.PwContainer) {
+func (q *Queue) Run(ctx context.Context, pwc *playwrightWrapper.PwContainer) {
 	// open empty page so that the context won't close
 	emptyPage, _ := pwc.BrowserContext.NewPage()
 	defer emptyPage.Close()
@@ -264,9 +262,9 @@ func (q *Queue) Run(pwc *playwrightWrapper.PwContainer) {
 
 	for {
 		select {
-		case _ = <-q.Quit:
+		case <-ctx.Done():
 			// quit all the ongoing tasks and then return
-			_ = pwc.Close()
+			log.Println("Graceful queue shutdown complete.")
 			return
 
 		case evt := <-subscriber:

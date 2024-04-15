@@ -10,6 +10,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/configManager"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/logger"
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
 	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver"
@@ -59,19 +60,26 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
+	// init playwright
+	pwc, err := playwrightWrapper.UsePlaywright("chromium", !cfg.Dev.PlaywrightDebug, 0.0)
+	// defer pwc.Close()
+	defer func() {
+		err := pwc.Close()
+		if err != nil {
+			log.Fatalln("playwright close error: ", err)
+		}
+	}()
+
 	// init and run queue
 	q := taskQueue.NewQueue(cfg.Download.ConcurrentJobs, pub)
 
-	// go func() {
-	// 	pwc, err := playwrightWrapper.UsePlaywright("chromium", !cfg.Dev.PlaywrightDebug, 0.0)
-	// 	defer pwc.Close()
-	//
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	//
-	// 	q.Run(pwc)
-	// }()
+	go func() {
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		q.Run(ctx, pwc)
+	}()
 
 	// init and run webserver
 	webserver := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, q)

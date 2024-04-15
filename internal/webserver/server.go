@@ -129,7 +129,7 @@ func (ws *webserver) Start(ctx context.Context) error {
 			return fmt.Errorf("HTTP shutdown error: %v", err)
 		}
 
-		log.Println("Graceful shutdown complete.")
+		log.Println("Graceful webserver shutdown complete.")
 		return nil
 	}
 }
