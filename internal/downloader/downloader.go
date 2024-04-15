@@ -45,7 +45,7 @@ func Download(serviceName, albumID string, progress *int8, pwc *playwrightWrappe
 	}
 
 	if isDMCA {
-		return fmt.Errorf("Doujinstyle: %s", services.SERVICE_ERROR_404)
+		return fmt.Errorf("%s: %s", serviceName, services.SERVICE_ERROR_404)
 	}
 
 	mediaName, err := service.EvaluateFilename(servicePage)
