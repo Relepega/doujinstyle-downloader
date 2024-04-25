@@ -11,6 +11,7 @@ import (
 
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEEvents"
+	ssehub "github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEHub"
 	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/templates"
 )
 
@@ -23,7 +24,8 @@ type webserver struct {
 	address string
 	port    uint16
 
-	httpServer *http.Server
+	httpServer  *http.Server
+	connections ssehub.ConnectionsHub
 
 	templates *templates.Templates
 

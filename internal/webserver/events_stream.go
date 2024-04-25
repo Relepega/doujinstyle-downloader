@@ -1,22 +1,32 @@
 package webserver
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 )
 
 func (ws *webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
-	WriteDefaultHeaders(w)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	client := ws.connections.AddClient(w)
+	log.Println("New client connected")
 
 	for {
 		select {
 		case msg := <-ws.msgChan:
 			s := msg.String()
 
-			fmt.Fprintf(w, s)
-			w.(http.Flusher).Flush()
+			// fmt.Fprintf(w, s)
+			// w.(http.Flusher).Flush()
+			ws.connections.Broadcast(s)
 
 		case <-r.Context().Done():
+			ws.connections.Removeclient(client)
+			log.Println("Client disconnected")
 			return
 
 		default:
