@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
@@ -82,28 +83,30 @@ func StartWebserver() {
 	})
 
 	taskGroup.POST("/add", func(c echo.Context) error {
-		albumID := c.FormValue("AlbumID")
 		sNumberStr := c.FormValue("ServiceNumber")
+		albumIDList := strings.Split(c.FormValue("AlbumID"), ";")
 
-		sNumberInt, err := strconv.Atoi(sNumberStr)
-		if err != nil {
-			return c.String(
-				http.StatusInternalServerError,
-				err.Error(),
-			)
+		for _, albumID := range albumIDList {
+
+			sNumberInt, err := strconv.Atoi(sNumberStr)
+			if err != nil {
+				return c.String(
+					http.StatusInternalServerError,
+					err.Error(),
+				)
+			}
+
+			t := taskQueue.NewTask(albumID, sNumberInt)
+
+			if q.IsInList(t) {
+				return c.String(
+					http.StatusInternalServerError,
+					"AlbumID already processed or in queue.",
+				)
+			}
+
+			q.AddTask(t)
 		}
-
-		t := taskQueue.NewTask(albumID, sNumberInt)
-
-		if q.IsInList(t) {
-			return c.String(
-				http.StatusInternalServerError,
-				"AlbumID already processed or in queue.",
-			)
-		}
-
-		q.AddTask(t)
-
 		return c.Render(http.StatusOK, "tasks", q.NewQueueFree())
 	})
 
