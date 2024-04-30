@@ -15,8 +15,7 @@ func CreateFolder(fname string) error {
 	if _, err := os.Stat(fname); os.IsNotExist(err) {
 		err = os.MkdirAll(fname, 0755)
 		if err != nil {
-			fmt.Println("Error creating folder:", err)
-			return err
+			return fmt.Errorf("Error creating folder: %v", err)
 		}
 	}
 
@@ -48,7 +47,7 @@ func DirectoryExists(path string) (bool, error) {
 	return false, err
 }
 
-func DownloadFile(fp string, url string, progress *int8) (err error) {
+func DownloadFile(fp string, url string, progress *int8, callback func(p int8)) (err error) {
 	// write to a temp file first to avoid incomplete downloads
 	tempf, err := os.CreateTemp("", "doujinstyleDownloader-")
 	if err != nil {
@@ -96,7 +95,14 @@ func DownloadFile(fp string, url string, progress *int8) (err error) {
 		currentSize += int64(n)
 
 		// Calculate and update the progress
-		*progress = int8((float64(currentSize) / float64(totalSize)) * 100)
+		currentProgress := int8((float64(currentSize) / float64(totalSize)) * 100)
+		if progress != nil {
+			*progress = currentProgress
+		}
+
+		if callback != nil {
+			callback(currentProgress)
+		}
 
 		// Write the chunk to the temp file
 		_, err := tempf.Write(buf[:n])
@@ -191,4 +197,11 @@ func ParseJson[T any](url string, data *T) error {
 	}
 
 	return nil
+}
+
+func CleanString(s string) string {
+	trimmed := strings.TrimSpace(s)
+	clean := strings.ReplaceAll(trimmed, "\n", "")
+
+	return clean
 }

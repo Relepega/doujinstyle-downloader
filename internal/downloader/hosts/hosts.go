@@ -2,38 +2,43 @@ package hosts
 
 import (
 	"fmt"
+	"log"
+	"net/url"
 	"strings"
 
 	"github.com/playwright-community/playwright-go"
 )
 
-// this probably is the better solution...
+type HostFactory func(p playwright.Page, albumID, albumName, downloadPath string, progress *int8) Host
+
 type Host interface {
-	Download(filename string) error
-	evaluateFileExtension() (string, error)
-	evaluateFilename() (string, error)
-	isFileAvailable() (bool, error)
-	waitForPageLoad() error
+	Download() error
 }
 
-// ...but for now we do the ugly thing
-type HostFunc (func(albumName string, dlPage playwright.Page, progress *int8) error)
+const DEFAULT_DOWNLOAD_ERR = "Not an handled download url"
 
-const DEFAULT_DOWNLOAD_ERR = "Not an handled download url: "
+func NewHost(pageUrl string) (HostFactory, error) {
+	urlObject, err := url.Parse(pageUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-func Switch(url string) (HostFunc, error) {
-	hostname := strings.Split(url, "/")[2]
+	hostname := strings.TrimPrefix(urlObject.Hostname(), "www.")
 
 	switch hostname {
-	case "www.mediafire.com":
-		return Mediafire, nil
+	case "mediafire.com":
+		return newMediafire, nil
+
 	case "mega.nz":
-		return Mega, nil
+		return newMega, nil
+
 	case "drive.google.com":
-		return GDrive, nil
-	case "www.jottacloud.com":
-		return Jottacloud, nil
+		return newGDrive, nil
+
+	case "jottacloud.com":
+		return newJottacloud, nil
+
 	default:
-		return nil, fmt.Errorf(DEFAULT_DOWNLOAD_ERR + url)
+		return nil, fmt.Errorf("%s: %s", DEFAULT_DOWNLOAD_ERR, hostname)
 	}
 }

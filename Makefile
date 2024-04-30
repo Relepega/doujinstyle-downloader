@@ -1,6 +1,6 @@
 APP_NAME = doujinstyle-downloader
-APP_ENTRYPOINT = ./cmd/doujinstyle-downloader/doujinstyle-downloader.go
-VERSION = 0.2.0-b1
+APP_ENTRYPOINT = ./cmd/doujinstyle-downloader/main.go
+VERSION = 0.3.0-b1
 
 TAR_EXCLUDE = {'*.zip','*.sha256'}
 
@@ -42,10 +42,12 @@ build:
 debug:
 	air
 
-
 run:
 	go run $(APP_ENTRYPOINT)
 
 update-deps:
 	go get -t -u ./...
 	go mod tidy
+
+generate-changelog: 
+	git-chglog -o CHANGELOG.md

@@ -1,0 +1,33 @@
+{{ block "index" . }}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Doujinstyle Downloader</title>
+        <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script>
+        <link href="/css/style.css" rel="stylesheet">
+    </head>
+    <body>
+        <form>
+            <input name="AlbumID" value="" placeholder="Insert the albumID here" required>
+
+            <label for="ServiceNumber">Select a service to download from:</label>
+            <select id="ServiceNumber" name="ServiceNumber">
+                <option value="doujinstyle">Doujinstyle</option>
+                <option value="sukidesuost">SukiDesuOst</option>
+
+            </select>
+
+            <button type="submit" value="submit">
+                Add download task
+            </button>
+        </form>
+
+        <div id="tasks-controls-control">
+            {{ template "task_controls" . }}
+        </div>
+    </body>
+    <script type="module" src="/js/index.js"></script>
+</html>
+{{ end }}

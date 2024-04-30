@@ -1,0 +1,32 @@
+{{ block "task" . }}
+<div 
+    id="{{ .AlbumID }}"
+    class='download-queue-element {{ if .Done }} {{ if .Error }} failure {{ else }} success {{ end }} {{ end }}'
+>
+    {{ template "task-content" .}}
+</div>
+{{ end }}
+
+{{ block "task-content" . }}
+    {{ if eq .Active false }}
+        <div class="btn delete" id="task-ctrl-remove-task" data-id="{{ .AlbumID }}">X</div>
+    {{ end }}
+
+    <p>
+        {{ .AlbumID }} 
+        {{ if and (eq .Active true) (gt .DownloadProgress -1) }}
+            (Downloading... {{ .DownloadProgress }}&percnt;)
+        {{ end }}
+    </p>
+
+    {{ if .Error }}
+        <div class="err">
+            <h4>An error occurred:</h4>
+            <p id="{{ .AlbumID }}-error">{{ .Error }}</p>
+            <div class="err-btns">
+                <div class="btn err-btn copy-error" id="task-ctrl-copy-error" data-id="{{ .AlbumID }}">Copy Error</div>
+                <div class="btn err-btn retry" id="task-ctrl-retry" data-id="{{ .AlbumID }}">Download Again</div>
+            </div>
+        </div>
+    {{ end }}
+{{ end }}

@@ -5,12 +5,35 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
-	"github.com/relepega/doujinstyle-downloader/internal/configManager"
-
 	"github.com/playwright-community/playwright-go"
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
+	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
+	tq_eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/tq_event_broker"
 )
 
+type gdrive struct {
+	Host
+
+	page playwright.Page
+
+	albumID   string
+	albumName string
+
+	dlPath     string
+	dlProgress *int8
+}
+
+func newGDrive(p playwright.Page, albumID, albumName, downloadPath string, progress *int8) Host {
+	return &gdrive{
+		page: p,
+
+		albumID:   albumID,
+		albumName: albumName,
+
+		dlPath:     downloadPath,
+		dlProgress: progress,
+	}
+}
 func querySelectorVal(p playwright.Page, eval string) (string, error) {
 	valInterface, err := p.Evaluate(eval)
 	if err != nil {
@@ -58,19 +81,17 @@ func craftDirectDownloadLink(p playwright.Page) (string, error) {
 	return url, nil
 }
 
-func GDrive(albumName string, dlPage playwright.Page, progress *int8) error {
-	defer dlPage.Close()
+func (gd *gdrive) Download() error {
+	pageUrl := gd.page.URL()
 
-	pageUrl := dlPage.URL()
-
-	_, err := dlPage.Goto(
+	_, err := gd.page.Goto(
 		"https://drive.google.com/u/0/uc?id=" + strings.Split(pageUrl, "/")[5] + "&export=download",
 	)
 	if err != nil {
 		return err
 	}
 
-	res, err := dlPage.Evaluate(
+	res, err := gd.page.Evaluate(
 		"document.querySelector('a').innerText.split('.').toReversed()[0]",
 	)
 	if err != nil {
@@ -79,31 +100,39 @@ func GDrive(albumName string, dlPage playwright.Page, progress *int8) error {
 
 	extension := fmt.Sprintf(".%v", res)
 
-	appConfig, err := configManager.NewConfig()
-	if err != nil {
-		return err
-	}
-	DOWNLOAD_ROOT := appConfig.Download.Directory
-
-	fp := filepath.Join(DOWNLOAD_ROOT, albumName+extension)
+	fp := filepath.Join(gd.dlPath, gd.albumName+extension)
 	fileExists, _ := appUtils.FileExists(fp)
 	if fileExists {
 		return nil
 	}
 
-	err = dlPage.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
+	err = gd.page.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
 		State: playwright.LoadStateDomcontentloaded,
 	})
 	if err != nil {
 		return err
 	}
 
-	dlUrl, err := craftDirectDownloadLink(dlPage)
+	dlUrl, err := craftDirectDownloadLink(gd.page)
 	if err != nil {
 		return err
 	}
 
-	err = appUtils.DownloadFile(fp, dlUrl, progress)
+	err = appUtils.DownloadFile(
+		fp,
+		dlUrl,
+		gd.dlProgress,
+		func(p int8) {
+			pub, _ := pubsub.GetGlobalPublisher("queue")
+			pub.Publish(&pubsub.PublishEvent{
+				EvtType: "update-task-progress",
+				Data: &tq_eventbroker.UpdateTaskProgress{
+					Id:       gd.albumID,
+					Progress: p,
+				},
+			})
+		},
+	)
 	if err != nil {
 		return err
 	}

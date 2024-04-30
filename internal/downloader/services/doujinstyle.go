@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	"github.com/playwright-community/playwright-go"
-	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
-	"github.com/relepega/doujinstyle-downloader/internal/downloader/hosts"
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
 )
 
 const (
@@ -17,90 +16,50 @@ const (
 
 type doujinstyle struct {
 	Service
-	albumID  string
-	bw       *playwright.Browser
-	progress *int8
+
+	mediaID string
 }
 
-func (d *doujinstyle) checkDMCA(p *playwright.Page) (bool, error) {
-	valInterface, _ := (*p).Evaluate(
+func newDoujinstyle(mediaID string) Service {
+	return &doujinstyle{
+		mediaID: mediaID,
+	}
+}
+
+func (d *doujinstyle) OpenServicePage(ctx *playwright.BrowserContext) (playwright.Page, error) {
+	p, err := (*ctx).NewPage()
+	if err != nil {
+		return nil, fmt.Errorf("could not create page: %v", err)
+	}
+
+	_, err = p.Goto(DOUJINSTYLE_ALBUM_URL+d.mediaID, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not open doujinstyle page: %v", err)
+	}
+
+	return p, nil
+}
+
+func (d *doujinstyle) CheckDMCA(p playwright.Page) (bool, error) {
+	valInterface, err := p.Evaluate(
 		"() => document.querySelector('h3').innerText == 'Insufficient information to display content.'",
 	)
-	valBool, _ := valInterface.(bool)
+	if err != nil {
+		return false, fmt.Errorf("Could not evaluate selector: %v", err)
+	}
+
+	valBool, ok := valInterface.(bool)
+	if !ok {
+		return false, fmt.Errorf("Could not convert value: %v", err)
+	}
 
 	if valBool {
 		return true, nil
 	}
 
 	return false, nil
-}
-
-func (d *doujinstyle) Process() error {
-	ctx, err := (*d.bw).NewContext()
-	if err != nil {
-		return err
-	}
-	defer ctx.Close()
-
-	page, err := ctx.NewPage()
-	if err != nil {
-		return err
-	}
-	defer page.Close()
-
-	_, err = page.Goto(DOUJINSTYLE_ALBUM_URL+d.albumID, playwright.PageGotoOptions{
-		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-	})
-	if err != nil {
-		return err
-	}
-
-	isDMCA, err := d.checkDMCA(&page)
-	if err != nil {
-		return err
-	}
-	if isDMCA {
-		return fmt.Errorf("Doujinstyle: %s", SERVICE_ERROR_404)
-	}
-
-	albumName, err := d.evaluateFilename(page)
-	if err != nil {
-		return err
-	}
-
-	dlPage, err := ctx.ExpectPage(func() error {
-		_, err := page.Evaluate("document.querySelector('#downloadForm').click()")
-		return err
-	})
-	if err != nil {
-		return err
-	}
-
-	err = dlPage.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
-		State: playwright.LoadStateDomcontentloaded,
-	})
-	if err != nil {
-		runBeforeUnloadOpt := true
-
-		pageCloseOptions := playwright.PageCloseOptions{
-			RunBeforeUnload: &runBeforeUnloadOpt,
-		}
-
-		dlPage.Close(pageCloseOptions)
-
-		return fmt.Errorf(DEFAULT_PAGE_NOT_LOADED_ERR)
-	}
-
-	dlPageUrl := dlPage.URL()
-
-	hostDownloader, err := hosts.Switch(dlPageUrl)
-	if err != nil {
-		return err
-	}
-
-	err = hostDownloader(albumName, dlPage, d.progress)
-
-	return err
 }
 
 func (d *doujinstyle) getExhibitions(strVal string) string {
@@ -124,7 +83,7 @@ func (d *doujinstyle) getExhibitions(strVal string) string {
 	return fullStr
 }
 
-func (d *doujinstyle) evaluateFilename(page playwright.Page) (string, error) {
+func (d *doujinstyle) EvaluateFilename(page playwright.Page) (string, error) {
 	album, err := page.Evaluate("document.querySelector('h2').innerText")
 	if err != nil {
 		return "", err
@@ -153,4 +112,23 @@ func (d *doujinstyle) evaluateFilename(page playwright.Page) (string, error) {
 	event := d.getExhibitions(strVal)
 
 	return appUtils.SanitizePath(fmt.Sprintf("%s — %s%s [%s]", artist, album, event, format)), nil
+}
+
+func (d *doujinstyle) OpenDownloadPage(p playwright.Page) (playwright.Page, error) {
+	dlPage, err := p.Context().ExpectPage(func() error {
+		_, err := p.Evaluate("document.querySelector('#downloadForm').click()")
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = dlPage.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
+		State: playwright.LoadStateDomcontentloaded,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %v", DEFAULT_PAGE_NOT_LOADED_ERR, err)
+	}
+
+	return dlPage, nil
 }

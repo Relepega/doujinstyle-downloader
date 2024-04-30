@@ -3,7 +3,7 @@ package playwrightWrapper
 import (
 	"fmt"
 
-	"github.com/relepega/doujinstyle-downloader/internal/configManager"
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/configManager"
 
 	"github.com/playwright-community/playwright-go"
 )
@@ -25,7 +25,7 @@ func WithBrowserType(opts ...string) string {
 }
 
 func WithHeadless(opts ...bool) bool {
-	appConfig, _ := configManager.NewConfig()
+	appConfig := configManager.NewConfig()
 	playwrightDebug := appConfig.Dev.PlaywrightDebug
 
 	// fmt.Printf("Playwright dbg: %v\n", playwrightDebug)
@@ -54,7 +54,7 @@ func UsePlaywright(
 	headless bool,
 	timeout float64,
 ) (*PwContainer, error) {
-	HandleInterrupts := false
+	HandleInterrupts := true
 
 	pw, err := playwright.Run()
 	if err != nil {
@@ -100,21 +100,6 @@ func UsePlaywright(
 }
 
 func (pwc *PwContainer) Close() error {
-	contexts := pwc.Browser.Contexts()
-
-	for i := 0; i < len(contexts); i++ {
-		pages := contexts[i].Pages()
-
-		for j := 0; j < len(pages); j++ {
-			_ = pages[j].Close()
-		}
-
-		err := contexts[i].Close()
-		if err != nil {
-			return fmt.Errorf("playwright context error: %v", err)
-		}
-	}
-
 	err := pwc.Browser.Close()
 	if err != nil {
 		return fmt.Errorf("playwright browser error: %v", err)

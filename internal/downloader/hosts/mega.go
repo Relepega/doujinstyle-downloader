@@ -7,17 +7,39 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
-	"github.com/relepega/doujinstyle-downloader/internal/configManager"
-
 	"github.com/playwright-community/playwright-go"
+	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
+	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
+	tq_eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/tq_event_broker"
 )
 
-func Mega(albumName string, dlPage playwright.Page, progress *int8) error {
-	defer dlPage.Close()
+type mega struct {
+	Host
 
+	page playwright.Page
+
+	albumID   string
+	albumName string
+
+	dlPath     string
+	dlProgress *int8
+}
+
+func newMega(p playwright.Page, albumID, albumName, downloadPath string, progress *int8) Host {
+	return &mega{
+		page: p,
+
+		albumID:   albumID,
+		albumName: albumName,
+
+		dlPath:     downloadPath,
+		dlProgress: progress,
+	}
+}
+
+func (m *mega) Download() error {
 	for {
-		val, _ := dlPage.Evaluate(
+		val, _ := m.page.Evaluate(
 			"() => document.querySelector('#loading').classList.contains('hidden')",
 		)
 
@@ -31,7 +53,7 @@ func Mega(albumName string, dlPage playwright.Page, progress *int8) error {
 		// }
 
 		// empty folder
-		val, err := dlPage.Evaluate(
+		val, err := m.page.Evaluate(
 			"document.querySelectorAll('.fm-empty-cloud-txt')[2].innerText",
 		)
 		if err != nil && val != nil {
@@ -41,27 +63,21 @@ func Mega(albumName string, dlPage playwright.Page, progress *int8) error {
 		time.Sleep(time.Second * 5)
 	}
 
-	ext, err := dlPage.Evaluate("document.querySelector('.extension').innerText")
+	ext, err := m.page.Evaluate("document.querySelector('.extension').innerText")
 	if err != nil {
 		ext = ".zip"
 	}
 	extension := fmt.Sprintf("%v", ext)
 
-	appConfig, err := configManager.NewConfig()
-	if err != nil {
-		return err
-	}
-	DOWNLOAD_ROOT := appConfig.Download.Directory
-
-	fp := filepath.Join(DOWNLOAD_ROOT, albumName+extension)
+	fp := filepath.Join(m.dlPath, m.albumName+extension)
 	fileExists, _ := appUtils.FileExists(fp)
 	if fileExists {
 		return nil
 	}
 
 	timeout := 0.0
-	downloadHandler, err := dlPage.ExpectDownload(func() error {
-		_, err := dlPage.Evaluate(`() => {
+	downloadHandler, err := m.page.ExpectDownload(func() error {
+		_, err := m.page.Evaluate(`() => {
 			const selectors = ['.js-default-download', '.fm-download-as-zip']
 			selectors.forEach(sel => {
 				let el = document.querySelector(sel)
@@ -72,12 +88,12 @@ func Mega(albumName string, dlPage playwright.Page, progress *int8) error {
 			})
 		}`)
 
-		errorDiv := dlPage.Locator(".default-warning > .txt")
+		errorDiv := m.page.Locator(".default-warning > .txt")
 
 		re := regexp.MustCompile(`\d`)
 
 		for {
-			val, _ := dlPage.Evaluate(
+			val, _ := m.page.Evaluate(
 				"() => document.querySelector('.transfer-task-status').innerText",
 			)
 
@@ -94,7 +110,7 @@ func Mega(albumName string, dlPage playwright.Page, progress *int8) error {
 			}
 
 			// Empty folder
-			msg, _ := dlPage.Evaluate(
+			msg, _ := m.page.Evaluate(
 				"document.querySelector('.mega-dialog.warning > header > .info-container > .text').innerText",
 			)
 			msgVal, _ := msg.(string)
@@ -103,7 +119,7 @@ func Mega(albumName string, dlPage playwright.Page, progress *int8) error {
 			}
 
 			// Folder too big to download within the browser
-			msg, _ = dlPage.Evaluate(
+			msg, _ = m.page.Evaluate(
 				"document.querySelector('.mega-dialog.confirmation > header > .info-container > #msgDialog-title').innerText",
 			)
 			msgVal, _ = msg.(string)
@@ -111,14 +127,24 @@ func Mega(albumName string, dlPage playwright.Page, progress *int8) error {
 				return fmt.Errorf("Mega: %s", msgVal)
 			}
 
+			pub, _ := pubsub.GetGlobalPublisher("queue")
+
 			// get download percentage
-			pageTitle, _ := dlPage.Evaluate("document.title")
+			pageTitle, _ := m.page.Evaluate("document.title")
 			pageTitleStr, ok := pageTitle.(string)
 			if ok {
 				match := re.FindString(pageTitleStr)
 				conv, err := strconv.ParseInt(match, 10, 8)
 				if err == nil {
-					*progress = int8(conv)
+					*m.dlProgress = int8(conv)
+
+					pub.Publish(&pubsub.PublishEvent{
+						EvtType: "update-task-progress",
+						Data: &tq_eventbroker.UpdateTaskProgress{
+							Id:       m.albumID,
+							Progress: *m.dlProgress,
+						},
+					})
 				}
 			}
 
@@ -133,7 +159,7 @@ func Mega(albumName string, dlPage playwright.Page, progress *int8) error {
 		return err
 	}
 
-	err = dlPage.Close()
+	err = m.page.Close()
 	if err != nil {
 		return err
 	}

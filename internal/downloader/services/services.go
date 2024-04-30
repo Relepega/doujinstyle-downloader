@@ -1,35 +1,29 @@
 package services
 
-import "github.com/playwright-community/playwright-go"
+import (
+	"fmt"
+
+	"github.com/playwright-community/playwright-go"
+)
 
 type Service interface {
-	checkDMCA(p *playwright.Page) (bool, error)
-	evaluateFilename(p playwright.Page) (string, error)
-	Process() error
+	OpenServicePage(ctx *playwright.BrowserContext) (playwright.Page, error)
+	CheckDMCA(p playwright.Page) (bool, error)
+	EvaluateFilename(p playwright.Page) (string, error)
+	OpenDownloadPage(servicePage playwright.Page) (playwright.Page, error)
 }
 
 const SERVICE_ERROR_404 = "Error 404, page not found"
 
-func NewService(
-	serviceNumber int,
-	urlSlug string,
-	bw *playwright.Browser,
-	progress *int8,
-) Service {
-	switch serviceNumber {
-	case 0:
-		return &doujinstyle{
-			albumID:  urlSlug,
-			bw:       bw,
-			progress: progress,
-		}
-	case 1:
-		return &sukiDesuOst{
-			urlSlug:  urlSlug,
-			bw:       bw,
-			progress: progress,
-		}
+func NewService(service string, mediaID string) (Service, error) {
+	switch service {
+	case "doujinstyle":
+		return newDoujinstyle(mediaID), nil
+
+	case "sukidesuost":
+		return newSukidesuost(mediaID), nil
+
 	default:
-		return nil
+		return nil, fmt.Errorf("unknown service")
 	}
 }
