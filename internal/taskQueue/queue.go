@@ -6,9 +6,9 @@ import (
 	"log"
 	"sync"
 
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
-	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
-	tq_eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/tq_event_broker"
+	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
+	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
+	tq_eventbroker "github.com/relepega/doujinstyle-downloader/internal/taskQueue/tq_event_broker"
 )
 
 type Queue struct {

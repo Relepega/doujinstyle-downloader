@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/playwright-community/playwright-go"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
-	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
-	tq_eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/tq_event_broker"
+
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
+	tq_eventbroker "github.com/relepega/doujinstyle-downloader/internal/taskQueue/tq_event_broker"
 )
 
 type mega struct {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 )
 
 type SSEMessage struct {
@@ -70,7 +70,11 @@ type UIRenderEvent struct {
 	Position     UIRenderPosition `json:"position"`     // Position to where append content. Read: https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML
 }
 
-func NewUIRenderEvent(event UIEvent, targetNodeID, receiverNodeSelector, newContent string, position UIRenderPosition) *UIRenderEvent {
+func NewUIRenderEvent(
+	event UIEvent,
+	targetNodeID, receiverNodeSelector, newContent string,
+	position UIRenderPosition,
+) *UIRenderEvent {
 	return &UIRenderEvent{
 		Event:        event,
 		TargetNode:   targetNodeID,
@@ -84,7 +88,6 @@ func (m *UIRenderEvent) String() (string, error) {
 	data, err := json.Marshal(m)
 	if err != nil {
 		return "", err
-
 	}
 
 	// str := "{\"event\":\"replace-node\",\"targetNode\":\"65535\",\"receiverNode\":\"#content\",\"newNode\":\"\"}"

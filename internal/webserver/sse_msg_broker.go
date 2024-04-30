@@ -3,10 +3,10 @@ package webserver
 import (
 	"log"
 
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
-	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEEvents"
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
+	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
+	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
 )
 
 type SSEMsgBrokerEvt string
@@ -39,7 +39,8 @@ func (ws *webserver) SSEMsgBroker() {
 
 				// fmt.Println("activated task", t)
 				nodeId := msg.Data.(*taskQueue.Task).AlbumID
-				s, _ := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNode, nodeId, "#active", t, SSEEvents.BeforeEnd).String()
+				s, _ := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNode, nodeId, "#active", t, SSEEvents.BeforeEnd).
+					String()
 
 				ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node", s)
 
@@ -48,7 +49,8 @@ func (ws *webserver) SSEMsgBroker() {
 				// fmt.Println("re-rendered task: ", t)
 
 				nodeId := msg.Data.(*taskQueue.Task).AlbumID
-				s, err := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNode, nodeId, "#ended", t, SSEEvents.AfterBegin).String()
+				s, err := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNode, nodeId, "#ended", t, SSEEvents.AfterBegin).
+					String()
 				if err != nil {
 					ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
 					log.Println(err)
@@ -69,7 +71,8 @@ func (ws *webserver) SSEMsgBroker() {
 				// fmt.Println("re-rendered task: ", t)
 
 				nodeId := msg.Data.(*taskQueue.Task).AlbumID
-				s, err := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, nodeId, nodeId, t, SSEEvents.AfterBegin).String()
+				s, err := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, nodeId, nodeId, t, SSEEvents.AfterBegin).
+					String()
 				if err != nil {
 					ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
 					log.Println(err)

@@ -1,8 +1,8 @@
 package taskQueue
 
 import (
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/downloader"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
+	"github.com/relepega/doujinstyle-downloader/internal/downloader"
+	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 )
 
 type Task struct {

@@ -7,15 +7,15 @@ import (
 	"os/signal"
 	"path/filepath"
 
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/configManager"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/logger"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/playwrightWrapper"
-	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver"
-
 	"github.com/playwright-community/playwright-go"
+
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+	"github.com/relepega/doujinstyle-downloader/internal/configManager"
+	"github.com/relepega/doujinstyle-downloader/internal/logger"
+	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
+	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
+	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
+	"github.com/relepega/doujinstyle-downloader/internal/webserver"
 )
 
 func main() {

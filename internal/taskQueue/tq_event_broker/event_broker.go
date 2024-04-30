@@ -1,7 +1,7 @@
 package tq_eventbroker
 
 import (
-	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
+	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
 )
 
 type UpdateTaskProgress struct {

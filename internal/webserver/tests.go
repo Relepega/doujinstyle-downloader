@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEEvents"
+	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
 )
 
 func (ws *webserver) handleHello(w http.ResponseWriter, r *http.Request) {

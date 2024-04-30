@@ -1,4 +1,4 @@
-module github.com/relepega/doujinstyle-downloader-reloaded
+module github.com/relepega/doujinstyle-downloader
 
 go 1.22.1
 

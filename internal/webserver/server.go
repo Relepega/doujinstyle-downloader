@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEEvents"
-	ssehub "github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEHub"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/templates"
+	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
+	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
+	ssehub "github.com/relepega/doujinstyle-downloader/internal/webserver/SSEHub"
+	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
 )
 
 const (
@@ -135,3 +135,4 @@ func (ws *webserver) Start(ctx context.Context) error {
 		return nil
 	}
 }
+

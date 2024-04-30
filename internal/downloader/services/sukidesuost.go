@@ -5,7 +5,8 @@ import (
 	"strings"
 
 	"github.com/playwright-community/playwright-go"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
+
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 )
 
 const (

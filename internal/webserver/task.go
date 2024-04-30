@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/webserver/SSEEvents"
+	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
+	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
 )
 
 type TaskEvent struct {
@@ -105,7 +105,13 @@ func (ws *webserver) handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		renderEvt := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, "", "queued", t, SSEEvents.AfterBegin)
+		renderEvt := SSEEvents.NewUIRenderEvent(
+			SSEEvents.ReplaceNodeContent,
+			"",
+			"queued",
+			t,
+			SSEEvents.AfterBegin,
+		)
 		val, err := renderEvt.String()
 		if err != nil {
 			ws.handleError(w, err)
@@ -123,7 +129,13 @@ func (ws *webserver) handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		renderEvt := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, "", "ended", t, SSEEvents.AfterBegin)
+		renderEvt := SSEEvents.NewUIRenderEvent(
+			SSEEvents.ReplaceNodeContent,
+			"",
+			"ended",
+			t,
+			SSEEvents.AfterBegin,
+		)
 		val, err := renderEvt.String()
 		if err != nil {
 			ws.handleError(w, err)
@@ -141,7 +153,13 @@ func (ws *webserver) handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		renderEvt := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, "", "ended", t, SSEEvents.AfterBegin)
+		renderEvt := SSEEvents.NewUIRenderEvent(
+			SSEEvents.ReplaceNodeContent,
+			"",
+			"ended",
+			t,
+			SSEEvents.AfterBegin,
+		)
 		val, err := renderEvt.String()
 		if err != nil {
 			ws.handleError(w, err)
@@ -159,7 +177,13 @@ func (ws *webserver) handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		renderEvt := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, "", "ended", t, SSEEvents.AfterBegin)
+		renderEvt := SSEEvents.NewUIRenderEvent(
+			SSEEvents.ReplaceNodeContent,
+			"",
+			"ended",
+			t,
+			SSEEvents.AfterBegin,
+		)
 		val, err := renderEvt.String()
 		if err != nil {
 			ws.handleError(w, err)
@@ -178,7 +202,13 @@ func (ws *webserver) handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		renderEvt := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNodeContent, "", "tasks-controls", t, SSEEvents.AfterBegin)
+		renderEvt := SSEEvents.NewUIRenderEvent(
+			SSEEvents.ReplaceNodeContent,
+			"",
+			"tasks-controls",
+			t,
+			SSEEvents.AfterBegin,
+		)
 		val, err := renderEvt.String()
 		if err != nil {
 			ws.handleError(w, err)
@@ -213,7 +243,13 @@ func (ws *webserver) handleTaskRetry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	renderEvt := SSEEvents.NewUIRenderEvent(SSEEvents.ReplaceNode, albumID, "#queued", t, SSEEvents.AfterBegin)
+	renderEvt := SSEEvents.NewUIRenderEvent(
+		SSEEvents.ReplaceNode,
+		albumID,
+		"#queued",
+		t,
+		SSEEvents.AfterBegin,
+	)
 	val, err := renderEvt.String()
 	if err != nil {
 		ws.handleError(w, err)

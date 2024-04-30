@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/playwright-community/playwright-go"
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/appUtils"
-	pubsub "github.com/relepega/doujinstyle-downloader-reloaded/internal/pubSub"
-	tq_eventbroker "github.com/relepega/doujinstyle-downloader-reloaded/internal/taskQueue/tq_event_broker"
+
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
+	tq_eventbroker "github.com/relepega/doujinstyle-downloader/internal/taskQueue/tq_event_broker"
 )
 
 type mediafire struct {
@@ -66,11 +67,17 @@ func (m *mediafire) getFolderKey(url string) string {
 	return folderkey
 }
 
-func (m *mediafire) fetchFolderContent(folderKey string, dir string) ([]*mediafire_file_data, error) {
+func (m *mediafire) fetchFolderContent(
+	folderKey string,
+	dir string,
+) ([]*mediafire_file_data, error) {
 	fd := []*mediafire_file_data{}
 
 	// parse folders json
-	url := fmt.Sprintf("https://www.mediafire.com/api/1.5/folder/get_content.php?content_type=folders&version=1.5&folder_key=%s&response_format=json", folderKey)
+	url := fmt.Sprintf(
+		"https://www.mediafire.com/api/1.5/folder/get_content.php?content_type=folders&version=1.5&folder_key=%s&response_format=json",
+		folderKey,
+	)
 
 	var foldersData MediafireFolderContent
 	err := appUtils.ParseJson[MediafireFolderContent](url, &foldersData)
@@ -82,7 +89,10 @@ func (m *mediafire) fetchFolderContent(folderKey string, dir string) ([]*mediafi
 	}
 
 	// parse files json
-	url = fmt.Sprintf("https://www.mediafire.com/api/1.5/folder/get_content.php?content_type=files&version=1.5&folder_key=%s&response_format=json", folderKey)
+	url = fmt.Sprintf(
+		"https://www.mediafire.com/api/1.5/folder/get_content.php?content_type=files&version=1.5&folder_key=%s&response_format=json",
+		folderKey,
+	)
 
 	var filesData MediafireFolderContent
 	err = appUtils.ParseJson[MediafireFolderContent](url, &filesData)
@@ -128,10 +138,13 @@ func (m *mediafire) fetchFolderContent(folderKey string, dir string) ([]*mediafi
 	}
 
 	return fd, nil
-
 }
 
-func (m *mediafire) downloadSingleFile(filename string, dlPage playwright.Page, progress *int8) error {
+func (m *mediafire) downloadSingleFile(
+	filename string,
+	dlPage playwright.Page,
+	progress *int8,
+) error {
 	for {
 		res, err := dlPage.Evaluate(
 			"() => document.querySelector(\".DownloadStatus.DownloadStatus--uploading\")",

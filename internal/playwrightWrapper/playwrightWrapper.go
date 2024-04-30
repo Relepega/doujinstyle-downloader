@@ -3,9 +3,9 @@ package playwrightWrapper
 import (
 	"fmt"
 
-	"github.com/relepega/doujinstyle-downloader-reloaded/internal/configManager"
-
 	"github.com/playwright-community/playwright-go"
+
+	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 )
 
 type PwContainer struct {
