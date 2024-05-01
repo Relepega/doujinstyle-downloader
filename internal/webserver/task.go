@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
@@ -25,12 +26,15 @@ func (ws *webserver) handleError(w http.ResponseWriter, err error) {
 }
 
 func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
-	albumID := r.FormValue("AlbumID")
+	newAlbumsFromFormValue := r.FormValue("AlbumID")
 	service := r.FormValue("ServiceNumber")
 
-	if albumID == "" {
+	albumIdDelimiter := "|"
+
+	if newAlbumsFromFormValue == "" ||
+		strings.Trim(newAlbumsFromFormValue, " ") == albumIdDelimiter {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "AlbumID is required")
+		fmt.Fprintln(w, "At least one AlbumID is required")
 		return
 	}
 
@@ -40,32 +44,39 @@ func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// tasks = append(tasks, albumID)
-	newTask := taskQueue.NewTask(albumID, service)
-	err := ws.q.AddTask(newTask)
-	if err != nil {
-		ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+	albumIDList := strings.Split(newAlbumsFromFormValue, albumIdDelimiter)
 
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(w, err.Error())
+	for _, albumID := range albumIDList {
+		if albumID == "" {
+			continue
+		}
 
-		return
+		newTask := taskQueue.NewTask(albumID, service)
+		err := ws.q.AddTask(newTask)
+		if err != nil {
+			ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, err.Error())
+
+			return
+		}
+
+		t, err := ws.templates.Execute("task", newTask)
+		if err != nil {
+			ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, err.Error())
+
+			return
+		}
+
+		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("new-task", t)
 	}
-
-	t, err := ws.templates.Execute("task", newTask)
-	if err != nil {
-		ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(w, err.Error())
-
-		return
-	}
-
-	ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("new-task", t)
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, albumID, service)
+	fmt.Fprintln(w, albumIDList, service)
 }
 
 func (ws *webserver) handleTaskDelete(w http.ResponseWriter, r *http.Request) {
