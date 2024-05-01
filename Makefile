@@ -51,3 +51,6 @@ update-deps:
 
 generate-changelog: 
 	git-chglog -o CHANGELOG.md
+
+generate-changelog-tag:
+	git-chglog -o CHANGELOG.md ..$(TAG)
