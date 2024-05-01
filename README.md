@@ -124,9 +124,3 @@ i fix it?
 **A**. Change the `Host` value in the [server] section in the config file to a
 valid IP address. Either change it to 127.0.0.1 if you're unsure of what to do
 or use the valid current network IP address of your device.
-
-# Branch todo
-
-- [ ] Add event broadcaster to every task, so that it can be used to add a Render() method
-        and send the updated content to the ui
-- [ ] Refactor the pubsub things
