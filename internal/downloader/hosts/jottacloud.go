@@ -59,7 +59,7 @@ func (j *jottacloud) Download() error {
 	}
 
 	res, err := j.page.Evaluate(
-		"document.querySelector('" + fnSelector + "').childNodes[0].textContent.split('.')[1]",
+		"document.querySelector('" + fnSelector + "').childNodes[0].textContent.split('.').at(-1)",
 	)
 	if err != nil {
 		return err
