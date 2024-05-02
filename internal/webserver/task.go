@@ -26,13 +26,12 @@ func (ws *webserver) handleError(w http.ResponseWriter, err error) {
 }
 
 func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
-	newAlbumsFromFormValue := r.FormValue("AlbumID")
+	newAlbumsFromFormValue := strings.TrimSpace(r.FormValue("AlbumID"))
 	service := r.FormValue("ServiceNumber")
 
 	albumIdDelimiter := "|"
 
-	if newAlbumsFromFormValue == "" ||
-		strings.Trim(newAlbumsFromFormValue, " ") == albumIdDelimiter {
+	if newAlbumsFromFormValue == "" || newAlbumsFromFormValue == albumIdDelimiter {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintln(w, "At least one AlbumID is required")
 		return
