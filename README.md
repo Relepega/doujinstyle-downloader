@@ -6,14 +6,15 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/relepega/doujinstyle-downloader)](https://goreportcard.com/report/github.com/relepega/doujinstyle-downloader)
 [![codebeat badge](https://codebeat.co/badges/4fd08f5a-b2d8-49b9-b0d4-a37cd6f6c3dc)](https://codebeat.co/projects/github-com-relepega-doujinstyle-downloader-main)
 
-A User-friendly app made for effortlessly downloading music from
-[doujinstyle](https://doujinstyle.com/) written in Go, using HTML Templates.
+A User-friendly app made for effortlessly downloading music from various sources
+Supported sources written in Go, using HTML Templates.
 
 ## Table of content
 
 - [doujinstyle-downloader](#doujinstyle-downloader)
   - [Table of content](#table-of-content)
   - [Why](#why)
+  - [Supported sources](#supported-sources)
   - [Installation](#installation)
   - [Usage](#usage)
   - [Build](#build)
@@ -26,6 +27,11 @@ A User-friendly app made for effortlessly downloading music from
 Due to the fact that during conventions and other events there is a surge in
 album publications, I wasn't able to keep up with the releases while downloading
 manually.
+
+## Supported sources
+
+- [doujinstyle](https://doujinstyle.com/)
+- [sukidesuost](https://sukidesuost.info/)
 
 ## Installation
 
