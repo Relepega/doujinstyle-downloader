@@ -70,21 +70,65 @@ func (sdo *sukidesuost) EvaluateFilename(p playwright.Page) (string, error) {
 		return "", fmt.Errorf("%s %v", SDO_INVALID_TYPE_ERR, fn)
 	}
 
-	return appUtils.SanitizePath(strings.ReplaceAll(fn, " - ", " — ")), nil
+	filename := appUtils.SanitizePath(strings.ReplaceAll(fn, " - ", " — "))
+
+	audioFormatsInterface, err := p.Evaluate("document.querySelector('.jeg_post_title').innerText")
+	if err != nil {
+		return filename, nil
+	}
+
+	audiofmts, ok := audioFormatsInterface.(string)
+	if !ok {
+		return filename, nil
+	}
+
+	audiofmts = appUtils.SanitizePath(strings.ReplaceAll(audiofmts, " - ", " — "))
+	filename = fmt.Sprintf("%s [%s]", filename, audiofmts)
+
+	return filename, nil
 }
 
 func (sdo *sukidesuost) OpenDownloadPage(servicePage playwright.Page) (playwright.Page, error) {
-	dlUrlInterface, err := servicePage.Evaluate(
+	jsSelectors := []string{
 		"document.querySelector('.content-inner > ul > li > a').href",
-	)
-	if err != nil {
-		return nil, err
+		"document.querySelectorAll('.content-inner > p:nth-child(4) > a')[0].href",
+		"document.querySelectorAll('.content-inner > p:nth-child(4) > a')[1].href",
 	}
 
-	dlUrl, ok := dlUrlInterface.(string)
-	if !ok {
-		return nil, fmt.Errorf("%s %v", SDO_INVALID_TYPE_ERR, dlUrl)
+	var dlUrl string
+
+	for _, selector := range jsSelectors {
+		dlUrlInterface, err := servicePage.Evaluate(selector)
+		if err != nil {
+			continue
+		}
+
+		tempDlUrl, ok := dlUrlInterface.(string)
+		if !ok {
+			continue
+		}
+
+		if tempDlUrl != "" {
+			dlUrl = tempDlUrl
+			break
+		}
 	}
+
+	if dlUrl == "" {
+		return nil, fmt.Errorf("Couldn't get a download URL")
+	}
+
+	// dlUrlInterface, err := servicePage.Evaluate(
+	// 	"document.querySelector('.content-inner > ul > li > a').href",
+	// )
+	// if err != nil {
+	// 	return nil, err
+	// }
+	//
+	// dlUrl, ok := dlUrlInterface.(string)
+	// if !ok {
+	// 	return nil, fmt.Errorf("%s %v", SDO_INVALID_TYPE_ERR, dlUrl)
+	// }
 
 	dlPage, err := servicePage.Context().NewPage()
 	if err != nil {
