@@ -72,7 +72,9 @@ func (sdo *sukidesuost) EvaluateFilename(p playwright.Page) (string, error) {
 
 	filename := appUtils.SanitizePath(strings.ReplaceAll(fn, " - ", " — "))
 
-	audioFormatsInterface, err := p.Evaluate("document.querySelector('.jeg_post_title').innerText")
+	audioFormatsInterface, err := p.Evaluate(
+		"document.querySelector('.content-inner > p:nth-child(3)').childNodes[0].data.split(': ')[1]",
+	)
 	if err != nil {
 		return filename, nil
 	}
