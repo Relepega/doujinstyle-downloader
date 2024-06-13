@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	SDO_ALBUM_URL        = "https://sukidesuost.info/"
+	SDO_HOSTNAME         = "sukidesuost.info"
+	SDO_ALBUM_URL        = "https://" + SDO_HOSTNAME + "/"
 	SDO_INVALID_TYPE_ERR = "value is not a string:"
 )
 
@@ -32,7 +33,19 @@ func (sdo *sukidesuost) OpenServicePage(ctx *playwright.BrowserContext) (playwri
 		return nil, fmt.Errorf("could not create page: %v", err)
 	}
 
-	_, err = p.Goto(SDO_ALBUM_URL+sdo.urlSlug, playwright.PageGotoOptions{
+	var url string
+
+	if strings.Contains(sdo.urlSlug, SDO_HOSTNAME) {
+		if strings.HasPrefix(sdo.urlSlug, "http") {
+			url = sdo.urlSlug
+		} else {
+			url = "https://" + sdo.urlSlug
+		}
+	} else {
+		url = SDO_ALBUM_URL + sdo.urlSlug
+	}
+
+	_, err = p.Goto(url, playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	})
 	if err != nil {
