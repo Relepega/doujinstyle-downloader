@@ -1,6 +1,6 @@
 APP_NAME = doujinstyle-downloader
 APP_ENTRYPOINT = ./cmd/doujinstyle-downloader/main.go
-VERSION = 0.3.0-b1
+VERSION = $(shell git describe --tags)
 
 TAR_EXCLUDE = {'*.zip','*.sha256'}
 
@@ -18,20 +18,20 @@ build:
 
 	@echo "building windows-x64"
 	GOOS=windows GOARCH=amd64 go build -o ./build/$(APP_NAME).exe $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-windows-x64.zip --exclude=$(TAR_EXCLUDE) *
-	cd build && sha256sum $(APP_NAME)-v$(VERSION)-windows-x64.zip > $(APP_NAME)-v$(VERSION)-windows-x64.zip.sha256
+	cd build && tar -a -c -f $(APP_NAME)-$(VERSION)-windows-x64.zip --exclude=$(TAR_EXCLUDE) *
+	cd build && sha256sum $(APP_NAME)-$(VERSION)-windows-x64.zip > $(APP_NAME)-$(VERSION)-windows-x64.zip.sha256
 	cd build && rm *.exe
 
 	@echo "building darwin-arm64"
 	GOOS=darwin GOARCH=arm64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-darwin-arm64.zip --exclude=$(TAR_EXCLUDE) *
-	cd build && sha256sum $(APP_NAME)-v$(VERSION)-darwin-arm64.zip > $(APP_NAME)-v$(VERSION)-darwin-arm64.zip.sha256
+	cd build && tar -a -c -f $(APP_NAME)-$(VERSION)-darwin-arm64.zip --exclude=$(TAR_EXCLUDE) *
+	cd build && sha256sum $(APP_NAME)-$(VERSION)-darwin-arm64.zip > $(APP_NAME)-$(VERSION)-darwin-arm64.zip.sha256
 	cd build && rm $(APP_NAME)
 
 	@echo "building linux-x64"
 	GOOS=linux GOARCH=amd64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-v$(VERSION)-linux-x64.zip --exclude=$(TAR_EXCLUDE) *
-	cd build && sha256sum $(APP_NAME)-v$(VERSION)-linux-x64.zip > $(APP_NAME)-v$(VERSION)-linux-x64.zip.sha256
+	cd build && tar -a -c -f $(APP_NAME)-$(VERSION)-linux-x64.zip --exclude=$(TAR_EXCLUDE) *
+	cd build && sha256sum $(APP_NAME)-$(VERSION)-linux-x64.zip > $(APP_NAME)-$(VERSION)-linux-x64.zip.sha256
 
 	@echo "removing artifacts"
 	cd build && rm $(APP_NAME)
