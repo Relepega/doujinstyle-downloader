@@ -1,3 +1,17 @@
+const serviceSelect = document.querySelector('#ServiceNumber')
+
+document.addEventListener('DOMContentLoaded', () => {
+	const value = localStorage.getItem('LastSelectedService')
+
+	if (value) {
+		serviceSelect.value = value
+	}
+})
+
+serviceSelect.addEventListener('change', () => {
+	localStorage.setItem('LastSelectedService', serviceSelect.value)
+})
+
 /**
  *
  * @param {string} method
