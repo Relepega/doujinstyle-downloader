@@ -1,4 +1,30 @@
 
+<a name="v0.3.0-b2"></a>
+## [v0.3.0-b2](https://github.com/Relepega/Doujinstyle-downloader/compare/v0.3.0-b1...v0.3.0-b2)
+
+> 2024-06-13
+
+### ✨ New Features ✨
+
+* Improved download URL and audio format type recognizers
+* added changelog
+* **sukidesuost:** Can use url substring
+* **webUI:** Save last used service to localstorage
+
+### 🐛 Bugfixes 🐛
+
+* **EvaluateFilename:** wrong selectors when evaluating audio filetypes
+
+### 🛠️ Code Refactoring 🛠️
+
+* Strip whitespaces by default
+
+### 🧹 Chores 🧹
+
+* fix typo
+* Updated deps
+
+
 <a name="v0.3.0-b1"></a>
 ## [v0.3.0-b1](https://github.com/Relepega/Doujinstyle-downloader/compare/v0.2.0...v0.3.0-b1)
 
