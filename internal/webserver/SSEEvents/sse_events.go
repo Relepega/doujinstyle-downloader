@@ -3,33 +3,58 @@ package SSEEvents
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+)
+
+var (
+	currentId = 0
+	mu        sync.Mutex
 )
 
 type SSEMessage struct {
 	Event string
 	Data  string
+	Id    int
 }
 
 func NewSSEMessage(data string) *SSEMessage {
+	mu.Lock()
+	defer mu.Unlock()
+
+	currentId = currentId + 1
+
 	return &SSEMessage{
 		Event: "message",
 		Data:  data,
+		Id:    currentId,
 	}
 }
 
 func NewSSEMessageWithEvent(event, data string) *SSEMessage {
+	mu.Lock()
+	defer mu.Unlock()
+
+	currentId = currentId + 1
+
 	return &SSEMessage{
 		Event: event,
 		Data:  data,
+		Id:    currentId,
 	}
 }
 
 func NewSSEMessageWithError(err error) *SSEMessage {
+	mu.Lock()
+	defer mu.Unlock()
+
+	currentId = currentId + 1
+
 	return &SSEMessage{
 		Event: "error",
 		Data:  err.Error(),
+		Id:    currentId,
 	}
 }
 
@@ -37,10 +62,10 @@ func (m *SSEMessage) String() string {
 	cleanData := appUtils.CleanString(m.Data)
 
 	if m.Event == "" {
-		return fmt.Sprintf("data: %s\n\n", cleanData)
+		return fmt.Sprintf("data: %s\nid: %d\n\n", cleanData, m.Id)
 	}
 
-	return fmt.Sprintf("event: %s\ndata: %s\n\n", m.Event, cleanData)
+	return fmt.Sprintf("event: %s\ndata: %s\nid: %d\n\n", m.Event, cleanData, m.Id)
 }
 
 type UIEvent string
