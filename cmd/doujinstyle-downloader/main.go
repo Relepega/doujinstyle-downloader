@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -35,6 +36,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Couldn't install playwright dependencies: %v", err)
 	}
+
+	fmt.Print("\033[H\033[2J")
 
 	// init config
 	cfg := configManager.NewConfig()
