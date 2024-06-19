@@ -51,7 +51,7 @@ func (q *Queue) GetQueueLength() int {
 
 func (q *Queue) isTaskInList(task *Task) bool {
 	for _, t := range q.tasks {
-		if t.AlbumID == task.AlbumID {
+		if (t.AlbumID == task.AlbumID || t.DisplayName == task.DisplayName) && !t.IsChecking {
 			return true
 		}
 	}
@@ -301,7 +301,7 @@ func (q *Queue) Run(ctx context.Context, pwc *playwrightWrapper.PwContainer) {
 			q.publishUIUpdate("activate-task", task)
 
 			go func(q *Queue, t *Task, pwc *playwrightWrapper.PwContainer) {
-				err := t.Run(pwc)
+				err := t.Run(q, pwc)
 				q.MarkTaskAsDone(*t, err)
 			}(q, task, pwc)
 		}

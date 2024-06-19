@@ -13,7 +13,7 @@
     {{ end }}
 
     <p>
-        {{ .AlbumID }} 
+        {{ .DisplayName }} 
         {{ if and (eq .Active true) (gt .DownloadProgress -1) }}
             (Downloading... {{ .DownloadProgress }}&percnt;)
         {{ end }}

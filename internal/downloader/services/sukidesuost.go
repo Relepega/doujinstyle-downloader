@@ -104,13 +104,14 @@ func (sdo *sukidesuost) EvaluateFilename(p playwright.Page) (string, error) {
 }
 
 func (sdo *sukidesuost) OpenDownloadPage(servicePage playwright.Page) (playwright.Page, error) {
+redoIfInvalid:
 	jsSelectors := []string{
 		"document.querySelector('.content-inner > ul > li > a').href",
 		"document.querySelectorAll('.content-inner > p:nth-child(4) > a')[0].href",
 		"document.querySelectorAll('.content-inner > p:nth-child(4) > a')[1].href",
 	}
 
-	var dlUrl string
+	dlUrl := ""
 
 	for _, selector := range jsSelectors {
 		dlUrlInterface, err := servicePage.Evaluate(selector)
@@ -144,6 +145,11 @@ func (sdo *sukidesuost) OpenDownloadPage(servicePage playwright.Page) (playwrigh
 	// if !ok {
 	// 	return nil, fmt.Errorf("%s %v", SDO_INVALID_TYPE_ERR, dlUrl)
 	// }
+
+	if strings.Contains(dlUrl, "cuty.io") {
+		_, _ = servicePage.Reload()
+		goto redoIfInvalid
+	}
 
 	dlPage, err := servicePage.Context().NewPage()
 	if err != nil {

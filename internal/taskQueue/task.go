@@ -1,29 +1,44 @@
 package taskQueue
 
 import (
-	"github.com/relepega/doujinstyle-downloader/internal/downloader"
+	"context"
+	"fmt"
+
+	"github.com/playwright-community/playwright-go"
+
+	"github.com/relepega/doujinstyle-downloader/internal/configManager"
+	"github.com/relepega/doujinstyle-downloader/internal/downloader/hosts"
+	"github.com/relepega/doujinstyle-downloader/internal/downloader/services"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 )
 
 type Task struct {
-	AlbumID string
-	Service string
-	Active  bool
-	Done    bool
-	Error   error
+	ctx context.Context
+
+	AlbumID     string
+	DisplayName string
+	Service     string
+	Active      bool
+	Done        bool
+	Error       error
+
+	IsChecking bool
 
 	DownloadProgress int8
 }
 
 func NewTask(AlbumID string, service string) *Task {
 	return &Task{
-		AlbumID: AlbumID,
-		Service: service,
+		AlbumID:     AlbumID,
+		DisplayName: AlbumID,
+		Service:     service,
 
 		Active: false,
 		Done:   false,
 
 		Error: nil,
+
+		IsChecking: false,
 
 		DownloadProgress: -1,
 	}
@@ -53,7 +68,84 @@ func (t *Task) Reset() {
 	t.Error = nil
 }
 
-func (t *Task) Run(pwc *playwrightWrapper.PwContainer) error {
-	err := downloader.Download(t.Service, t.AlbumID, &t.DownloadProgress, pwc)
-	return err
+func (t *Task) Run(q *Queue, pwc *playwrightWrapper.PwContainer) error {
+	runBeforeUnloadOpt := true
+	pageCloseOpts := playwright.PageCloseOptions{
+		RunBeforeUnload: &runBeforeUnloadOpt,
+	}
+
+	cfg := configManager.NewConfig()
+	err := cfg.Load()
+	if err != nil {
+		return err
+	}
+
+	ctx, err := pwc.Browser.NewContext()
+	if err != nil {
+		return err
+	}
+	defer ctx.Close()
+
+	service, err := services.NewService(t.Service, t.AlbumID)
+	if err != nil {
+		return err
+	}
+
+	servicePage, err := service.OpenServicePage(&ctx)
+	if err != nil {
+		return err
+	}
+	defer servicePage.Close()
+
+	isDMCA, err := service.CheckDMCA(servicePage)
+	if err != nil {
+		return err
+	}
+
+	if isDMCA {
+		return fmt.Errorf("%s: %s", t.Service, services.SERVICE_ERROR_404)
+	}
+
+	mediaName, err := service.EvaluateFilename(servicePage)
+	if err != nil {
+		return err
+	}
+
+	t.DisplayName = mediaName
+	q.publishUIUpdate("update-task-content", t)
+
+	t.IsChecking = true
+	alreadyInList := q.isTaskInList(t)
+	t.IsChecking = false
+
+	if alreadyInList {
+		return fmt.Errorf("Task already done or already in download")
+	}
+
+	downloadPage, err := service.OpenDownloadPage(servicePage)
+	if err != nil {
+		return err
+	}
+	defer downloadPage.Close(pageCloseOpts)
+
+	_ = servicePage.Close(pageCloseOpts)
+
+	hostFactory, err := hosts.NewHost(downloadPage.URL())
+	if err != nil {
+		return err
+	}
+
+	host := hostFactory(
+		downloadPage,
+		t.AlbumID,
+		mediaName,
+		cfg.Download.Directory,
+		&t.DownloadProgress,
+	)
+	err = host.Download()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

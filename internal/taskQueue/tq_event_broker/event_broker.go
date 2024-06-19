@@ -25,6 +25,12 @@ func QueueEvtBroker() {
 					Data:    evt.Data,
 				})
 
+			case "update-task-name":
+				queuePub.Publish(&pubsub.PublishEvent{
+					EvtType: "update-task-name",
+					Data:    evt.Data,
+				})
+
 			default:
 				continue
 
