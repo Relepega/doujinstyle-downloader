@@ -64,6 +64,20 @@ func (m *mega) Download() error {
 		time.Sleep(time.Second * 5)
 	}
 
+	// limited quota
+	val, err := m.page.Evaluate(
+		"document.querySelector('.limited-bandwidth-dialog')?.getAttribute('aria-modal') == 'true'",
+	)
+	if err != nil && val == nil {
+		return err
+	}
+
+	isLimited, _ := val.(bool)
+	if isLimited {
+		return fmt.Errorf("Mega: You’re running out of transfer quota")
+	}
+
+	// actual download
 	ext, err := m.page.Evaluate("document.querySelector('.extension').innerText")
 	if err != nil {
 		ext = ".zip"

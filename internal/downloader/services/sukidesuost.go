@@ -138,18 +138,6 @@ redoIfInvalid:
 		return nil, fmt.Errorf("Couldn't get a download URL")
 	}
 
-	// dlUrlInterface, err := servicePage.Evaluate(
-	// 	"document.querySelector('.content-inner > ul > li > a').href",
-	// )
-	// if err != nil {
-	// 	return nil, err
-	// }
-	//
-	// dlUrl, ok := dlUrlInterface.(string)
-	// if !ok {
-	// 	return nil, fmt.Errorf("%s %v", SDO_INVALID_TYPE_ERR, dlUrl)
-	// }
-
 	if strings.Contains(dlUrl, "cuty.io") {
 		_, _ = servicePage.Reload()
 		goto redoIfInvalid
