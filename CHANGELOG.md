@@ -1,4 +1,21 @@
 
+<a name="v0.3.0"></a>
+## [v0.3.0](https://github.com/Relepega/Doujinstyle-downloader/compare/v0.3.0-b2...v0.3.0)
+
+> 2024-06-19
+
+### ✨ New Features ✨
+
+* Added field for media name to be displayed
+* added ID field to the event
+* Clear screen after playwright complains about your linux distro
+* Added a general-purpose queue implementation
+
+### 🛠️ Code Refactoring 🛠️
+
+* Make auto fetch current tag
+
+
 <a name="v0.3.0-b2"></a>
 ## [v0.3.0-b2](https://github.com/Relepega/Doujinstyle-downloader/compare/v0.3.0-b1...v0.3.0-b2)
 

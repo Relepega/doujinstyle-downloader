@@ -69,6 +69,8 @@ func (t *Task) Reset() {
 }
 
 func (t *Task) Run(q *Queue, pwc *playwrightWrapper.PwContainer) error {
+	q.publishUIUpdate("activate-task", t)
+
 	runBeforeUnloadOpt := true
 	pageCloseOpts := playwright.PageCloseOptions{
 		RunBeforeUnload: &runBeforeUnloadOpt,

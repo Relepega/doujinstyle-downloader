@@ -298,8 +298,6 @@ func (q *Queue) Run(ctx context.Context, pwc *playwrightWrapper.PwContainer) {
 				continue
 			}
 
-			q.publishUIUpdate("activate-task", task)
-
 			go func(q *Queue, t *Task, pwc *playwrightWrapper.PwContainer) {
 				err := t.Run(q, pwc)
 				q.MarkTaskAsDone(*t, err)
