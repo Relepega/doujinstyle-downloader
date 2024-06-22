@@ -108,6 +108,8 @@ func (sdo *sukidesuost) OpenDownloadPage(servicePage playwright.Page) (playwrigh
 redoIfInvalid:
 	jsSelectors := []string{
 		"document.querySelector('.content-inner > ul > li > a').href",
+		"document.querySelector('.entry-content > ul > li > a').href",
+		"document.querySelector('.content-inner > p:nth-child(5) > span > a').href",
 		// flac
 		"document.querySelectorAll('.content-inner > p:nth-child(4) > a')[0].href",
 		"document.querySelectorAll('.content-inner > p:nth-child(5) > a')[0].href",
