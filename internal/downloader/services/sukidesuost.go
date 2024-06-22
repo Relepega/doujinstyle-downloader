@@ -83,7 +83,8 @@ func (sdo *sukidesuost) EvaluateFilename(p playwright.Page) (string, error) {
 		return "", fmt.Errorf("%s %v", SDO_INVALID_TYPE_ERR, fn)
 	}
 
-	filename := appUtils.SanitizePath(strings.ReplaceAll(fn, " - ", " — "))
+	filename := appUtils.SanitizePath(strings.ReplaceAll(fn, " – ", " — "))
+	filename = appUtils.SanitizePath(strings.ReplaceAll(filename, " - ", " — "))
 
 	audioFormatsInterface, err := p.Evaluate(
 		"document.querySelector('.content-inner > p:nth-child(3)').childNodes[0].data.split(': ')[1]",
