@@ -51,7 +51,8 @@ func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		}
 
 		newTask := taskQueue.NewTask(albumID, service)
-		err := ws.q.AddTask(newTask)
+
+		t, err := ws.templates.Execute("task", newTask)
 		if err != nil {
 			ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
 
@@ -61,7 +62,7 @@ func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		t, err := ws.templates.Execute("task", newTask)
+		err = ws.q.AddTask(newTask)
 		if err != nil {
 			ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
 
