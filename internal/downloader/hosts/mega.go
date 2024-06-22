@@ -105,7 +105,9 @@ func (m *mega) Download() error {
 
 		errorDiv := m.page.Locator(".default-warning > .txt")
 
-		re := regexp.MustCompile(`\d`)
+		pub, _ := pubsub.GetGlobalPublisher("queue")
+
+		re := regexp.MustCompile(`\d+`)
 
 		for {
 			val, _ := m.page.Evaluate(
@@ -142,28 +144,28 @@ func (m *mega) Download() error {
 				return fmt.Errorf("Mega: %s", msgVal)
 			}
 
-			pub, _ := pubsub.GetGlobalPublisher("queue")
-
 			// get download percentage
 			pageTitle, _ := m.page.Evaluate("document.title")
 			pageTitleStr, ok := pageTitle.(string)
-			if ok {
-				match := re.FindString(pageTitleStr)
-				conv, err := strconv.ParseInt(match, 10, 8)
-				if err == nil {
-					*m.dlProgress = int8(conv)
-
-					pub.Publish(&pubsub.PublishEvent{
-						EvtType: "update-task-progress",
-						Data: &tq_eventbroker.UpdateTaskProgress{
-							Id:       m.albumID,
-							Progress: *m.dlProgress,
-						},
-					})
-				}
+			if !ok {
+				continue
 			}
 
-			time.Sleep(time.Second)
+			match := re.FindString(pageTitleStr)
+			conv, err := strconv.ParseInt(match, 10, 8)
+			if err != nil {
+				continue
+			}
+
+			*m.dlProgress = int8(conv)
+
+			pub.Publish(&pubsub.PublishEvent{
+				EvtType: "update-task-progress",
+				Data: &tq_eventbroker.UpdateTaskProgress{
+					Id:       m.albumID,
+					Progress: *m.dlProgress,
+				},
+			})
 		}
 
 		return err
