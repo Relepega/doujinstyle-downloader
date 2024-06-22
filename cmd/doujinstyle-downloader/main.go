@@ -20,6 +20,8 @@ import (
 )
 
 func main() {
+	defer log.Println("---------- SESSION END ----------")
+
 	// init logger
 	logdir := filepath.Join(".", "Logs")
 	err := appUtils.CreateFolder(logdir)
@@ -66,10 +68,7 @@ func main() {
 	// init playwright
 	pwc, err := playwrightWrapper.UsePlaywright("chromium", !cfg.Dev.PlaywrightDebug, 0.0)
 	defer func() {
-		err := pwc.Close()
-		if err != nil {
-			log.Fatalln("playwright close error: ", err)
-		}
+		_ = pwc.Close()
 	}()
 
 	// init and run queue
@@ -96,5 +95,5 @@ func main() {
 	// graceful shutdown
 	<-ctx.Done()
 
-	log.Println("---------- SESSION END ----------")
+	log.Println("App shut down successfully")
 }
