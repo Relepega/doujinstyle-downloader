@@ -173,3 +173,31 @@ form > button {
 .err-btns > .err-btn:hover {
 	background: rgba(0, 0, 0, 0.5);
 }
+
+#restart-btn {
+	position: fixed;
+	bottom: 25px;
+	right: 25px;
+
+	height: 50px;
+	width: 50px;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	background-color: rgb(200, 0, 0);
+	border-radius: 100%;
+}
+
+#restart-btn:hover {
+	cursor: pointer;
+	background-color: rgb(140, 0, 0);
+}
+
+#restart-btn > svg {
+	left: 0;
+	height: 70%;
+	aspect-ratio: 1/1;
+	fill: whitesmoke;
+}

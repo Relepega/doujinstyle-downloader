@@ -119,6 +119,24 @@ document
 		form.AlbumID.value = ''
 	})
 
+document
+	.querySelector('#restart-btn')
+	.addEventListener('click', async function (e) {
+		const res = window.confirm(
+			'WARNING: this operation will restart the application. All unsaved progress will be discarded.\n\n Continue?',
+		)
+
+		if (res) {
+			try {
+				await fetch('/api/internal/restart', {
+					method: 'POST',
+				})
+			} catch (error) {}
+
+			window.location.reload()
+		}
+	})
+
 // SSE things
 const source = new EventSource(window.location.origin + '/events-stream')
 

@@ -3,6 +3,10 @@ package webserver
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"os/exec"
+	"runtime"
+	"syscall"
 )
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
@@ -29,4 +33,34 @@ func (ws *webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ws.templates.ExecuteWithWriter(w, "index", ws.q.GetUIData())
+}
+
+func (ws *webserver) handleRestartServer(w http.ResponseWriter, r *http.Request) {
+	self, err := os.Executable()
+	if err != nil {
+		return
+	}
+
+	args := os.Args
+	env := os.Environ()
+
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command(self, args[1:]...)
+
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		cmd.Env = env
+
+		err := cmd.Run()
+		if err == nil {
+			os.Exit(0)
+		}
+
+	}
+
+	err = syscall.Exec(self, args, env)
+	if err != nil {
+		return
+	}
 }

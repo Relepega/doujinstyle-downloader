@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	APIGroup  = "/api"
-	TaskGroup = APIGroup + "/task"
+	APIGroup      = "/api"
+	TaskGroup     = APIGroup + "/task"
+	InternalGroup = APIGroup + "/internal"
 )
 
 type webserver struct {
@@ -53,7 +54,7 @@ func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserve
 	dir := filepath.Join(".", "views", "templates")
 	err = t.ParseGlob(fmt.Sprintf("%s/*.tmpl", dir))
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("Templates parsing error:", err)
 	}
 
 	webServer := &webserver{
@@ -95,6 +96,8 @@ func (ws *webserver) buildRoutes() *http.ServeMux {
 
 	mux.HandleFunc("POST /send-message", ws.handleSendMessage)
 
+	mux.HandleFunc(fmt.Sprintf("POST %s/restart", InternalGroup), ws.handleRestartServer)
+
 	return mux
 }
 
@@ -135,4 +138,3 @@ func (ws *webserver) Start(ctx context.Context) error {
 		return nil
 	}
 }
-
