@@ -6,10 +6,18 @@ TAR_EXCLUDE = {'*.zip','*.sha256'}
 
 .PHONY: build
 
-.SILENT: build
+.SILENT: build-all
+
+build:
+	rm -rf build
+	mkdir build
+
+	cp -r ./views ./build/views
+
+	go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
 
 # go tool dist list | grep windows
-build:
+build-all:
 	@echo "cleaning up"
 	rm -rf build
 	mkdir build
