@@ -1,4 +1,28 @@
 
+<a name="v0.3.1"></a>
+## [v0.3.1](https://github.com/Relepega/Doujinstyle-downloader/compare/v0.3.0...v0.3.1)
+
+> 2024-07-02
+
+### ✨ New Features ✨
+
+* Added application restart api route & UI button
+* improved logging
+* **mega:** Added "low quota" case handling
+* **sukidesuost:** Added more queries for fetching album name
+* **sukidesuost:** Added more selectors for fetching download url
+
+### 🐛 Bugfixes 🐛
+
+* likely to fix the task duplication issue
+* **mega:** Fixed download progress report
+* **sukidesuost:** Fixed filename not using correct separator
+
+### 🛠️ Code Refactoring 🛠️
+
+* Early template rendering to save time
+
+
 <a name="v0.3.0"></a>
 ## [v0.3.0](https://github.com/Relepega/Doujinstyle-downloader/compare/v0.3.0-b2...v0.3.0)
 

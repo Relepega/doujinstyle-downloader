@@ -37,6 +37,9 @@ build:
 	cd build && rm $(APP_NAME)
 	cd build && rm -r views
 
+	@echo "generating new changelog"
+	make generate-changelog
+
 	@echo "done!"
 
 debug:
