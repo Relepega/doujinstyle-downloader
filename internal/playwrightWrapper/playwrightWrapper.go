@@ -6,6 +6,7 @@ import (
 	"github.com/playwright-community/playwright-go"
 
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
+	"github.com/relepega/doujinstyle-downloader/internal/store"
 )
 
 type PwContainer struct {
@@ -25,7 +26,12 @@ func WithBrowserType(opts ...string) string {
 }
 
 func WithHeadless(opts ...bool) bool {
-	appConfig := configManager.NewConfig()
+	appCfgInt, err := store.GetStore().Get("app-config")
+	if err != nil {
+		panic(err)
+	}
+	appConfig := appCfgInt.(*configManager.Config)
+
 	playwrightDebug := appConfig.Dev.PlaywrightDebug
 
 	// fmt.Printf("Playwright dbg: %v\n", playwrightDebug)

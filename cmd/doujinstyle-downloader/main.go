@@ -15,6 +15,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/logger"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
+	"github.com/relepega/doujinstyle-downloader/internal/store"
 	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver"
 )
@@ -51,6 +52,9 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+
+	// set config to the store value
+	store.GetStore().Set("app-config", cfg)
 
 	// create download folder
 	err = appUtils.CreateFolder(cfg.Download.Directory)
