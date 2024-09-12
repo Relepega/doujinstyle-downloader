@@ -10,6 +10,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/hosts"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/services"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
+	"github.com/relepega/doujinstyle-downloader/internal/store"
 )
 
 type Task struct {
@@ -76,11 +77,11 @@ func (t *Task) Run(q *Queue, pwc *playwrightWrapper.PwContainer) error {
 		RunBeforeUnload: &runBeforeUnloadOpt,
 	}
 
-	cfg := configManager.NewConfig()
-	err := cfg.Load()
+	appCfgInt, err := store.GetStore().Get("app-config")
 	if err != nil {
-		return err
+		panic(err)
 	}
+	appConfig := appCfgInt.(*configManager.Config)
 
 	ctx, err := pwc.Browser.NewContext()
 	if err != nil {
@@ -141,7 +142,7 @@ func (t *Task) Run(q *Queue, pwc *playwrightWrapper.PwContainer) error {
 		downloadPage,
 		t.AlbumID,
 		mediaName,
-		cfg.Download.Directory,
+		appConfig.Download.Directory,
 		&t.DownloadProgress,
 	)
 	err = host.Download()
