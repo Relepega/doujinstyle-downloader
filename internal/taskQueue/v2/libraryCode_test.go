@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -49,12 +50,7 @@ func runQ(tq *TQv2, opts interface{}) {
 			continue
 		}
 
-		// taskVal, err := tq.AdvanceNewTaskState()
-		// if err != nil {
-		// 	continue
-		// }
-
-		taskVal, err := tq.Dequeue()
+		taskVal, err := tq.AdvanceNewTaskState()
 		if err != nil {
 			continue
 		}
@@ -63,15 +59,10 @@ func runQ(tq *TQv2, opts interface{}) {
 		if !ok {
 			panic("TaskRunner: Cannot convert node value into proper type\n")
 		}
+		v.state <- TASK_STATE_RUNNING
 
 		go func(t *Tracker, myData *TestingDataType, duration time.Duration) {
-			// fmt.Println("activating task")
-
-			err := tq.AdvanceTaskState(myData)
-			if err != nil {
-				panic(err)
-			}
-			v.state <- TASK_STATE_RUNNING
+			fmt.Println("activating task")
 
 			time.Sleep(duration)
 
@@ -81,7 +72,7 @@ func runQ(tq *TQv2, opts interface{}) {
 			}
 			myData.state <- TASK_STATE_COMPLETED
 
-			// fmt.Println("task done")
+			fmt.Println("task done")
 		}(tq.GetTracker(), v, options.TaskDuration)
 	}
 }
@@ -122,7 +113,7 @@ func TestRunQueue(t *testing.T) {
 	nv, err := tq.AddNodeFromValue(&TestingDataType{
 		value: 573,
 		err:   nil,
-		state: make(chan int),
+		state: make(chan int, 1),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -200,6 +191,7 @@ func TestRunQueue(t *testing.T) {
 }
 
 func TestMultipleCoroutines(t *testing.T) {
+	fmt.Println("--------------------")
 	tq := NewTQ(runQ)
 	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
 
@@ -209,7 +201,7 @@ func TestMultipleCoroutines(t *testing.T) {
 		_, err := tq.AddNodeFromValue(&TestingDataType{
 			value: i,
 			err:   nil,
-			state: make(chan int),
+			state: make(chan int, 2), // make it buffered so that the runner goroutine isn't blocked
 		})
 		if err != nil {
 			t.Fatal(err)
