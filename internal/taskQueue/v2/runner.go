@@ -2,63 +2,52 @@ package queue
 
 import (
 	"context"
-	"log"
 
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
-	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
-	tq_eventbroker "github.com/relepega/doujinstyle-downloader/internal/taskQueue/tq_event_broker"
 )
 
-func RunQueue[T any](q *Queue[T], ctx context.Context, pwc *playwrightWrapper.PwContainer) {
+type RunQueueOpts struct {
+	ctx            context.Context
+	maxConcurrency int
+	pwc            *playwrightWrapper.PwContainer
+}
+
+func RunQueue(
+	tq *TQv2,
+	opts interface{},
+) {
+	// parse options
+	parsedOpts, ok := opts.(RunQueueOpts)
+	if !ok {
+		panic("RunQueue: Cannot parse function options")
+	}
+
 	// open empty page so that the context won't close
-	emptyPage, _ := pwc.BrowserContext.NewPage()
+	emptyPage, _ := parsedOpts.pwc.BrowserContext.NewPage()
 	defer emptyPage.Close()
 
-	queue_pub := pubsub.NewGlobalPublisher("queue")
-	subscriber := queue_pub.Subscribe()
+	q := tq.GetQueue()
+	t := tq.GetTracker()
 
 	for {
-		select {
-		case <-ctx.Done():
-			// quit all the ongoing tasks and then return
-			log.Println("Graceful queue shutdown complete.")
-			return
-
-		case evt := <-subscriber:
-			switch evt.EvtType {
-			case "update-task-progress":
-				evt_data := evt.Data.(*tq_eventbroker.UpdateTaskProgress)
-
-				t, err := q.GetTask(evt_data.Id)
-				if err != nil {
-					continue
-				}
-
-				t.DownloadProgress = evt_data.Progress
-				q.publishUIUpdate("update-task-content", t)
-
-			default:
-				continue
-			}
-		default:
-			// run task scheduler
-			if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {
-				continue
-			}
-
-			task, err := q.ActivateFreeTask()
-			if err != nil {
-				continue
-			}
-
-			if task == nil {
-				continue
-			}
-
-			go func(q *Queue, t *Task, pwc *playwrightWrapper.PwContainer) {
-				err := t.Run(q, pwc)
-				q.MarkTaskAsDone(*t, err)
-			}(q, task, pwc)
+		if q.Length() == 0 || t.Count(TASK_STATE_RUNNING) == parsedOpts.maxConcurrency {
+			continue
 		}
+
+		taskVal, err := q.Dequeue()
+		if err != nil {
+			continue
+		}
+
+		nodev, ok := taskVal.(NodeValue)
+		if !ok {
+			continue
+		}
+
+		t.AdvanceState(nodev)
+
+		go func(t *Tracker, v NodeValue) {
+			return
+		}(t, nodev)
 	}
 }
