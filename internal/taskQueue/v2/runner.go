@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"time"
 
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 )
@@ -26,28 +27,29 @@ func RunQueue(
 	emptyPage, _ := parsedOpts.pwc.BrowserContext.NewPage()
 	defer emptyPage.Close()
 
-	q := tq.GetQueue()
-	t := tq.GetTracker()
-
 	for {
-		if q.Length() == 0 || t.Count(TASK_STATE_RUNNING) == parsedOpts.maxConcurrency {
+		if tq.GetQueueLength() == 0 ||
+			tq.TrackerCount(TASK_STATE_RUNNING) == parsedOpts.maxConcurrency {
 			continue
 		}
 
-		taskVal, err := q.Dequeue()
+		taskVal, err := tq.AdvanceNewTaskState()
 		if err != nil {
 			continue
 		}
 
+		// TODO: complete with an actual Node struct value
 		nodev, ok := taskVal.(NodeValue)
 		if !ok {
+			tq.RemoveNode(taskVal)
 			continue
 		}
 
-		t.AdvanceState(nodev)
+		tq.AdvanceTaskState(nodev)
 
 		go func(t *Tracker, v NodeValue) {
-			return
-		}(t, nodev)
+			time.Sleep(time.Second * 5)
+			tq.AdvanceTaskState(v)
+		}(tq.GetTracker(), nodev)
 	}
 }

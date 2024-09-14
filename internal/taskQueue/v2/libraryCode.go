@@ -1,11 +1,18 @@
 package queue
 
+import (
+	"fmt"
+	"sync"
+)
+
 type (
 	QRunnerOpts interface{}
 	QueueRunner func(tq *TQv2, opts QRunnerOpts)
 )
 
 type TQv2 struct {
+	sync.Mutex
+
 	q       *Queue
 	t       *Tracker
 	qRunner QueueRunner
@@ -33,13 +40,21 @@ func (tq *TQv2) RunQueue(opts QRunnerOpts) {
 	}(tq, opts)
 }
 
-func (tq *TQv2) AddNode(v NodeValue) *Node {
+func (tq *TQv2) AddNode(v NodeValue) (*Node, error) {
+	tq.Lock()
+	defer tq.Unlock()
+
+	alreadyExists := tq.t.Has(v)
+	if alreadyExists {
+		return nil, fmt.Errorf("A node with an equal value already exists")
+	}
+
 	n := NewNode(v)
 
 	tq.q.Enqueue(n)
 	tq.t.Add(v)
 
-	return n
+	return n, nil
 }
 
 func (tq *TQv2) RemoveNode(v NodeValue) error {
@@ -60,10 +75,32 @@ func (tq *TQv2) AdvanceTaskState(v NodeValue) error {
 	return tq.t.AdvanceState(v)
 }
 
+func (tq *TQv2) AdvanceNewTaskState() (NodeValue, error) {
+	tq.Lock()
+	defer tq.Unlock()
+
+	nv, err := tq.q.Dequeue()
+	if err != nil {
+		return nil, err
+	}
+
+	tq.t.AdvanceState(nv)
+
+	return nv, nil
+}
+
 func (tq *TQv2) RegressTaskState(v NodeValue) error {
 	return tq.t.RegressState(v)
 }
 
 func (tq *TQv2) ResetTaskState(v NodeValue) error {
 	return tq.t.RegressState(v)
+}
+
+func (tq *TQv2) GetQueueLength() int {
+	return tq.q.Length()
+}
+
+func (tq *TQv2) TrackerCount(completionState int) int {
+	return tq.t.Count(completionState)
 }

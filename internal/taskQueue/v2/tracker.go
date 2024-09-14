@@ -25,7 +25,7 @@ var statuses = map[int]string{
 }
 
 type Tracker struct {
-	mu sync.Mutex
+	sync.Mutex
 
 	db_tasks map[interface{}]int
 }
@@ -38,8 +38,8 @@ func NewTracker() *Tracker {
 }
 
 func (t *Tracker) CountFromState(completionState int) (int, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	if completionState < 0 || completionState >= max_completion_state {
 		return -1, fmt.Errorf("Argument is not a valid state within constraints")
@@ -56,15 +56,15 @@ func (t *Tracker) CountFromState(completionState int) (int, error) {
 }
 
 func (t *Tracker) Add(nv NodeValue) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	t.db_tasks[nv] = TASK_STATE_QUEUED
 }
 
 func (t *Tracker) Has(nv NodeValue) bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	for k := range t.db_tasks {
 		if k == nv {
@@ -75,8 +75,8 @@ func (t *Tracker) Has(nv NodeValue) bool {
 }
 
 func (t *Tracker) Remove(nv NodeValue) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	for k, v := range t.db_tasks {
 		if k == nv {
@@ -92,8 +92,8 @@ func (t *Tracker) Remove(nv NodeValue) error {
 }
 
 func (t *Tracker) RemoveAll() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	for k, v := range t.db_tasks {
 		if v != TASK_STATE_RUNNING {
@@ -103,8 +103,8 @@ func (t *Tracker) RemoveAll() {
 }
 
 func (t *Tracker) ResetFromCompletionState(completionState int) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	if completionState < 0 || completionState >= max_completion_state {
 		return fmt.Errorf("Argument is not a valid state within constraints")
@@ -124,8 +124,8 @@ func (t *Tracker) ResetFromCompletionState(completionState int) error {
 }
 
 func (t *Tracker) GetStatus(nv NodeValue) (string, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	for k, v := range t.db_tasks {
 		if k == nv {
@@ -137,8 +137,8 @@ func (t *Tracker) GetStatus(nv NodeValue) (string, error) {
 }
 
 func (t *Tracker) Count(completionState int) int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	count := 0
 
@@ -152,8 +152,8 @@ func (t *Tracker) Count(completionState int) int {
 }
 
 func (t *Tracker) AdvanceState(nv NodeValue) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	for k, v := range t.db_tasks {
 		if k == nv {
@@ -169,8 +169,8 @@ func (t *Tracker) AdvanceState(nv NodeValue) error {
 }
 
 func (t *Tracker) RegressState(nv NodeValue) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	for k, v := range t.db_tasks {
 		if k == nv {
@@ -186,8 +186,8 @@ func (t *Tracker) RegressState(nv NodeValue) error {
 }
 
 func (t *Tracker) ResetState(nv NodeValue) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.Lock()
+	defer t.Unlock()
 
 	for k, v := range t.db_tasks {
 		if k == nv {
