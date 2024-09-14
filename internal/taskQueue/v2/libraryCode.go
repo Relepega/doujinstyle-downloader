@@ -71,6 +71,13 @@ func (tq *TQv2) AddNodeFromValue(v interface{}) (interface{}, error) {
 	return n.Value(), nil
 }
 
+func (tq *TQv2) Dequeue() (interface{}, error) {
+	tq.Lock()
+	defer tq.Unlock()
+
+	return tq.q.Dequeue()
+}
+
 func (tq *TQv2) RemoveNode(v interface{}) error {
 	tq.q.Remove(v, func(val1, val2 interface{}) bool {
 		if val1 == val2 {

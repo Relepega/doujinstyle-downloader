@@ -5,50 +5,84 @@ import (
 	"time"
 )
 
-type MyDataType struct {
+type TestingDataType struct {
 	value int
+	err   error
 	state chan int
 }
 
+type TestingRunnerOptions struct {
+	MaxConcurrency int
+	TaskDuration   time.Duration
+}
+
+func NewTestingRunnerOpts(c int, d time.Duration) TestingRunnerOptions {
+	return TestingRunnerOptions{
+		MaxConcurrency: c,
+		TaskDuration:   d,
+	}
+}
+
 func runQ(tq *TQv2, opts interface{}) {
-	// change interface to actual type
-	// _, ok := opts.(interface{})
-	// if !ok {
-	// 	panic("Cannot cast runner options into proper type")
-	// }
+	options := TestingRunnerOptions{
+		MaxConcurrency: 1,
+		TaskDuration:   time.Second,
+	}
+
+	if opts != nil {
+		fnOpts, ok := opts.(TestingRunnerOptions)
+		if !ok {
+			panic("Cannot cast runner options into proper type")
+		}
+
+		options = fnOpts
+	}
 
 	for {
 		tcount, err := tq.TrackerCountFromState(TASK_STATE_RUNNING)
 		if err != nil {
-			panic(err)
-		}
-
-		if tq.GetQueueLength() == 0 || tcount == 1 {
 			continue
 		}
 
-		taskVal, err := tq.AdvanceNewTaskState()
+		if tq.GetQueueLength() == 0 || tcount == options.MaxConcurrency {
+			time.Sleep(time.Millisecond)
+			continue
+		}
+
+		// taskVal, err := tq.AdvanceNewTaskState()
+		// if err != nil {
+		// 	continue
+		// }
+
+		taskVal, err := tq.Dequeue()
 		if err != nil {
 			continue
 		}
 
-		v, ok := taskVal.(*MyDataType)
+		v, ok := taskVal.(*TestingDataType)
 		if !ok {
 			panic("TaskRunner: Cannot convert node value into proper type\n")
 		}
 
-		v.state <- TASK_STATE_RUNNING
+		go func(t *Tracker, myData *TestingDataType, duration time.Duration) {
+			// fmt.Println("activating task")
 
-		go func(t *Tracker, myData *MyDataType) {
-			time.Sleep(time.Second * 5)
-
-			err := tq.AdvanceTaskState(v)
+			err := tq.AdvanceTaskState(myData)
 			if err != nil {
 				panic(err)
 			}
+			v.state <- TASK_STATE_RUNNING
 
+			time.Sleep(duration)
+
+			err = tq.AdvanceTaskState(myData)
+			if err != nil {
+				panic(err)
+			}
 			myData.state <- TASK_STATE_COMPLETED
-		}(tq.GetTracker(), v)
+
+			// fmt.Println("task done")
+		}(tq.GetTracker(), v, options.TaskDuration)
 	}
 }
 
@@ -81,12 +115,13 @@ func TestAddNode(t *testing.T) {
 	}
 }
 
-func TestAddRunQueue(t *testing.T) {
+func TestRunQueue(t *testing.T) {
 	tq := NewTQ(runQ)
-	tq.RunQueue(nil)
+	tq.RunQueue(NewTestingRunnerOpts(1, time.Second*2))
 
-	nv, err := tq.AddNodeFromValue(&MyDataType{
+	nv, err := tq.AddNodeFromValue(&TestingDataType{
 		value: 573,
+		err:   nil,
 		state: make(chan int),
 	})
 	if err != nil {
@@ -94,7 +129,7 @@ func TestAddRunQueue(t *testing.T) {
 	}
 
 	// could be avoided, but done to check if NodeValue can be casted
-	v, ok := nv.(*MyDataType)
+	v, ok := nv.(*TestingDataType)
 	if !ok {
 		t.Fatal("TestFN: Cannot convert Node value into proper type\n")
 	}
@@ -146,7 +181,7 @@ func TestAddRunQueue(t *testing.T) {
 	}
 
 	if tlen != 1 {
-		t.Errorf("Tracker has wrong length: has %d, should be 1", qlen)
+		t.Errorf("Tracker has wrong length: has %d, should be 1", tlen)
 	}
 
 	// check if status is completed
@@ -161,5 +196,45 @@ func TestAddRunQueue(t *testing.T) {
 
 	if status != TASK_STATE_STR_COMPLETED {
 		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_STR_COMPLETED)
+	}
+}
+
+func TestMultipleCoroutines(t *testing.T) {
+	tq := NewTQ(runQ)
+	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
+
+	ntasks := 1000
+
+	for i := 0; i < 1000; i++ {
+		_, err := tq.AddNodeFromValue(&TestingDataType{
+			value: i,
+			err:   nil,
+			state: make(chan int),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	time.Sleep(time.Second * 2)
+
+	qlen := tq.GetQueueLength()
+	tlen := tq.TrackerCount()
+
+	if qlen != ntasks-4 {
+		t.Errorf("Queue has wrong length: has %d, should be %d", qlen, ntasks-4)
+	}
+
+	if tlen != ntasks {
+		t.Errorf("Tracker has wrong length: has %d, should be %d", tlen, ntasks)
+	}
+
+	count, err := tq.TrackerCountFromState(TASK_STATE_RUNNING)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if count != 4 {
+		t.Errorf("Running tasks should be %d, instead got %d", 4, count)
 	}
 }
