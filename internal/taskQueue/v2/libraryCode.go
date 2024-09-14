@@ -6,8 +6,7 @@ import (
 )
 
 type (
-	QRunnerOpts interface{}
-	QueueRunner func(tq *TQv2, opts QRunnerOpts)
+	QueueRunner func(tq *TQv2, opts interface{})
 )
 
 type TQv2 struct {
@@ -34,13 +33,28 @@ func (tq *TQv2) GetTracker() *Tracker {
 	return tq.t
 }
 
-func (tq *TQv2) RunQueue(opts QRunnerOpts) {
-	go func(tq *TQv2, opts QRunnerOpts) {
+func (tq *TQv2) RunQueue(opts interface{}) {
+	go func(tq *TQv2, opts interface{}) {
 		tq.qRunner(tq, opts)
 	}(tq, opts)
 }
 
-func (tq *TQv2) AddNode(v NodeValue) (*Node, error) {
+func (tq *TQv2) AddNode(n *Node) error {
+	tq.Lock()
+	defer tq.Unlock()
+
+	alreadyExists := tq.t.Has(n.Value())
+	if alreadyExists {
+		return fmt.Errorf("A node with an equal value already exists")
+	}
+
+	tq.q.Enqueue(n)
+	tq.t.Add(n.Value())
+
+	return nil
+}
+
+func (tq *TQv2) AddNodeFromValue(v interface{}) (interface{}, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -54,11 +68,11 @@ func (tq *TQv2) AddNode(v NodeValue) (*Node, error) {
 	tq.q.Enqueue(n)
 	tq.t.Add(v)
 
-	return n, nil
+	return n.Value(), nil
 }
 
-func (tq *TQv2) RemoveNode(v NodeValue) error {
-	tq.q.Remove(v, func(val1, val2 NodeValue) bool {
+func (tq *TQv2) RemoveNode(v interface{}) error {
+	tq.q.Remove(v, func(val1, val2 interface{}) bool {
 		if val1 == val2 {
 			return true
 		}
@@ -71,11 +85,11 @@ func (tq *TQv2) RemoveNode(v NodeValue) error {
 	return err
 }
 
-func (tq *TQv2) AdvanceTaskState(v NodeValue) error {
+func (tq *TQv2) AdvanceTaskState(v interface{}) error {
 	return tq.t.AdvanceState(v)
 }
 
-func (tq *TQv2) AdvanceNewTaskState() (NodeValue, error) {
+func (tq *TQv2) AdvanceNewTaskState() (interface{}, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -84,16 +98,19 @@ func (tq *TQv2) AdvanceNewTaskState() (NodeValue, error) {
 		return nil, err
 	}
 
-	tq.t.AdvanceState(nv)
+	err = tq.t.AdvanceState(nv)
+	if err != nil {
+		return nil, err
+	}
 
 	return nv, nil
 }
 
-func (tq *TQv2) RegressTaskState(v NodeValue) error {
+func (tq *TQv2) RegressTaskState(v interface{}) error {
 	return tq.t.RegressState(v)
 }
 
-func (tq *TQv2) ResetTaskState(v NodeValue) error {
+func (tq *TQv2) ResetTaskState(v interface{}) error {
 	return tq.t.RegressState(v)
 }
 
@@ -101,6 +118,10 @@ func (tq *TQv2) GetQueueLength() int {
 	return tq.q.Length()
 }
 
-func (tq *TQv2) TrackerCount(completionState int) int {
-	return tq.t.Count(completionState)
+func (tq *TQv2) TrackerCount() int {
+	return tq.t.Count()
+}
+
+func (tq *TQv2) TrackerCountFromState(completionState int) (int, error) {
+	return tq.t.CountFromState(completionState)
 }

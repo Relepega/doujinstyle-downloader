@@ -10,15 +10,13 @@ var (
 	ErrNoMatchFound = fmt.Errorf("No matching element found")
 )
 
-type NodeValue interface{}
-
 type Node struct {
 	value interface{}
 	next  *Node
 	prev  *Node
 }
 
-func NewNode(value NodeValue) *Node {
+func NewNode(value interface{}) *Node {
 	return &Node{
 		value: value,
 		next:  nil,
@@ -26,7 +24,7 @@ func NewNode(value NodeValue) *Node {
 	}
 }
 
-func (n *Node) Value() NodeValue {
+func (n *Node) Value() interface{} {
 	return n.value
 }
 
@@ -69,21 +67,43 @@ func (q *Queue) Enqueue(node *Node) {
 	q.tail = node
 }
 
+// func (q *Queue) Dequeue() (interface{}, error) {
+// 	q.mu.Lock()
+// 	defer q.mu.Unlock()
+//
+// 	var value interface{}
+//
+// 	if q.length == 0 || q.head == nil {
+// 		return value, ErrEmptyQueue
+// 	}
+//
+// 	node := q.head
+// 	q.head = q.head.next
+// 	q.head.prev = nil
+//
+// 	if q.head.next == nil {
+// 		q.tail = nil
+// 	}
+//
+// 	q.length--
+//
+// 	return node.value, nil
+// }
+
 func (q *Queue) Dequeue() (interface{}, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	var value interface{}
-
 	if q.length == 0 || q.head == nil {
-		return value, ErrEmptyQueue
+		return nil, ErrEmptyQueue
 	}
 
 	node := q.head
 	q.head = q.head.next
-	q.head.prev = nil
 
-	if q.head.next == nil {
+	if q.head != nil {
+		q.head.prev = nil
+	} else {
 		q.tail = nil
 	}
 
@@ -114,7 +134,7 @@ func (q *Queue) Back() (*Node, error) {
 	return q.tail, nil
 }
 
-func (q *Queue) Has(value NodeValue, comparator func(val1, val2 NodeValue) bool) bool {
+func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -135,7 +155,7 @@ func (q *Queue) Has(value NodeValue, comparator func(val1, val2 NodeValue) bool)
 	return false
 }
 
-func (q *Queue) Remove(value NodeValue, comparator func(val1, val2 NodeValue) bool) bool {
+func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -159,7 +179,7 @@ func (q *Queue) Remove(value NodeValue, comparator func(val1, val2 NodeValue) bo
 	return false
 }
 
-func (q *Queue) RemoveAll(value NodeValue, comparator func(val1, val2 NodeValue) bool) bool {
+func (q *Queue) RemoveAll(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -185,7 +205,7 @@ func (q *Queue) RemoveAll(value NodeValue, comparator func(val1, val2 NodeValue)
 	return matched
 }
 
-// func (q *Queue) Has(value NodeValue, comparator func(val1, val2 NodeValue) bool) bool {
+// func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
 // 	for _, item := range q.items {
 // 		if comparator(item, value) {
 // 			return true
@@ -195,7 +215,7 @@ func (q *Queue) RemoveAll(value NodeValue, comparator func(val1, val2 NodeValue)
 // 	return false
 // }
 //
-// func (q *Queue) Remove(value NodeValue, comparator func(val1, val2 NodeValue) bool) bool {
+// func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
 // 	for i, item := range q.items {
 // 		if comparator(item, value) {
 // 			q.items = append(q.items[:i], q.items[i+1:]...)

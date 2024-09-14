@@ -28,8 +28,12 @@ func RunQueue(
 	defer emptyPage.Close()
 
 	for {
-		if tq.GetQueueLength() == 0 ||
-			tq.TrackerCount(TASK_STATE_RUNNING) == parsedOpts.maxConcurrency {
+		tcount, err := tq.TrackerCountFromState(TASK_STATE_RUNNING)
+		if err != nil {
+			panic(err)
+		}
+
+		if tq.GetQueueLength() == 0 || tcount == parsedOpts.maxConcurrency {
 			continue
 		}
 
@@ -39,7 +43,7 @@ func RunQueue(
 		}
 
 		// TODO: complete with an actual Node struct value
-		nodev, ok := taskVal.(NodeValue)
+		nodev, ok := taskVal.(interface{})
 		if !ok {
 			tq.RemoveNode(taskVal)
 			continue
@@ -47,7 +51,7 @@ func RunQueue(
 
 		tq.AdvanceTaskState(nodev)
 
-		go func(t *Tracker, v NodeValue) {
+		go func(t *Tracker, v interface{}) {
 			time.Sleep(time.Second * 5)
 			tq.AdvanceTaskState(v)
 		}(tq.GetTracker(), nodev)

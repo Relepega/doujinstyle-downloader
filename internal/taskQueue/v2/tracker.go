@@ -37,6 +37,10 @@ func NewTracker() *Tracker {
 	}
 }
 
+func (t *Tracker) Count() int {
+	return len(t.db_tasks)
+}
+
 func (t *Tracker) CountFromState(completionState int) (int, error) {
 	t.Lock()
 	defer t.Unlock()
@@ -55,14 +59,14 @@ func (t *Tracker) CountFromState(completionState int) (int, error) {
 	return count, nil
 }
 
-func (t *Tracker) Add(nv NodeValue) {
+func (t *Tracker) Add(nv interface{}) {
 	t.Lock()
 	defer t.Unlock()
 
 	t.db_tasks[nv] = TASK_STATE_QUEUED
 }
 
-func (t *Tracker) Has(nv NodeValue) bool {
+func (t *Tracker) Has(nv interface{}) bool {
 	t.Lock()
 	defer t.Unlock()
 
@@ -74,7 +78,7 @@ func (t *Tracker) Has(nv NodeValue) bool {
 	return false
 }
 
-func (t *Tracker) Remove(nv NodeValue) error {
+func (t *Tracker) Remove(nv interface{}) error {
 	t.Lock()
 	defer t.Unlock()
 
@@ -123,7 +127,7 @@ func (t *Tracker) ResetFromCompletionState(completionState int) error {
 	return nil
 }
 
-func (t *Tracker) GetStatus(nv NodeValue) (string, error) {
+func (t *Tracker) GetStatus(nv interface{}) (string, error) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -136,22 +140,7 @@ func (t *Tracker) GetStatus(nv NodeValue) (string, error) {
 	return "", fmt.Errorf("Node not found")
 }
 
-func (t *Tracker) Count(completionState int) int {
-	t.Lock()
-	defer t.Unlock()
-
-	count := 0
-
-	for _, v := range t.db_tasks {
-		if v == completionState {
-			count++
-		}
-	}
-
-	return count
-}
-
-func (t *Tracker) AdvanceState(nv NodeValue) error {
+func (t *Tracker) AdvanceState(nv interface{}) error {
 	t.Lock()
 	defer t.Unlock()
 
@@ -168,7 +157,7 @@ func (t *Tracker) AdvanceState(nv NodeValue) error {
 	return nil
 }
 
-func (t *Tracker) RegressState(nv NodeValue) error {
+func (t *Tracker) RegressState(nv interface{}) error {
 	t.Lock()
 	defer t.Unlock()
 
@@ -185,7 +174,7 @@ func (t *Tracker) RegressState(nv NodeValue) error {
 	return nil
 }
 
-func (t *Tracker) ResetState(nv NodeValue) error {
+func (t *Tracker) ResetState(nv interface{}) error {
 	t.Lock()
 	defer t.Unlock()
 
