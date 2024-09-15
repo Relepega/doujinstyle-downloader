@@ -9,7 +9,9 @@ import (
 type TestingDataType struct {
 	value int
 	err   error
+
 	state chan int
+	stop  chan struct{}
 }
 
 type TestingRunnerOptions struct {
@@ -24,7 +26,7 @@ func NewTestingRunnerOpts(c int, d time.Duration) TestingRunnerOptions {
 	}
 }
 
-func runQ(tq *TQv2, opts interface{}) {
+func runQ(tq *TQv2, stop <-chan struct{}, opts interface{}) {
 	options := TestingRunnerOptions{
 		MaxConcurrency: 1,
 		TaskDuration:   time.Second,
@@ -40,45 +42,75 @@ func runQ(tq *TQv2, opts interface{}) {
 	}
 
 	for {
-		tcount, err := tq.TrackerCountFromState(TASK_STATE_RUNNING)
+		select {
+		case <-stop:
+			return
+
+		default:
+			tcount, err := tq.TrackerCountFromState(TASK_STATE_RUNNING)
+			if err != nil {
+				continue
+			}
+
+			if tq.GetQueueLength() == 0 || tcount == options.MaxConcurrency {
+				time.Sleep(time.Millisecond)
+				continue
+			}
+
+			taskVal, err := tq.AdvanceNewTaskState()
+			if err != nil {
+				continue
+			}
+
+			v, ok := taskVal.(*TestingDataType)
+			if !ok {
+				panic("TaskRunner: Cannot convert node value into proper type\n")
+			}
+			v.state <- TASK_STATE_RUNNING
+
+			go taskRunner(tq, v, options.TaskDuration)
+		}
+	}
+}
+
+func taskRunner(tq *TQv2, myData *TestingDataType, duration time.Duration) {
+	markCompleted := func() {
+		err := tq.AdvanceTaskState(myData)
 		if err != nil {
-			continue
+			panic(err)
 		}
+		myData.state <- TASK_STATE_COMPLETED
+	}
 
-		if tq.GetQueueLength() == 0 || tcount == options.MaxConcurrency {
-			time.Sleep(time.Millisecond)
-			continue
-		}
+	running := false
 
-		taskVal, err := tq.AdvanceNewTaskState()
-		if err != nil {
-			continue
-		}
+	for {
+		select {
+		case <-myData.stop:
+			myData.err = fmt.Errorf("task aborted by the user")
+			markCompleted()
 
-		v, ok := taskVal.(*TestingDataType)
-		if !ok {
-			panic("TaskRunner: Cannot convert node value into proper type\n")
-		}
-		v.state <- TASK_STATE_RUNNING
+			return
 
-		go func(t *Tracker, myData *TestingDataType, duration time.Duration) {
-			fmt.Println("activating task")
+		default:
+			if running {
+				continue
+			}
 
+			// mark running
+			running = true
+
+			// intensive task operations...
 			time.Sleep(duration)
 
-			err = tq.AdvanceTaskState(myData)
-			if err != nil {
-				panic(err)
-			}
-			myData.state <- TASK_STATE_COMPLETED
-
-			fmt.Println("task done")
-		}(tq.GetTracker(), v, options.TaskDuration)
+			// task done :)
+			markCompleted()
+		}
 	}
 }
 
 func TestAddNode(t *testing.T) {
-	tq := NewTQ(func(tq *TQv2, opts interface{}) {})
+	tq := NewTQ(func(tq *TQv2, stop <-chan struct{}, opts interface{}) {})
 
 	nv, err := tq.AddNodeFromValue(1)
 	if err != nil {
@@ -114,6 +146,7 @@ func TestRunQueue(t *testing.T) {
 		value: 573,
 		err:   nil,
 		state: make(chan int, 1),
+		stop:  make(chan struct{}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -191,17 +224,18 @@ func TestRunQueue(t *testing.T) {
 }
 
 func TestMultipleCoroutines(t *testing.T) {
-	fmt.Println("--------------------")
 	tq := NewTQ(runQ)
 	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
 
 	ntasks := 1000
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < ntasks; i++ {
 		_, err := tq.AddNodeFromValue(&TestingDataType{
 			value: i,
 			err:   nil,
-			state: make(chan int, 2), // make it buffered so that the runner goroutine isn't blocked
+			// make it buffered so that the runner goroutine isn't blocked
+			state: make(chan int, 1),
+			stop:  make(chan struct{}),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -228,5 +262,90 @@ func TestMultipleCoroutines(t *testing.T) {
 
 	if count != 4 {
 		t.Errorf("Running tasks should be %d, instead got %d", 4, count)
+	}
+}
+
+func TestAbortTask(t *testing.T) {
+	tq := NewTQ(runQ)
+	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
+
+	nv1 := &TestingDataType{
+		value: 420,
+		err:   nil,
+		// make it buffered so that the runner goroutine isn't blocked
+		state: make(chan int, 1),
+		stop:  make(chan struct{}),
+	}
+
+	nv2 := &TestingDataType{
+		value: 727,
+		err:   nil,
+		// make it buffered so that the runner goroutine isn't blocked
+		state: make(chan int, 1),
+		stop:  make(chan struct{}),
+	}
+
+	_, err := tq.AddNodeFromValue(nv1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = tq.AddNodeFromValue(nv2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// wait for both to be running
+	<-nv1.state
+	<-nv2.state
+
+	nv1.stop <- struct{}{}
+
+	// should be completed
+	_ = <-nv1.state
+
+	tq.StopQueue()
+
+	countDone, err := tq.TrackerCountFromState(TASK_STATE_COMPLETED)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if countDone != 1 {
+		t.Error("Wrong done count number: should be 1, got ", countDone)
+	}
+}
+
+func TestCloseRunner(t *testing.T) {
+	tq := NewTQ(runQ)
+	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
+
+	ntasks := 1000
+
+	for i := 0; i < ntasks; i++ {
+		_, err := tq.AddNodeFromValue(&TestingDataType{
+			value: i,
+			err:   nil,
+			// make it buffered so that the runner goroutine isn't blocked
+			state: make(chan int, 1),
+			stop:  make(chan struct{}),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	time.Sleep(time.Second * 2)
+
+	isRunning := tq.IsQueueRunning()
+	if !isRunning {
+		t.Fatal("QRunner should be running")
+	}
+
+	tq.StopQueue()
+
+	isRunning = tq.IsQueueRunning()
+	if isRunning {
+		t.Fatal("QRunner should be stopped")
 	}
 }

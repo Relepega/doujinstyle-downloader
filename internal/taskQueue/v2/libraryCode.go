@@ -6,22 +6,27 @@ import (
 )
 
 type (
-	QueueRunner func(tq *TQv2, opts interface{})
+	QueueRunner func(tq *TQv2, stop <-chan struct{}, opts interface{})
 )
 
 type TQv2 struct {
 	sync.Mutex
 
-	q       *Queue
-	t       *Tracker
-	qRunner QueueRunner
+	q *Queue
+	t *Tracker
+
+	qRunner        QueueRunner
+	stopRunner     chan struct{}
+	isQueueRunning bool
 }
 
 func NewTQ(fn QueueRunner) *TQv2 {
 	return &TQv2{
-		q:       NewQueue(),
-		t:       NewTracker(),
-		qRunner: fn,
+		q:              NewQueue(),
+		t:              NewTracker(),
+		qRunner:        fn,
+		stopRunner:     make(chan struct{}),
+		isQueueRunning: false,
 	}
 }
 
@@ -34,9 +39,20 @@ func (tq *TQv2) GetTracker() *Tracker {
 }
 
 func (tq *TQv2) RunQueue(opts interface{}) {
-	go func(tq *TQv2, opts interface{}) {
-		tq.qRunner(tq, opts)
-	}(tq, opts)
+	go func(tq *TQv2, stop chan struct{}, opts interface{}) {
+		tq.qRunner(tq, stop, opts)
+	}(tq, tq.stopRunner, opts)
+
+	tq.isQueueRunning = true
+}
+
+func (tq *TQv2) StopQueue() {
+	tq.stopRunner <- struct{}{}
+	tq.isQueueRunning = false
+}
+
+func (tq *TQv2) IsQueueRunning() bool {
+	return tq.isQueueRunning
 }
 
 func (tq *TQv2) AddNode(n *Node) error {
