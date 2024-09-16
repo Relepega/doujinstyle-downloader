@@ -15,21 +15,21 @@ type TestingDataType struct {
 }
 
 type TestingRunnerOptions struct {
-	MaxConcurrency int
-	TaskDuration   time.Duration
+	Threads      int
+	TaskDuration time.Duration
 }
 
-func NewTestingRunnerOpts(c int, d time.Duration) TestingRunnerOptions {
+func NewTestingRunnerOpts(t int, d time.Duration) TestingRunnerOptions {
 	return TestingRunnerOptions{
-		MaxConcurrency: c,
-		TaskDuration:   d,
+		Threads:      t,
+		TaskDuration: d,
 	}
 }
 
 func runQ(tq *TQv2, stop <-chan struct{}, opts interface{}) {
 	options := TestingRunnerOptions{
-		MaxConcurrency: 1,
-		TaskDuration:   time.Second,
+		Threads:      1,
+		TaskDuration: time.Second,
 	}
 
 	if opts != nil {
@@ -52,7 +52,7 @@ func runQ(tq *TQv2, stop <-chan struct{}, opts interface{}) {
 				continue
 			}
 
-			if tq.GetQueueLength() == 0 || tcount == options.MaxConcurrency {
+			if tq.GetQueueLength() == 0 || tcount == options.Threads {
 				time.Sleep(time.Millisecond)
 				continue
 			}
