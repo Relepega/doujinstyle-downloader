@@ -138,6 +138,21 @@ func TestAddNode(t *testing.T) {
 	}
 }
 
+func TestHasNode(t *testing.T) {
+	tq := NewTQ(func(tq *TQv2, stop <-chan struct{}, opts interface{}) {})
+
+	node := NewNode(1)
+
+	err := tq.AddNode(node)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !tq.Has(node.value) {
+		t.Errorf("TQ should already hold this value: %+v", node.value)
+	}
+}
+
 func TestRunQueue(t *testing.T) {
 	tq := NewTQ(runQ)
 	tq.RunQueue(NewTestingRunnerOpts(1, time.Second*2))

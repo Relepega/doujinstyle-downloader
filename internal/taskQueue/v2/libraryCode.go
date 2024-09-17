@@ -108,6 +108,13 @@ func (tq *TQv2) RemoveNode(v interface{}) error {
 	return err
 }
 
+func (tq *TQv2) Has(v interface{}) bool {
+	tq.Lock()
+	defer tq.Unlock()
+
+	return tq.t.Has(v)
+}
+
 func (tq *TQv2) AdvanceTaskState(v interface{}) error {
 	return tq.t.AdvanceState(v)
 }
