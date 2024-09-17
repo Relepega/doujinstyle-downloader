@@ -30,7 +30,6 @@ type Tracker struct {
 	db_tasks map[interface{}]int
 }
 
-// TODO: MAKE A RUNNING TASK CANCELLABLE
 func NewTracker() *Tracker {
 	return &Tracker{
 		db_tasks: make(map[interface{}]int, 15), // seems a fair, arbitrary value

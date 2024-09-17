@@ -26,7 +26,7 @@ func NewTestingRunnerOpts(t int, d time.Duration) TestingRunnerOptions {
 	}
 }
 
-func runQ(tq *TQv2, stop <-chan struct{}, opts interface{}) {
+func runQ(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {
 	options := TestingRunnerOptions{
 		Threads:      1,
 		TaskDuration: time.Second,
@@ -73,7 +73,7 @@ func runQ(tq *TQv2, stop <-chan struct{}, opts interface{}) {
 	}
 }
 
-func taskRunner(tq *TQv2, myData *TestingDataType, duration time.Duration) {
+func taskRunner(tq *TQWrapper, myData *TestingDataType, duration time.Duration) {
 	markCompleted := func() {
 		err := tq.AdvanceTaskState(myData)
 		if err != nil {
@@ -110,7 +110,7 @@ func taskRunner(tq *TQv2, myData *TestingDataType, duration time.Duration) {
 }
 
 func TestAddNode(t *testing.T) {
-	tq := NewTQ(func(tq *TQv2, stop <-chan struct{}, opts interface{}) {})
+	tq := NewTQWrapper(func(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {})
 
 	nv, err := tq.AddNodeFromValue(1)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestAddNode(t *testing.T) {
 }
 
 func TestHasNode(t *testing.T) {
-	tq := NewTQ(func(tq *TQv2, stop <-chan struct{}, opts interface{}) {})
+	tq := NewTQWrapper(func(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {})
 
 	node := NewNode(1)
 
@@ -154,7 +154,7 @@ func TestHasNode(t *testing.T) {
 }
 
 func TestRunQueue(t *testing.T) {
-	tq := NewTQ(runQ)
+	tq := NewTQWrapper(runQ)
 	tq.RunQueue(NewTestingRunnerOpts(1, time.Second*2))
 
 	nv, err := tq.AddNodeFromValue(&TestingDataType{
@@ -239,7 +239,7 @@ func TestRunQueue(t *testing.T) {
 }
 
 func TestMultipleCoroutines(t *testing.T) {
-	tq := NewTQ(runQ)
+	tq := NewTQWrapper(runQ)
 	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
 
 	ntasks := 1000
@@ -281,7 +281,7 @@ func TestMultipleCoroutines(t *testing.T) {
 }
 
 func TestAbortTask(t *testing.T) {
-	tq := NewTQ(runQ)
+	tq := NewTQWrapper(runQ)
 	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
 
 	nv1 := &TestingDataType{
@@ -332,7 +332,7 @@ func TestAbortTask(t *testing.T) {
 }
 
 func TestCloseRunner(t *testing.T) {
-	tq := NewTQ(runQ)
+	tq := NewTQWrapper(runQ)
 	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
 
 	ntasks := 1000
