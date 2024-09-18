@@ -254,11 +254,7 @@ func (q *Queue) publishUIUpdate(evt string, data interface{}) {
 
 func (q *Queue) Run(ctx context.Context, pwc *playwrightWrapper.PwContainer) {
 	// open empty page so that the context won't close
-	_, err := pwc.BrowserContext.NewPage()
-	if err != nil {
-		log.Panicf("Queue runner couldn't open a new browser page: %v\n", err)
-	}
-	// defer emptyPage.Close()
+	_, _ = pwc.BrowserContext.NewPage()
 
 	queue_pub := pubsub.NewGlobalPublisher("queue")
 	subscriber := queue_pub.Subscribe()
