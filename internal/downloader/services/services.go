@@ -2,6 +2,9 @@ package services
 
 import (
 	"fmt"
+	"log"
+	"net/url"
+	"strings"
 
 	"github.com/playwright-community/playwright-go"
 )
@@ -25,5 +28,25 @@ func NewService(service string, mediaID string) (Service, error) {
 
 	default:
 		return nil, fmt.Errorf("unknown service")
+	}
+}
+
+func NewServiceFromURL(pageURL string) (Service, error) {
+	urlObject, err := url.Parse(pageURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	hostname := strings.TrimPrefix(urlObject.Hostname(), "www.")
+
+	switch hostname {
+	case "doujinstyle.com":
+		return newDoujinstyle(pageURL), nil
+
+	case "sukidesuost.info":
+		return newSukidesuost(pageURL), nil
+
+	default:
+		return nil, fmt.Errorf("Unknown service")
 	}
 }
