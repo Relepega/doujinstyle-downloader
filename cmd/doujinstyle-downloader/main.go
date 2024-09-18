@@ -47,10 +47,12 @@ func main() {
 
 	err = cfg.Load()
 	if err != nil {
-		err := cfg.Save()
-		if err != nil {
-			log.Fatal(err)
-		}
+		log.Fatal(err)
+	}
+
+	err = cfg.Save()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// set config to the store value
@@ -63,24 +65,22 @@ func main() {
 	}
 
 	// "clean" temp dir
-	dir, err := appUtils.GetAppTempDir()
-	if err != nil {
-		log.Fatal(err)
-	}
+	tempdir := cfg.App.Tempdir
+	appUtils.SetTempDir(tempdir)
 
-	exists, err := appUtils.DirectoryExists(dir)
+	exists, err := appUtils.DirectoryExists(tempdir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	if exists {
-		err = os.RemoveAll(dir)
+		err = os.RemoveAll(tempdir)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	err = appUtils.CreateAppTempDir(dir)
+	err = appUtils.CreateAppTempDir(tempdir)
 	if err != nil {
 		log.Fatal(err)
 	}

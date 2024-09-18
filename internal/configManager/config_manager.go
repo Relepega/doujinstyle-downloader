@@ -9,7 +9,7 @@ import (
 
 const (
 	config_fp     = "./config.toml"
-	latestVersion = "0.3.0-b1"
+	latestVersion = "0.3.2"
 )
 
 type Config struct {
@@ -24,6 +24,9 @@ type Config struct {
 	Dev struct {
 		PlaywrightDebug bool
 		ServerLogging   bool
+	}
+	App struct {
+		Tempdir string
 	}
 	Version string
 }
@@ -45,6 +48,8 @@ func NewConfig() *Config {
 
 	cfg.Dev.PlaywrightDebug = false
 	cfg.Dev.ServerLogging = false
+
+	cfg.App.Tempdir = "./Downloads/.tmp"
 
 	cfg.Version = latestVersion
 
@@ -71,7 +76,7 @@ func (cfg *Config) Load() error {
 	}
 
 	if cfg.Version != latestVersion {
-		updateCfg(cfg, NewConfig())
+		*cfg = *updateCfg(cfg, NewConfig())
 	}
 
 	return nil
@@ -81,7 +86,7 @@ func (cfg *Config) Load() error {
 // into the latest cfg struct
 //
 // This is a bad hack tbh, but if it works it works
-func updateCfg(old *Config, latest *Config) {
+func updateCfg(old *Config, latest *Config) *Config {
 	var oldCfg map[string]interface{}
 
 	data, _ := json.Marshal(old)
@@ -125,16 +130,25 @@ func updateCfg(old *Config, latest *Config) {
 			latest.Dev.ServerLogging = old.Dev.ServerLogging
 		}
 	}
+
+	appCfg, ok := oldCfg["App"].(map[string]interface{})
+	if ok {
+		_, ok = appCfg["Tempdir"]
+		if ok {
+			latest.App.Tempdir = old.App.Tempdir
+		}
+	}
+
+	latest.Version = latestVersion
+
+	return latest
 }
 
 // Saves the config to file
 func (cfg *Config) Save() error {
-	file, err := os.Open(config_fp)
+	file, err := os.OpenFile(config_fp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		file, err = os.Create(config_fp)
-		if err != nil {
-			return err
-		}
+		return err
 	}
 	defer file.Close()
 
