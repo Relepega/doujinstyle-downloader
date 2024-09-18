@@ -99,6 +99,7 @@ func (j *jottacloud) Download() error {
 				},
 			})
 		},
+		false,
 	)
 	if err != nil {
 		return err

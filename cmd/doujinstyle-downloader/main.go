@@ -62,6 +62,29 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// "clean" temp dir
+	dir, err := appUtils.GetAppTempDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	exists, err := appUtils.DirectoryExists(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if exists {
+		err = os.RemoveAll(dir)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	err = appUtils.CreateAppTempDir(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Init new default event publisher
 	pub := pubsub.NewGlobalPublisher("sse")
 

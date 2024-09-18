@@ -134,6 +134,7 @@ func (gd *gdrive) Download() error {
 				},
 			})
 		},
+		false,
 	)
 	if err != nil {
 		return err

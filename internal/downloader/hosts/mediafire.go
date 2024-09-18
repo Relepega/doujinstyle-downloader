@@ -212,6 +212,7 @@ func (m *mediafire) downloadSingleFile(
 				},
 			})
 		},
+		false,
 	)
 	if err != nil {
 		return err

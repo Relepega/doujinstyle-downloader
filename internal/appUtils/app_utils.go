@@ -6,14 +6,15 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-func CreateFolder(fname string) error {
-	if _, err := os.Stat(fname); os.IsNotExist(err) {
-		err = os.MkdirAll(fname, 0755)
+func CreateFolder(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, 0755)
 		if err != nil {
 			return fmt.Errorf("Error creating folder: %v", err)
 		}
@@ -28,28 +29,70 @@ func FileExists(fp string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
+
 		return false, err
 	}
+
 	return true, nil
 }
 
 func DirectoryExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-
-	if err == nil {
+	info, err := os.Stat(path)
+	if err == nil && info.IsDir() {
 		return true, nil
 	}
-
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-
-	return false, err
+	return false, nil
 }
 
-func DownloadFile(fp string, url string, progress *int8, callback func(p int8)) (err error) {
+func GetAppTempDir() (string, error) {
+	ex_path, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+
+	ex_path, err = filepath.EvalSymlinks(ex_path)
+	if err != nil {
+		return "", err
+	}
+
+	dir := filepath.Join(ex_path, ".temp")
+
+	return dir, nil
+}
+
+func CreateAppTempDir(dir string) error {
+	dir_exists, err := DirectoryExists(dir)
+	if err != nil {
+		return err
+	}
+
+	if !dir_exists {
+		CreateFolder(dir)
+	}
+
+	return nil
+}
+
+func DownloadFile(
+	fp string,
+	url string,
+	progress *int8,
+	callback func(p int8),
+	useAltTempDir bool,
+) (err error) {
+	tempdir := ""
+
+	if useAltTempDir {
+		dir, err := GetAppTempDir()
+		if err != nil {
+			return err
+		}
+
+		tempdir = dir
+	}
+
 	// write to a temp file first to avoid incomplete downloads
-	tempf, err := os.CreateTemp("", "doujinstyleDownloader-")
+	tempf, err := os.CreateTemp(tempdir, "doujinstyleDownloader-")
 	if err != nil {
 		return err
 	}
