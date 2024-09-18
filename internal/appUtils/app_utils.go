@@ -6,11 +6,17 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 )
+
+// FIX: this is hacky, fix it asap
+var tmpd = ""
+
+func SetTempDir(path string) {
+	tmpd = path
+}
 
 func CreateFolder(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -44,20 +50,8 @@ func DirectoryExists(path string) (bool, error) {
 	return false, nil
 }
 
-func GetAppTempDir() (string, error) {
-	ex_path, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-
-	ex_path, err = filepath.EvalSymlinks(ex_path)
-	if err != nil {
-		return "", err
-	}
-
-	dir := filepath.Join(ex_path, ".temp")
-
-	return dir, nil
+func GetAppTempDir() string {
+	return tmpd
 }
 
 func CreateAppTempDir(dir string) error {
@@ -83,12 +77,7 @@ func DownloadFile(
 	tempdir := ""
 
 	if useAltTempDir {
-		dir, err := GetAppTempDir()
-		if err != nil {
-			return err
-		}
-
-		tempdir = dir
+		tempdir = GetAppTempDir()
 	}
 
 	// write to a temp file first to avoid incomplete downloads
