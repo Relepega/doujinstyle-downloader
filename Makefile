@@ -54,7 +54,10 @@ debug:
 	air
 
 run:
-	go run $(APP_ENTRYPOINT)
+	go run --race $(APP_ENTRYPOINT)
+
+test:
+	go test --race ./...
 
 update-deps:
 	go get -t -u ./...
