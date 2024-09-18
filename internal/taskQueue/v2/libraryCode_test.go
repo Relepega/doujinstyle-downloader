@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type TestingDataType struct {
+type testingDataType struct {
 	value int
 	err   error
 
@@ -14,26 +14,26 @@ type TestingDataType struct {
 	stop  chan struct{}
 }
 
-type TestingRunnerOptions struct {
+type testingRunnerOptions struct {
 	Threads      int
 	TaskDuration time.Duration
 }
 
-func NewTestingRunnerOpts(t int, d time.Duration) TestingRunnerOptions {
-	return TestingRunnerOptions{
+func newTestingRunnerOpts(t int, d time.Duration) testingRunnerOptions {
+	return testingRunnerOptions{
 		Threads:      t,
 		TaskDuration: d,
 	}
 }
 
 func runQ(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {
-	options := TestingRunnerOptions{
+	options := testingRunnerOptions{
 		Threads:      1,
 		TaskDuration: time.Second,
 	}
 
 	if opts != nil {
-		fnOpts, ok := opts.(TestingRunnerOptions)
+		fnOpts, ok := opts.(testingRunnerOptions)
 		if !ok {
 			panic("Cannot cast runner options into proper type")
 		}
@@ -62,7 +62,7 @@ func runQ(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {
 				continue
 			}
 
-			v, ok := taskVal.(*TestingDataType)
+			v, ok := taskVal.(*testingDataType)
 			if !ok {
 				panic("TaskRunner: Cannot convert node value into proper type\n")
 			}
@@ -73,7 +73,7 @@ func runQ(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {
 	}
 }
 
-func taskRunner(tq *TQWrapper, myData *TestingDataType, duration time.Duration) {
+func taskRunner(tq *TQWrapper, myData *testingDataType, duration time.Duration) {
 	markCompleted := func() {
 		err := tq.AdvanceTaskState(myData)
 		if err != nil {
@@ -128,13 +128,13 @@ func TestAddNode(t *testing.T) {
 		t.Errorf("Tracker has wrong length: has %d, should be 1", qlen)
 	}
 
-	status, err := tq.GetTracker().GetStatus(nv)
+	status, err := tq.GetTracker().GetState(nv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if status != TASK_STATE_STR_QUEUED {
-		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_STR_QUEUED)
+	if status != TASK_STATE_QUEUED_STR {
+		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_QUEUED_STR)
 	}
 }
 
@@ -155,9 +155,9 @@ func TestHasNode(t *testing.T) {
 
 func TestRunQueue(t *testing.T) {
 	tq := NewTQWrapper(runQ)
-	tq.RunQueue(NewTestingRunnerOpts(1, time.Second*2))
+	tq.RunQueue(newTestingRunnerOpts(1, time.Second*2))
 
-	nv, err := tq.AddNodeFromValue(&TestingDataType{
+	nv, err := tq.AddNodeFromValue(&testingDataType{
 		value: 573,
 		err:   nil,
 		state: make(chan int, 1),
@@ -168,12 +168,12 @@ func TestRunQueue(t *testing.T) {
 	}
 
 	// could be avoided, but done to check if NodeValue can be casted
-	v, ok := nv.(*TestingDataType)
+	v, ok := nv.(*testingDataType)
 	if !ok {
 		t.Fatal("TestFN: Cannot convert Node value into proper type\n")
 	}
 
-	status, err := tq.GetTracker().GetStatus(nv)
+	status, err := tq.GetTracker().GetState(nv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,13 +200,13 @@ func TestRunQueue(t *testing.T) {
 		t.Errorf("Queue has wrong length: has %d, should be 0", qlen)
 	}
 
-	status, err = tq.GetTracker().GetStatus(nv)
+	status, err = tq.GetTracker().GetState(nv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if status != TASK_STATE_STR_RUNNING {
-		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_STR_RUNNING)
+	if status != TASK_STATE_RUNNING_STR {
+		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_RUNNING_STR)
 	}
 
 	// queue length & tracker count after the task should be done
@@ -228,24 +228,24 @@ func TestRunQueue(t *testing.T) {
 		t.Fatalf("Wrong task status: got \"%d\", expected \"%d\"", taskState, TASK_STATE_COMPLETED)
 	}
 
-	status, err = tq.GetTracker().GetStatus(nv)
+	status, err = tq.GetTracker().GetState(nv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if status != TASK_STATE_STR_COMPLETED {
-		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_STR_COMPLETED)
+	if status != TASK_STATE_COMPLETED_STR {
+		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_COMPLETED_STR)
 	}
 }
 
 func TestMultipleCoroutines(t *testing.T) {
 	tq := NewTQWrapper(runQ)
-	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
+	tq.RunQueue(newTestingRunnerOpts(4, time.Second*5))
 
 	ntasks := 1000
 
 	for i := 0; i < ntasks; i++ {
-		_, err := tq.AddNodeFromValue(&TestingDataType{
+		_, err := tq.AddNodeFromValue(&testingDataType{
 			value: i,
 			err:   nil,
 			// make it buffered so that the runner goroutine isn't blocked
@@ -282,9 +282,9 @@ func TestMultipleCoroutines(t *testing.T) {
 
 func TestAbortTask(t *testing.T) {
 	tq := NewTQWrapper(runQ)
-	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
+	tq.RunQueue(newTestingRunnerOpts(4, time.Second*5))
 
-	nv1 := &TestingDataType{
+	nv1 := &testingDataType{
 		value: 420,
 		err:   nil,
 		// make it buffered so that the runner goroutine isn't blocked
@@ -292,7 +292,7 @@ func TestAbortTask(t *testing.T) {
 		stop:  make(chan struct{}),
 	}
 
-	nv2 := &TestingDataType{
+	nv2 := &testingDataType{
 		value: 727,
 		err:   nil,
 		// make it buffered so that the runner goroutine isn't blocked
@@ -333,12 +333,12 @@ func TestAbortTask(t *testing.T) {
 
 func TestCloseRunner(t *testing.T) {
 	tq := NewTQWrapper(runQ)
-	tq.RunQueue(NewTestingRunnerOpts(4, time.Second*5))
+	tq.RunQueue(newTestingRunnerOpts(4, time.Second*5))
 
 	ntasks := 1000
 
 	for i := 0; i < ntasks; i++ {
-		_, err := tq.AddNodeFromValue(&TestingDataType{
+		_, err := tq.AddNodeFromValue(&testingDataType{
 			value: i,
 			err:   nil,
 			// make it buffered so that the runner goroutine isn't blocked

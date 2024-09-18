@@ -21,7 +21,7 @@ type (
 
 // A TQWrapper is a wrapper that contains both Queue and Tracker instances.
 //
-// This is the recommended way of using the package with a 99% chance to avoid a race condition.
+// This is the recommended way of using the package with a high chance to avoid a race condition.
 type TQWrapper struct {
 	sync.Mutex
 
