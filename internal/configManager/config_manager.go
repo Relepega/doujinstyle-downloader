@@ -21,12 +21,12 @@ type Config struct {
 		Directory      string
 		ConcurrentJobs int8
 	}
+	App struct {
+		Tempdir string
+	}
 	Dev struct {
 		PlaywrightDebug bool
 		ServerLogging   bool
-	}
-	App struct {
-		Tempdir string
 	}
 	Version string
 }
@@ -46,10 +46,10 @@ func NewConfig() *Config {
 	cfg.Download.Directory = "./Downloads"
 	cfg.Download.ConcurrentJobs = 2
 
+	cfg.App.Tempdir = "./Downloads/.tmp"
+
 	cfg.Dev.PlaywrightDebug = false
 	cfg.Dev.ServerLogging = false
-
-	cfg.App.Tempdir = "./Downloads/.tmp"
 
 	cfg.Version = latestVersion
 
@@ -118,6 +118,14 @@ func updateCfg(old *Config, latest *Config) *Config {
 		}
 	}
 
+	appCfg, ok := oldCfg["App"].(map[string]interface{})
+	if ok {
+		_, ok = appCfg["Tempdir"]
+		if ok {
+			latest.App.Tempdir = old.App.Tempdir
+		}
+	}
+
 	devCfg, ok := oldCfg["Dev"].(map[string]interface{})
 	if ok {
 		_, ok = devCfg["PlaywrightDebug"]
@@ -128,14 +136,6 @@ func updateCfg(old *Config, latest *Config) *Config {
 		_, ok = devCfg["ServerLogging"]
 		if ok {
 			latest.Dev.ServerLogging = old.Dev.ServerLogging
-		}
-	}
-
-	appCfg, ok := oldCfg["App"].(map[string]interface{})
-	if ok {
-		_, ok = appCfg["Tempdir"]
-		if ok {
-			latest.App.Tempdir = old.App.Tempdir
 		}
 	}
 
