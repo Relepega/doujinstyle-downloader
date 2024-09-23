@@ -113,9 +113,11 @@ redoIfInvalid:
 		// flac
 		"document.querySelectorAll('.content-inner > p:nth-child(4) > a')[0].href",
 		"document.querySelectorAll('.content-inner > p:nth-child(5) > a')[0].href",
+		"document.querySelector('tr:nth-child(4) > td:nth-child(2) > strong > span > span > span > a').href",
 		// mp3
 		"document.querySelectorAll('.content-inner > p:nth-child(4) > a')[1].href",
 		"document.querySelectorAll('.content-inner > p:nth-child(5) > a')[1].href",
+		"document.querySelector('tr:nth-child(5) > td:nth-child(2) > strong > span > span > span > a').href",
 	}
 
 	dlUrl := ""
