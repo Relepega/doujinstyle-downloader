@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -35,7 +36,9 @@ func main() {
 	log.Println("---------- SESSION START ----------")
 
 	// install playwright browsers
-	err = playwright.Install()
+	err = playwright.Install(&playwright.RunOptions{
+		Browsers: []string{"chromium", "firefox"},
+	})
 	if err != nil {
 		log.Fatalf("Couldn't install playwright dependencies: %v", err)
 	}
@@ -46,7 +49,7 @@ func main() {
 	cfg := configManager.NewConfig()
 
 	err = cfg.Load()
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatal(err)
 	}
 
