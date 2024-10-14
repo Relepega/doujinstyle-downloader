@@ -106,6 +106,10 @@ I welcome any and all contributions! Here are some ways you can get started:
 
 ### QnA
 
+**Q**. How can i contact you if i do not own a github account?
+
+**A**. You can send me a DM on discord! my username is `relepega`
+
 **Q**. I get the following error:
 `listen tcp ...: bind: An attempt was made to access a socket in a way forbidden by its access permissions.`.
 How do i fix it?
