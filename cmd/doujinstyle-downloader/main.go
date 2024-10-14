@@ -69,7 +69,7 @@ func main() {
 
 	// "clean" temp dir
 	tempdir := cfg.App.Tempdir
-	appUtils.SetTempDir(tempdir)
+	store.GetStore().Set("tempdir", tempdir)
 
 	exists, err := appUtils.DirectoryExists(tempdir)
 	if err != nil {
