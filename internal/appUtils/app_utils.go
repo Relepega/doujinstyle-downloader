@@ -4,19 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/relepega/doujinstyle-downloader/internal/store"
 )
-
-// FIX: this is hacky, fix it asap
-var tmpd = ""
-
-func SetTempDir(path string) {
-	tmpd = path
-}
 
 func CreateFolder(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -51,7 +47,14 @@ func DirectoryExists(path string) (bool, error) {
 }
 
 func GetAppTempDir() string {
-	return tmpd
+	v, err := store.GetStore().Get("tempdir")
+	if err != nil {
+		return "."
+	}
+
+	tempdir, _ := v.(string)
+
+	return tempdir
 }
 
 func CreateAppTempDir(dir string) error {
