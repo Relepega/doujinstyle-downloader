@@ -7,29 +7,39 @@ package hosts
 	@param: CONTENT_TYPE = "files" | "folders"
 */
 
-type MediafireFolderContent struct {
+type MediafireFolderInfoResponse struct {
 	Response struct {
-		Action            string                      `json:"action"`
-		Asynchronous      string                      `json:"asynchronous"`
-		FolderContent     MediafireFolderFilesContent `json:"folder_content"`
-		Result            string                      `json:"result"`
-		CurrentAPIVersion string                      `json:"current_api_version"`
+		Action            string                 `json:"action"`
+		Asynchronous      string                 `json:"asynchronous"`
+		FolderContent     MediafireFolderContent `json:"folder_content"`
+		Result            string                 `json:"result"`
+		CurrentAPIVersion string                 `json:"current_api_version"`
 	} `json:"response"`
 }
 
-type MediafireFolderFilesContent struct {
-	ChunkSize   string            `json:"chunk_size"`
-	ContentType string            `json:"content_type"`
-	ChunkNumber string            `json:"chunk_number"`
-	FolderKey   string            `json:"folderkey"`
-	Files       []MediafireFile   `json:"files,omitempty"`
-	Folders     []MediafireFolder `json:"folders,omitempty"`
-	MoreChunks  string            `json:"more_chunks"`
-	Revision    string            `json:"revision"`
+type MediafireFileInfoResponse struct {
+	Response struct {
+		Action            string            `json:"action"`
+		FileInfo          MediafireFileInfo `json:"file_info"`
+		Result            string            `json:"result"`
+		CurrentAPIVersion string            `json:"current_api_version"`
+	} `json:"response"`
 }
 
-type MediafireFile struct {
+type MediafireFolderContent struct {
+	ChunkSize   string                `json:"chunk_size"`
+	ContentType string                `json:"content_type"`
+	ChunkNumber string                `json:"chunk_number"`
+	FolderKey   string                `json:"folderkey"`
+	Files       []MediafireFileInfo   `json:"files,omitempty"`
+	Folders     []MediafireFolderInfo `json:"folders,omitempty"`
+	MoreChunks  string                `json:"more_chunks"`
+	Revision    string                `json:"revision"`
+}
+
+type MediafireFileInfo struct {
 	QuickKey          string               `json:"quickkey"`
+	Ready             string               `json:"ready,omitempty"`
 	Hash              string               `json:"hash"`
 	Filename          string               `json:"filename"`
 	Description       string               `json:"description"`
@@ -39,18 +49,19 @@ type MediafireFile struct {
 	PasswordProtected string               `json:"password_protected"`
 	MimeType          string               `json:"mimetype"`
 	FileType          string               `json:"filetype"`
+	OwnerName         string               `json:"owner_name,omitempty"`
 	View              string               `json:"view"`
 	Edit              string               `json:"edit"`
 	Revision          string               `json:"revision"`
 	Flag              string               `json:"flag"`
 	Permissions       MediafirePermissions `json:"permissions"`
 	Downloads         string               `json:"downloads"`
-	Views             string               `json:"views"`
+	Views             string               `json:"views,omitempty"`
 	Links             MediafireLinks       `json:"links"`
 	CreatedUTC        string               `json:"created_utc"`
 }
 
-type MediafireFolder struct {
+type MediafireFolderInfo struct {
 	FolderKey      string               `json:"folderkey"`
 	Name           string               `json:"name"`
 	Description    string               `json:"description"`
@@ -74,6 +85,6 @@ type MediafirePermissions struct {
 }
 
 type MediafireLinks struct {
-	View           string `json:"view"` // add omitempty if it causes errors, ex: `json:"view,omitempty"`
+	View           string `json:"view,omitempty"`
 	NormalDownload string `json:"normal_download"`
 }

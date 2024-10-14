@@ -79,8 +79,8 @@ func (m *mediafire) fetchFolderContent(
 		folderKey,
 	)
 
-	var foldersData MediafireFolderContent
-	err := appUtils.ParseJson[MediafireFolderContent](url, &foldersData)
+	var foldersData MediafireFolderInfoResponse
+	err := appUtils.ParseJson(url, &foldersData)
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +94,8 @@ func (m *mediafire) fetchFolderContent(
 		folderKey,
 	)
 
-	var filesData MediafireFolderContent
-	err = appUtils.ParseJson[MediafireFolderContent](url, &filesData)
+	var filesData MediafireFolderInfoResponse
+	err = appUtils.ParseJson(url, &filesData)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +145,7 @@ func (m *mediafire) downloadSingleFile(
 	dlPage playwright.Page,
 	progress *int8,
 ) error {
+	// file is still in upload status?
 	for {
 		res, err := dlPage.Evaluate(
 			"() => document.querySelector(\".DownloadStatus.DownloadStatus--uploading\")",
@@ -162,7 +163,9 @@ func (m *mediafire) downloadSingleFile(
 
 	var extension string
 
-	ext, _ := dlPage.Evaluate("document.querySelector('.filetype').innerText")
+	ext, _ := dlPage.Evaluate(
+		"document.querySelector('.filetype > span:nth-child(2)').innerText.slice(2, -1).toLocaleLowerCase()",
+	)
 	if ext == nil {
 		ext, _ = dlPage.Evaluate(`() => {
 			let data = document.querySelector('.dl-btn-label').title.split('.')
@@ -191,6 +194,7 @@ func (m *mediafire) downloadSingleFile(
 
 	href, err := dlPage.Evaluate("document.querySelector('#downloadButton').href")
 	if err != nil {
+		fmt.Println("it's me, a deferred button render!")
 		return err
 	}
 	downloadUrl, ok := href.(string)

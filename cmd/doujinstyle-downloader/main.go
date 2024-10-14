@@ -96,7 +96,7 @@ func main() {
 	defer stop()
 
 	// init playwright
-	pwc, err := playwrightWrapper.UsePlaywright("chromium", !cfg.Dev.PlaywrightDebug, 0.0)
+	pwc, err := playwrightWrapper.UsePlaywright("firefox", !cfg.Dev.PlaywrightDebug, 0.0)
 	defer func() {
 		_ = pwc.Close()
 	}()
