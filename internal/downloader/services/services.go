@@ -18,6 +18,18 @@ type Service interface {
 
 const SERVICE_ERROR_404 = "Error 404, page not found"
 
+func IsValidService(s string) bool {
+	switch s {
+	case "doujinstyle":
+	case "sukidesuost":
+		return true
+	default:
+		return false
+	}
+
+	return false
+}
+
 func NewService(service string, mediaID string) (Service, error) {
 	switch service {
 	case "doujinstyle":

@@ -28,6 +28,7 @@ type TQWrapper struct {
 	q *Queue
 	t *Tracker
 
+	// starter function
 	qRunner QueueRunner
 	// channel that should be used in the runner to stop itself
 	stopRunner chan struct{}
