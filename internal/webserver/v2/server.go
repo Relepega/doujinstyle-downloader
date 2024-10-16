@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
+	queue "github.com/relepega/doujinstyle-downloader/internal/taskQueue"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
 	ssehub "github.com/relepega/doujinstyle-downloader/internal/webserver/SSEHub"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
@@ -32,10 +32,10 @@ type webserver struct {
 
 	msgChan chan *SSEEvents.SSEMessage
 
-	q *taskQueue.Queue
+	tq *queue.TQWrapper
 }
 
-func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserver {
+func NewWebServer(address string, port uint16, tq *queue.TQWrapper) *webserver {
 	server := &http.Server{}
 
 	t, err := templates.NewTemplates()
@@ -65,7 +65,7 @@ func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserve
 
 		templates: t,
 
-		q: queue,
+		tq: tq,
 	}
 
 	webServer.msgChan = make(chan *SSEEvents.SSEMessage)
@@ -84,8 +84,11 @@ func (ws *webserver) buildRoutes() *http.ServeMux {
 	mux.Handle("/js/", http.StripPrefix("/js/", http.FileServer(jsDir)))
 
 	// POST   /tasks/add { ids: []string }
-	// DELETE /tasks/delete { mode: "single"|"queued"|"failed"|"succeeded", ids: []string }
+	mux.HandleFunc("POST /tasks/add", ws.handleTaskAdd)
 	// PATCH  /tasks/update { mode: "single"|"failed", ids: []string }
+	mux.HandleFunc("POST /tasks/update", ws.handleTaskUpdate)
+	// DELETE /tasks/delete { mode: "single"|"queued"|"failed"|"succeeded", ids: []string }
+	mux.HandleFunc("DELETE /tasks/delete", ws.handleTaskRemove)
 
 	mux.HandleFunc("/", ws.handleIndexRoute)
 
