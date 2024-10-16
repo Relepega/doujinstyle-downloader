@@ -5,6 +5,7 @@ import (
 )
 
 type Task struct {
+	Slug         string
 	ServiceUrl   string
 	HostUrl      string
 	TempDir      string
@@ -12,15 +13,22 @@ type Task struct {
 	Filename     string
 }
 
-func NewTask() (*Task, error) {
+func NewTask() *Task {
 	return &Task{
 		TempDir: appUtils.GetAppTempDir(),
-	}, nil
+	}
 }
 
-func NewTaskFromServiceURL(serviceUrl string) (*Task, error) {
+func NewTaskFromServiceURL(serviceUrl string) *Task {
 	return &Task{
 		ServiceUrl: serviceUrl,
 		TempDir:    appUtils.GetAppTempDir(),
-	}, nil
+	}
+}
+
+func NewTaskFromSlug(slug string) *Task {
+	return &Task{
+		Slug:    slug,
+		TempDir: appUtils.GetAppTempDir(),
+	}
 }
