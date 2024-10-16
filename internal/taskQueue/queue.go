@@ -1,306 +1,246 @@
-package taskQueue
+// The package implements a Queue, a Task Tracker and a Wrapper to keep both in sync
+//
+// Queue: A basic queue implementation based on a doubly linked-list.
+//
+// Tracker: A map that keeps track of the progress of every task added in it.
+//
+// TQWrapper: The recommended way of interacting with the package functionality if you need both queuing and tracking functionality.
+//
+// This wrapper ensures that everything is synchronized correctly.
+package queue
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"sync"
-
-	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
-	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
-	tq_eventbroker "github.com/relepega/doujinstyle-downloader/internal/taskQueue/tq_event_broker"
 )
 
+var (
+	ErrEmptyQueue   = fmt.Errorf("Queue is Empty")
+	ErrNoMatchFound = fmt.Errorf("No matching element found")
+)
+
+// Data type representing a linked-list node
+type Node struct {
+	// Value of the node. Is set on the constructor and is not editable
+	value      interface{}
+	next, prev *Node
+}
+
+// Constructor for the Node data type
+//
+// The value cannot be modified after being attached to a Node
+func NewNode(value interface{}) *Node {
+	return &Node{
+		value: value,
+		next:  nil,
+		prev:  nil,
+	}
+}
+
+// Returns the value hold within the node
+func (n *Node) Value() interface{} {
+	return n.value
+}
+
+// Data type representing a Queue, based on a doubly linked-list
 type Queue struct {
-	tasks          []Task
-	lock           sync.RWMutex
-	runningTasks   int8
-	maxConcurrency int8
-
-	pub *pubsub.Publisher
+	mu     sync.Mutex
+	length int
+	head   *Node
+	tail   *Node
 }
 
-type UIQueueData struct {
-	QueueLength int
-	Tasks       []Task
-}
-
-func NewQueue(MaxConcurrency int8, publisher *pubsub.Publisher) *Queue {
+// Constructor for the Queue data type
+func NewQueue() *Queue {
 	return &Queue{
-		tasks:          make([]Task, 0),
-		runningTasks:   0,
-		maxConcurrency: MaxConcurrency,
-
-		pub: publisher,
+		length: 0,
+		head:   nil,
+		tail:   nil,
 	}
 }
 
-func (q *Queue) GetUIData() *UIQueueData {
-	return &UIQueueData{
-		QueueLength: q.GetQueueLength(),
-		Tasks:       q.GetTasks(),
+// Returns the length of the queue
+func (q *Queue) Length() int {
+	return q.length
+}
+
+// Inserts a Node in the queue at its tail
+func (q *Queue) Enqueue(node *Node) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	q.length++
+
+	if q.head == nil {
+		q.head = node
+		q.tail = node
+
+		return
 	}
+
+	node.prev = q.tail
+	q.tail.next = node
+	q.tail = node
 }
 
-func (q *Queue) GetQueueLength() int {
-	q.lock.Lock()
-	defer q.lock.Unlock()
+// Removes the first Node of the queue
+func (q *Queue) Dequeue() (interface{}, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
-	return len(q.tasks)
+	if q.length == 0 || q.head == nil {
+		return nil, ErrEmptyQueue
+	}
+
+	node := q.head
+	q.head = q.head.next
+
+	if q.head != nil {
+		q.head.prev = nil
+	} else {
+		q.tail = nil
+	}
+
+	q.length--
+
+	return node.value, nil
 }
 
-func (q *Queue) isTaskInList(task *Task) bool {
-	for _, t := range q.tasks {
-		if (t.AlbumID == task.AlbumID || t.DisplayName == task.DisplayName) && !t.IsChecking {
+// Returns either the first Node of the queue without dequeueing it
+//
+// or an error if the queue is empty
+func (q *Queue) Front() (*Node, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	if q.length == 0 || q.head == nil {
+		return nil, ErrEmptyQueue
+	}
+
+	return q.head, nil
+}
+
+// Returns either the last Node of the queue without dequeueing it
+//
+// or an error if the queue is empty
+func (q *Queue) Back() (*Node, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	if q.length == 0 || q.tail == nil {
+		return nil, ErrEmptyQueue
+	}
+
+	return q.tail, nil
+}
+
+// Returns wether or not a node with the same value exists in the queue
+//
+// The comparation between values is done in a comparator function
+func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	node := q.head
+
+	for {
+		if comparator(node.value, value) {
 			return true
 		}
+
+		if node.next == nil {
+			break
+		}
+
+		node = node.next
 	}
+
 	return false
 }
 
-func (q *Queue) AddTask(task *Task) error {
-	q.lock.Lock()
-	defer q.lock.Unlock()
+// Removes A SINGLE NODE with the same value if it exists in the queue. The comparation between values is done in a comparator function
+//
+// Returns wether or not the node has been found and removed
+func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
-	if q.isTaskInList(task) {
-		return fmt.Errorf("task already in list")
-	}
-
-	q.tasks = append(q.tasks, *task)
-
-	return nil
-}
-
-func (q *Queue) RemoveTask(task *Task) error {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	if !q.isTaskInList(task) {
-		return fmt.Errorf("task not in list")
-	}
-
-	for i, t := range q.tasks {
-		// remove only if inactive
-		if t.AlbumID == task.AlbumID && !t.Active {
-			q.tasks = append(q.tasks[:i], q.tasks[i+1:]...)
-			break
-		}
-	}
-
-	return nil
-}
-
-func (q *Queue) RemoveTaskFromAlbumID(AlbumID string) error {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	for i, t := range q.tasks {
-		if t.AlbumID == AlbumID {
-			q.tasks = append(q.tasks[:i], q.tasks[i+1:]...)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("task not in list")
-}
-
-func (q *Queue) GetTasks() []Task {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	return q.tasks
-}
-
-func (q *Queue) GetTask(albumID string) (*Task, error) {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	for _, t := range q.tasks {
-		if t.AlbumID == albumID {
-			return &t, nil
-		}
-	}
-
-	return nil, fmt.Errorf("task not in list")
-}
-
-func (q *Queue) GetLength() int {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	return len(q.tasks)
-}
-
-func (q *Queue) ActivateFreeTask() (*Task, error) {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	for i, t := range q.tasks {
-		if !t.Active && !t.Done {
-			q.tasks[i].Activate()
-			q.runningTasks++
-
-			return &q.tasks[i], nil
-		}
-	}
-
-	return nil, fmt.Errorf("No free tasks")
-}
-
-func (q *Queue) ResetTask(albumID string) {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	for i, t := range q.tasks {
-		if t.AlbumID == albumID {
-			q.tasks[i].Reset()
-		}
-	}
-}
-
-func (q *Queue) MarkTaskAsDone(t Task, err error) {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	for i, task := range q.tasks {
-		if task.AlbumID == t.AlbumID {
-			q.tasks[i].MarkAsDone(err)
-			q.runningTasks--
-
-			q.publishUIUpdate("mark-task-as-done", &q.tasks[i])
-
-			return
-		}
-	}
-}
-
-func (q *Queue) ClearQueuedTasks() {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	var filtered []Task
-
-	for _, t := range q.tasks {
-		if t.Done || t.Active {
-			filtered = append(filtered, t)
-		}
-	}
-
-	q.tasks = filtered
-}
-
-func (q *Queue) ClearSuccessfullyCompleted() {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	var filtered []Task
-
-	for _, t := range q.tasks {
-		if !t.Done || t.Error != nil {
-			filtered = append(filtered, t)
-		}
-	}
-
-	q.tasks = filtered
-}
-
-func (q *Queue) ClearFailedCompleted() {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	var filtered []Task
-
-	for _, t := range q.tasks {
-		if !t.Done || t.Error == nil {
-			filtered = append(filtered, t)
-		}
-	}
-
-	q.tasks = filtered
-}
-
-func (q *Queue) ClearAllCompleted() {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	var filtered []Task
-
-	for _, t := range q.tasks {
-		if !t.Done {
-			filtered = append(filtered, t)
-		}
-	}
-
-	q.tasks = filtered
-}
-
-func (q *Queue) ResetFailed() {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	for i, t := range q.tasks {
-		if t.Done && (t.Error != nil) {
-			q.tasks[i].Reset()
-		}
-	}
-}
-
-func (q *Queue) publishUIUpdate(evt string, data interface{}) {
-	q.pub.Publish(&pubsub.PublishEvent{
-		EvtType: evt,
-		Data:    data,
-	})
-}
-
-func (q *Queue) Run(ctx context.Context, pwc *playwrightWrapper.PwContainer) {
-	// open empty page so that the context won't close
-	_, _ = pwc.BrowserContext.NewPage()
-
-	queue_pub := pubsub.NewGlobalPublisher("queue")
-	subscriber := queue_pub.Subscribe()
+	node := q.head
 
 	for {
-		select {
-		case <-ctx.Done():
-			// quit all the ongoing tasks and then return
-			log.Println("Graceful queue shutdown complete.")
-			return
+		if comparator(node.value, value) {
+			node.next.prev = node.prev
+			node.prev.next = node.next
 
-		case evt := <-subscriber:
-			switch evt.EvtType {
-			case "update-task-progress":
-				evt_data := evt.Data.(*tq_eventbroker.UpdateTaskProgress)
-
-				t, err := q.GetTask(evt_data.Id)
-				if err != nil {
-					continue
-				}
-
-				t.DownloadProgress = evt_data.Progress
-				q.publishUIUpdate("update-task-content", t)
-
-			default:
-				continue
-			}
-		default:
-			// run task scheduler
-			if (q.runningTasks == q.maxConcurrency) || (len(q.tasks) == 0) {
-				continue
-			}
-
-			task, err := q.ActivateFreeTask()
-			if err != nil {
-				continue
-			}
-
-			if task == nil {
-				continue
-			}
-
-			go func(q *Queue, t *Task, pwc *playwrightWrapper.PwContainer) {
-				err := t.Run(q, pwc)
-				q.MarkTaskAsDone(*t, err)
-			}(q, task, pwc)
+			return true
 		}
+
+		if node.next == nil {
+			break
+		}
+
+		node = node.next
 	}
+
+	return false
 }
+
+// Removes ALL THE NODE(S) with the same value if it exists in the queue. The comparation between values is done in a comparator function
+//
+// Returns wether or not the node(s) has been found and removed
+func (q *Queue) RemoveAll(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	matched := false
+
+	node := q.head
+
+	for {
+		if comparator(node.value, value) {
+			node.next.prev = node.prev
+			node.prev.next = node.next
+
+			matched = true
+		}
+
+		if node.next == nil {
+			break
+		}
+
+		node = node.next
+	}
+
+	return matched
+}
+
+// Clears the queue
+func (q *Queue) Reset(value interface{}) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	q.head = nil
+	q.tail = nil
+	q.length = 0
+}
+
+// func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
+// 	for _, item := range q.items {
+// 		if comparator(item, value) {
+// 			return true
+// 		}
+// 	}
+//
+// 	return false
+// }
+//
+// func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
+// 	for i, item := range q.items {
+// 		if comparator(item, value) {
+// 			q.items = append(q.items[:i], q.items[i+1:]...)
+// 			return true
+// 		}
+// 	}
+//
+// 	return false
+// }

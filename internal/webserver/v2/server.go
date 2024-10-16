@@ -89,7 +89,7 @@ func (ws *webserver) buildRoutes() *http.ServeMux {
 
 	mux.HandleFunc("/", ws.handleIndexRoute)
 
-	// maintainance
+	// maintenance
 	mux.HandleFunc(fmt.Sprintf("POST %s/restart", InternalGroup), ws.handleRestartServer)
 
 	return mux
