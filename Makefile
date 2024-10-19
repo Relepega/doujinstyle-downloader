@@ -2,7 +2,7 @@ APP_NAME = doujinstyle-downloader
 APP_ENTRYPOINT = ./cmd/doujinstyle-downloader/main.go
 VERSION = $(shell git describe --tags)
 
-TAR_EXCLUDE = {'*.zip','*.sha256'}
+COMP_EXCL_LIST = "*.zip" "*.sha256"
 
 .PHONY: build
 
@@ -26,23 +26,26 @@ build-all:
 
 	@echo "building windows-x64"
 	GOOS=windows GOARCH=amd64 go build -o ./build/$(APP_NAME).exe $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-$(VERSION)-windows-x64.zip --exclude=$(TAR_EXCLUDE) *
-	cd build && sha256sum $(APP_NAME)-$(VERSION)-windows-x64.zip > $(APP_NAME)-$(VERSION)-windows-x64.zip.sha256
-	cd build && rm *.exe
+	cd build && \
+		zip -q -r $(APP_NAME)-$(VERSION)-windows-x64.zip . -x $(COMP_EXCL_LIST) &&\
+		sha256sum $(APP_NAME)-$(VERSION)-windows-x64.zip > $(APP_NAME)-$(VERSION)-windows-x64.zip.sha256 &&\
+		rm *.exe
 
 	@echo "building darwin-arm64"
 	GOOS=darwin GOARCH=arm64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-$(VERSION)-darwin-arm64.zip --exclude=$(TAR_EXCLUDE) *
-	cd build && sha256sum $(APP_NAME)-$(VERSION)-darwin-arm64.zip > $(APP_NAME)-$(VERSION)-darwin-arm64.zip.sha256
-	cd build && rm $(APP_NAME)
+	cd build && \
+		zip -q -r $(APP_NAME)-$(VERSION)-darwin-arm64.zip . -x $(COMP_EXCL_LIST) &&\
+		sha256sum $(APP_NAME)-$(VERSION)-darwin-arm64.zip > $(APP_NAME)-$(VERSION)-darwin-arm64.zip.sha256 &&\
+		rm $(APP_NAME)
 
 	@echo "building linux-x64"
 	GOOS=linux GOARCH=amd64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
-	cd build && tar -a -c -f $(APP_NAME)-$(VERSION)-linux-x64.zip --exclude=$(TAR_EXCLUDE) *
-	cd build && sha256sum $(APP_NAME)-$(VERSION)-linux-x64.zip > $(APP_NAME)-$(VERSION)-linux-x64.zip.sha256
+	cd build && \
+		zip -q -r $(APP_NAME)-$(VERSION)-linux-x64.zip . -x $(COMP_EXCL_LIST) &&\
+		sha256sum $(APP_NAME)-$(VERSION)-linux-x64.zip > $(APP_NAME)-$(VERSION)-linux-x64.zip.sha256 &&\
+		rm $(APP_NAME)
 
-	@echo "removing artifacts"
-	cd build && rm $(APP_NAME)
+	@echo "removing leftovers"
 	cd build && rm -r views
 
 	@echo "generating new changelog"
