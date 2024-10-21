@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (ws *webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
+func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Content-Type", "text/event-stream")

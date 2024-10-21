@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	queue "github.com/relepega/doujinstyle-downloader/internal/taskQueue"
+	tlp "github.com/relepega/doujinstyle-downloader/internal/topLevelProxy"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
 	ssehub "github.com/relepega/doujinstyle-downloader/internal/webserver/SSEHub"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
@@ -21,7 +21,7 @@ const (
 	InternalGroup = APIGroup + "/internal"
 )
 
-type webserver struct {
+type Webserver struct {
 	address string
 	port    uint16
 
@@ -32,10 +32,10 @@ type webserver struct {
 
 	msgChan chan *SSEEvents.SSEMessage
 
-	tq *queue.TQWrapper
+	ctx context.Context
 }
 
-func NewWebServer(address string, port uint16, tq *queue.TQWrapper) *webserver {
+func NewWebServer(address string, port uint16, ctx context.Context) *Webserver {
 	server := &http.Server{}
 
 	t, err := templates.NewTemplates()
@@ -57,7 +57,7 @@ func NewWebServer(address string, port uint16, tq *queue.TQWrapper) *webserver {
 		log.Fatalln("Templates parsing error:", err)
 	}
 
-	webServer := &webserver{
+	webServer := &Webserver{
 		address: address,
 		port:    port,
 
@@ -65,7 +65,7 @@ func NewWebServer(address string, port uint16, tq *queue.TQWrapper) *webserver {
 
 		templates: t,
 
-		tq: tq,
+		ctx: ctx,
 	}
 
 	webServer.msgChan = make(chan *SSEEvents.SSEMessage)
@@ -73,7 +73,7 @@ func NewWebServer(address string, port uint16, tq *queue.TQWrapper) *webserver {
 	return webServer
 }
 
-func (ws *webserver) buildRoutes() *http.ServeMux {
+func (ws *Webserver) buildRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	cssDir := http.Dir(filepath.Join(".", "views", "css"))
@@ -85,9 +85,9 @@ func (ws *webserver) buildRoutes() *http.ServeMux {
 
 	// POST   /tasks/add { ids: []string }
 	mux.HandleFunc("POST /tasks/add", ws.handleTaskAdd)
-	// PATCH  /tasks/update { mode: "single"|"failed", ids: []string }
+	// PATCH  /tasks/update { mode: "single|multiple|failed", ids: []string }
 	mux.HandleFunc("POST /tasks/update", ws.handleTaskUpdate)
-	// DELETE /tasks/delete { mode: "single"|"queued"|"failed"|"succeeded", ids: []string }
+	// DELETE /tasks/delete { mode: "single|multiple|queued|failed|succeeded", ids: []string }
 	mux.HandleFunc("DELETE /tasks/delete", ws.handleTaskRemove)
 
 	mux.HandleFunc("/", ws.handleIndexRoute)
@@ -98,7 +98,7 @@ func (ws *webserver) buildRoutes() *http.ServeMux {
 	return mux
 }
 
-func (ws *webserver) Start(ctx context.Context) error {
+func (ws *Webserver) Start(ctx context.Context) error {
 	defer close(ws.msgChan)
 
 	mux := ws.buildRoutes()
@@ -134,4 +134,9 @@ func (ws *webserver) Start(ctx context.Context) error {
 		log.Println("Graceful webserver shutdown complete.")
 		return nil
 	}
+}
+
+func (ws *Webserver) Context() *tlp.TLProxy {
+	v, _ := ws.ctx.Value("tlp").(*tlp.TLProxy)
+	return v
 }

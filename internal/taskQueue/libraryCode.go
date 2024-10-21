@@ -10,19 +10,22 @@
 package queue
 
 import (
+	"context"
 	"fmt"
 	"sync"
 )
 
+const ERR_NO_RES_FOUND = "No results found"
+
 type (
 	// function that is responsible to automatically run the queue
-	QueueRunner func(tq *TQWrapper, stop <-chan struct{}, opts interface{})
+	QueueRunner func(tq *TQProxy, stop <-chan struct{}, opts interface{})
 )
 
-// A TQWrapper is a wrapper that contains both Queue and Tracker instances.
+// A TQProxy is a proxy that contains both Queue and Tracker instances.
 //
 // This is the recommended way of using the package with a high chance to avoid a race condition.
-type TQWrapper struct {
+type TQProxy struct {
 	sync.Mutex
 
 	q *Queue
@@ -34,6 +37,9 @@ type TQWrapper struct {
 	stopRunner chan struct{}
 	// whether the qRunner function is running or not
 	isQueueRunning bool
+
+	// parent context
+	ctx context.Context
 }
 
 // NewTQWrapper: Returns a new pointer to TQWrapper
@@ -44,24 +50,28 @@ type TQWrapper struct {
 //
 //     and is responsible to automagically run the queue tasks.
 //
-//     To run the QueueRunner function you musk invoke the [*TQWrapper.RunQueue] function
-func NewTQWrapper(fn QueueRunner) *TQWrapper {
-	return &TQWrapper{
+//     To run the QueueRunner function you musk invoke the [*TQProxy.RunQueue] function
+func NewTQWrapper(fn QueueRunner, ctx context.Context) *TQProxy {
+	proxy := &TQProxy{
 		q:              NewQueue(),
 		t:              NewTracker(),
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
 		isQueueRunning: false,
 	}
+
+	proxy.ctx = context.WithValue(ctx, "tq", proxy)
+
+	return proxy
 }
 
 // GetQueue returns the underlying pointer to the Queue instance
-func (tq *TQWrapper) GetQueue() *Queue {
+func (tq *TQProxy) GetQueue() *Queue {
 	return tq.q
 }
 
 // GetTracker returns the underlying pointer to the Tracker instance
-func (tq *TQWrapper) GetTracker() *Tracker {
+func (tq *TQProxy) GetTracker() *Tracker {
 	return tq.t
 }
 
@@ -74,8 +84,8 @@ func (tq *TQWrapper) GetTracker() *Tracker {
 //     that is used to run the queue. This can be a null and has
 //
 //     to be casted into the proper type inside the runner fn.
-func (tq *TQWrapper) RunQueue(opts interface{}) {
-	go func(tq *TQWrapper, stop chan struct{}, opts interface{}) {
+func (tq *TQProxy) RunQueue(opts interface{}) {
+	go func(tq *TQProxy, stop chan struct{}, opts interface{}) {
 		tq.qRunner(tq, stop, opts)
 	}(tq, tq.stopRunner, opts)
 
@@ -87,13 +97,13 @@ func (tq *TQWrapper) RunQueue(opts interface{}) {
 // # The logic to stop the runner should be
 //
 // implemented in the function itself
-func (tq *TQWrapper) StopQueue() {
+func (tq *TQProxy) StopQueue() {
 	tq.stopRunner <- struct{}{}
 	tq.isQueueRunning = false
 }
 
 // Returns the running status of the qRunner function
-func (tq *TQWrapper) IsQueueRunning() bool {
+func (tq *TQProxy) IsQueueRunning() bool {
 	return tq.isQueueRunning
 }
 
@@ -106,7 +116,7 @@ func (tq *TQWrapper) IsQueueRunning() bool {
 // Returns:
 //
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQWrapper) AddNode(n *Node) error {
+func (tq *TQProxy) AddNode(n *Node) error {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -128,7 +138,7 @@ func (tq *TQWrapper) AddNode(n *Node) error {
 // Returns:
 //
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQWrapper) AddNodeFromValue(v interface{}) (interface{}, error) {
+func (tq *TQProxy) AddNodeFromValue(v interface{}) (interface{}, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -146,7 +156,7 @@ func (tq *TQWrapper) AddNodeFromValue(v interface{}) (interface{}, error) {
 }
 
 // Removes the node at the HEAD of the queue and returns its value
-func (tq *TQWrapper) Dequeue() (interface{}, error) {
+func (tq *TQProxy) Dequeue() (interface{}, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -162,7 +172,7 @@ func (tq *TQWrapper) Dequeue() (interface{}, error) {
 // Returns:
 //
 //   - error: Tracker fails to remove the node
-func (tq *TQWrapper) RemoveNode(v interface{}) error {
+func (tq *TQProxy) RemoveNode(v interface{}) error {
 	tq.q.Remove(v, func(val1, val2 interface{}) bool {
 		if val1 == val2 {
 			return true
@@ -176,8 +186,36 @@ func (tq *TQWrapper) RemoveNode(v interface{}) error {
 	return err
 }
 
+// Removes a node from the Tracker by value
+//
+// Params:
+//
+//   - v interface{}: User value
+//   - comp function(v1 interface{}, v2 interface{}) bool: comparator function. The second param is the user value
+//
+// Returns:
+//
+//   - error: Tracker fails to remove the node
+func (tq *TQProxy) RemoveNodeWithComparator(
+	v interface{},
+	comp func(int_v interface{}, user_v interface{}) bool,
+) error {
+	tq.Lock()
+	defer tq.Unlock()
+
+	removed, val := tq.q.Remove(v, comp)
+
+	if !removed {
+		return fmt.Errorf(ERR_NO_RES_FOUND)
+	}
+
+	err := tq.t.Remove(val)
+
+	return err
+}
+
 // Returns whether or not an equal value has been found in the tracker
-func (tq *TQWrapper) Has(v interface{}) bool {
+func (tq *TQProxy) Has(v interface{}) bool {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -187,14 +225,14 @@ func (tq *TQWrapper) Has(v interface{}) bool {
 // Advances a task's state by finding it by value and incrementing its state.
 //
 // Returns an error when the state cannot be incremented anymore or the task cannot be found.
-func (tq *TQWrapper) AdvanceTaskState(v interface{}) error {
+func (tq *TQProxy) AdvanceTaskState(v interface{}) error {
 	return tq.t.AdvanceState(v)
 }
 
 // Advances a task's state by finding it by value and incrementing its state.
 //
 // Returns an error when the state cannot be incremented anymore or the task cannot be found or the task is in a running state.
-func (tq *TQWrapper) AdvanceNewTaskState() (interface{}, error) {
+func (tq *TQProxy) AdvanceNewTaskState() (interface{}, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -214,30 +252,34 @@ func (tq *TQWrapper) AdvanceNewTaskState() (interface{}, error) {
 // Regresses a task's state by finding it by value and decrementing its state.
 //
 // Returns an error when the state cannot be decremented anymore or the task cannot be found or the task is in a running state.
-func (tq *TQWrapper) RegressTaskState(v interface{}) error {
+func (tq *TQProxy) RegressTaskState(v interface{}) error {
 	return tq.t.RegressState(v)
 }
 
 // Resets a task's state by finding it by value, resets it and appends the task as last element of the queue.
 //
 // Returns an error when the task cannot be found or the task is in a running state.
-func (tq *TQWrapper) ResetTaskState(v interface{}) error {
+func (tq *TQProxy) ResetTaskState(v interface{}) error {
 	return tq.t.RegressState(v)
 }
 
 // Returns the number of tasks in the queue
-func (tq *TQWrapper) GetQueueLength() int {
+func (tq *TQProxy) GetQueueLength() int {
 	return tq.q.Length()
 }
 
 // Returns the number of tasks in the tracker
-func (tq *TQWrapper) TrackerCount() int {
+func (tq *TQProxy) TrackerCount() int {
 	return tq.t.Count()
 }
 
 // Returns the number of tasks that are in a defined completion state.
 //
 // It can also return an error when the completionState is invalid
-func (tq *TQWrapper) TrackerCountFromState(completionState int) (int, error) {
+func (tq *TQProxy) TrackerCountFromState(completionState int) (int, error) {
 	return tq.t.CountFromState(completionState)
+}
+
+func (tq *TQProxy) Context() any {
+	return tq.ctx.Value("tlp")
 }

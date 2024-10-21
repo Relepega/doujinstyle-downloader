@@ -26,7 +26,7 @@ func newTestingRunnerOpts(t int, d time.Duration) testingRunnerOptions {
 	}
 }
 
-func runQ(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {
+func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) {
 	options := testingRunnerOptions{
 		Threads:      1,
 		TaskDuration: time.Second,
@@ -73,7 +73,7 @@ func runQ(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {
 	}
 }
 
-func taskRunner(tq *TQWrapper, myData *testingDataType, duration time.Duration) {
+func taskRunner(tq *TQProxy, myData *testingDataType, duration time.Duration) {
 	markCompleted := func() {
 		err := tq.AdvanceTaskState(myData)
 		if err != nil {
@@ -110,7 +110,7 @@ func taskRunner(tq *TQWrapper, myData *testingDataType, duration time.Duration) 
 }
 
 func TestAddNode(t *testing.T) {
-	tq := NewTQWrapper(func(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {})
+	tq := NewTQWrapper(func(tq *TQProxy, stop <-chan struct{}, opts interface{}) {})
 
 	nv, err := tq.AddNodeFromValue(1)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestAddNode(t *testing.T) {
 }
 
 func TestHasNode(t *testing.T) {
-	tq := NewTQWrapper(func(tq *TQWrapper, stop <-chan struct{}, opts interface{}) {})
+	tq := NewTQWrapper(func(tq *TQProxy, stop <-chan struct{}, opts interface{}) {})
 
 	node := NewNode(1)
 

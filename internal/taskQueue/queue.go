@@ -137,7 +137,10 @@ func (q *Queue) Back() (*Node, error) {
 // Returns wether or not a node with the same value exists in the queue
 //
 // The comparation between values is done in a comparator function
-func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
+func (q *Queue) Has(
+	value interface{},
+	comparator func(val1, val2 interface{}) bool,
+) (bool, interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -145,7 +148,7 @@ func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) b
 
 	for {
 		if comparator(node.value, value) {
-			return true
+			return true, node.value
 		}
 
 		if node.next == nil {
@@ -155,13 +158,16 @@ func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) b
 		node = node.next
 	}
 
-	return false
+	return false, nil
 }
 
 // Removes A SINGLE NODE with the same value if it exists in the queue. The comparation between values is done in a comparator function
 //
 // Returns wether or not the node has been found and removed
-func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
+func (q *Queue) Remove(
+	value interface{},
+	comparator func(val1, val2 interface{}) bool,
+) (bool, interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -172,7 +178,7 @@ func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}
 			node.next.prev = node.prev
 			node.prev.next = node.next
 
-			return true
+			return true, node.value
 		}
 
 		if node.next == nil {
@@ -182,7 +188,7 @@ func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}
 		node = node.next
 	}
 
-	return false
+	return false, nil
 }
 
 // Removes ALL THE NODE(S) with the same value if it exists in the queue. The comparation between values is done in a comparator function

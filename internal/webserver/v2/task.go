@@ -9,9 +9,25 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/taskQueue/task"
 )
 
-func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
-	slugs := strings.TrimSpace(r.FormValue("ServiceSlugs"))
-	service := r.FormValue("Service")
+var (
+	validRemoveModes = []string{"single", "multiple", "queued", "failed", "succeeded"}
+	validUpdateModes = []string{"single", "multiple", "failed"}
+)
+
+func isValidMode(m string, ms []string) bool {
+	isValid := false
+	for _, v := range ms {
+		if v == m {
+			isValid = true
+		}
+	}
+
+	return isValid
+}
+
+func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
+	slugs := r.FormValue("Slugs")
+	service := strings.TrimSpace(r.FormValue("Service"))
 
 	delimiter := "|"
 
@@ -36,13 +52,38 @@ func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 
 		task := task.NewTaskFromSlug(slug)
 
-		ws.tq.AddNodeFromValue(task)
+		ws.Context().Tq.AddNodeFromValue(task)
 	}
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, slugList, service)
 }
 
-func (ws *webserver) handleTaskUpdate(w http.ResponseWriter, r *http.Request) {}
+func (ws *Webserver) handleTaskUpdate(w http.ResponseWriter, r *http.Request) {}
 
-func (ws *webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {}
+func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
+	slugs := r.FormValue("Slugs")
+	mode := strings.TrimSpace(r.FormValue("Mode"))
+
+	if !isValidMode(mode, validRemoveModes) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "Not a valid mode")
+		return
+	}
+
+	for _, s := range slugs {
+		ws.ctx.RemoveNodeWithComparator(s, func(int_v, user_v interface{}) bool {
+			task, ok := int_v.(task.Task)
+			if !ok {
+				return false
+			}
+
+			slug, ok := user_v.(string)
+			if !ok {
+				return false
+			}
+
+			return task.Slug == slug
+		})
+	}
+}
