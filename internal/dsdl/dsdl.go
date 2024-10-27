@@ -10,6 +10,11 @@ type (
 	Filehosts   []*Filehost
 )
 
+const (
+	ERR_REGISTERED_AGGREGATOR = "Aggregator is already registered"
+	ERR_REGISTERED_FILEHOST   = "Filehost is already registered"
+)
+
 type DSDL struct {
 	// queue & tracker proxy
 	Tq *TQProxy
@@ -55,7 +60,7 @@ func (dsdl *DSDL) RegisterAggregator(f *Aggregator) error {
 	}
 
 	if !unique {
-		return fmt.Errorf("Aggregator is already registered")
+		return fmt.Errorf(ERR_REGISTERED_AGGREGATOR)
 	}
 
 addAggr:
@@ -88,7 +93,7 @@ func (dsdl *DSDL) RegisterFilehost(f *Filehost) error {
 	}
 
 	if !unique {
-		return fmt.Errorf("Filehost is already registered")
+		return fmt.Errorf(ERR_REGISTERED_FILEHOST)
 	}
 
 addFh:
