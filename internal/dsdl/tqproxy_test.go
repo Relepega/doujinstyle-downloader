@@ -1,6 +1,7 @@
 package dsdl
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -110,7 +111,10 @@ func taskRunner(tq *TQProxy, myData *testingDataType, duration time.Duration) {
 }
 
 func TestAddNode(t *testing.T) {
-	tq := NewTQWrapper(func(tq *TQProxy, stop <-chan struct{}, opts interface{}) {})
+	tq := NewTQWrapper(
+		func(tq *TQProxy, stop <-chan struct{}, opts interface{}) {},
+		context.Background(),
+	)
 
 	nv, err := tq.AddNodeFromValue(1)
 	if err != nil {
@@ -139,7 +143,10 @@ func TestAddNode(t *testing.T) {
 }
 
 func TestHasNode(t *testing.T) {
-	tq := NewTQWrapper(func(tq *TQProxy, stop <-chan struct{}, opts interface{}) {})
+	tq := NewTQWrapper(
+		func(tq *TQProxy, stop <-chan struct{}, opts interface{}) {},
+		context.Background(),
+	)
 
 	node := NewNode(1)
 
@@ -154,7 +161,7 @@ func TestHasNode(t *testing.T) {
 }
 
 func TestRunQueue(t *testing.T) {
-	tq := NewTQWrapper(runQ)
+	tq := NewTQWrapper(runQ, context.Background())
 	tq.RunQueue(newTestingRunnerOpts(1, time.Second*2))
 
 	nv, err := tq.AddNodeFromValue(&testingDataType{
@@ -239,7 +246,7 @@ func TestRunQueue(t *testing.T) {
 }
 
 func TestMultipleCoroutines(t *testing.T) {
-	tq := NewTQWrapper(runQ)
+	tq := NewTQWrapper(runQ, context.Background())
 	tq.RunQueue(newTestingRunnerOpts(4, time.Second*5))
 
 	ntasks := 1000
@@ -281,7 +288,7 @@ func TestMultipleCoroutines(t *testing.T) {
 }
 
 func TestAbortTask(t *testing.T) {
-	tq := NewTQWrapper(runQ)
+	tq := NewTQWrapper(runQ, context.Background())
 	tq.RunQueue(newTestingRunnerOpts(4, time.Second*5))
 
 	nv1 := &testingDataType{
@@ -332,7 +339,7 @@ func TestAbortTask(t *testing.T) {
 }
 
 func TestCloseRunner(t *testing.T) {
-	tq := NewTQWrapper(runQ)
+	tq := NewTQWrapper(runQ, context.Background())
 	tq.RunQueue(newTestingRunnerOpts(4, time.Second*5))
 
 	ntasks := 1000
