@@ -6,29 +6,23 @@ import (
 )
 
 type (
-	AggrConstrFn     func() *Aggregator
-	FilehostConstrFn func() *Filehost
-
-	Aggregators map[string]AggrConstrFn
-	Filehosts   map[string]FilehostConstrFn
+	Aggregators []*Aggregator
+	Filehosts   []*Filehost
 )
 
 type DSDL struct {
 	// queue & tracker proxy
 	Tq *TQProxy
 
-	Aggregators Aggregators
-	Filehosts   Filehosts
+	aggregators Aggregators
+	filehosts   Filehosts
 
 	// whole application's context
 	Ctx context.Context
 }
 
 func NewDSDL(ctx context.Context) *DSDL {
-	dsdl := &DSDL{
-		Aggregators: make(Aggregators),
-		Filehosts:   make(Filehosts),
-	}
+	dsdl := &DSDL{}
 
 	dsdl.Ctx = context.WithValue(ctx, "dsdl", dsdl)
 
@@ -47,15 +41,15 @@ func (dsdl *DSDL) GetTQProxy() *TQProxy {
 	return dsdl.Tq
 }
 
-func (dsdl *DSDL) RegisterAggregator(name string, constructor AggrConstrFn) error {
-	if len(dsdl.Aggregators) == 0 {
-		dsdl.Aggregators[name] = constructor
-		return nil
+func (dsdl *DSDL) RegisterAggregator(f *Aggregator) error {
+	unique := true
+
+	if len(dsdl.filehosts) == 0 {
+		goto addAggr
 	}
 
-	unique := true
-	for k := range dsdl.Aggregators {
-		if k == name {
+	for _, v := range dsdl.filehosts {
+		if v.Name == f.Name {
 			unique = false
 		}
 	}
@@ -64,14 +58,15 @@ func (dsdl *DSDL) RegisterAggregator(name string, constructor AggrConstrFn) erro
 		return fmt.Errorf("Aggregator is already registered")
 	}
 
-	dsdl.Aggregators[name] = constructor
+addAggr:
+	dsdl.aggregators = append(dsdl.aggregators, f)
 
 	return nil
 }
 
 func (dsdl *DSDL) IsValidAggregator(name string) bool {
-	for k := range dsdl.Aggregators {
-		if k == name {
+	for _, v := range dsdl.aggregators {
+		if v.Name == name {
 			return true
 		}
 	}
@@ -79,15 +74,15 @@ func (dsdl *DSDL) IsValidAggregator(name string) bool {
 	return false
 }
 
-func (dsdl *DSDL) RegisterFilehost(name string, constructor FilehostConstrFn) error {
-	if len(dsdl.Filehosts) == 0 {
-		dsdl.Filehosts[name] = constructor
-		return nil
+func (dsdl *DSDL) RegisterFilehost(f *Filehost) error {
+	unique := true
+
+	if len(dsdl.filehosts) == 0 {
+		goto addFh
 	}
 
-	unique := true
-	for k := range dsdl.Filehosts {
-		if k == name {
+	for _, v := range dsdl.filehosts {
+		if v.Name == f.Name {
 			unique = false
 		}
 	}
@@ -96,14 +91,15 @@ func (dsdl *DSDL) RegisterFilehost(name string, constructor FilehostConstrFn) er
 		return fmt.Errorf("Filehost is already registered")
 	}
 
-	dsdl.Filehosts[name] = constructor
+addFh:
+	dsdl.filehosts = append(dsdl.filehosts, f)
 
 	return nil
 }
 
 func (dsdl *DSDL) IsValidFilehost(name string) bool {
-	for k := range dsdl.Filehosts {
-		if k == name {
+	for _, v := range dsdl.filehosts {
+		if v.Name == name {
 			return true
 		}
 	}
