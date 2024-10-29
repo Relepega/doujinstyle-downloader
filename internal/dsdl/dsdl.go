@@ -77,6 +77,10 @@ addAggr:
 }
 
 func (dsdl *DSDL) IsValidAggregator(name string) bool {
+	if len(dsdl.aggregators) == 0 {
+		return false
+	}
+
 	for _, v := range dsdl.aggregators {
 		if v.Name == name {
 			return true
@@ -87,6 +91,10 @@ func (dsdl *DSDL) IsValidAggregator(name string) bool {
 }
 
 func (dsdl *DSDL) EvaluateAggregator(aggrID string) (AggregatorConstrFn, error) {
+	if len(dsdl.aggregators) == 0 {
+		return nil, fmt.Errorf("Cannot evaluate aggregator from empty registration list")
+	}
+
 	for _, v := range dsdl.aggregators {
 		if v.Name == aggrID {
 			return v.Constructor, nil
@@ -97,6 +105,10 @@ func (dsdl *DSDL) EvaluateAggregator(aggrID string) (AggregatorConstrFn, error) 
 }
 
 func (dsdl *DSDL) EvaluateAggregatorFromUrl(url string) (AggregatorConstrFn, error) {
+	if len(dsdl.aggregators) == 0 {
+		return nil, fmt.Errorf("Cannot evaluate aggregator from empty registration list")
+	}
+
 	for _, v := range dsdl.aggregators {
 		for _, wildcard := range v.AllowedUrlWildcards {
 			r, _ := regexp.Compile(wildcard)
@@ -134,6 +146,10 @@ addFh:
 }
 
 func (dsdl *DSDL) IsValidFilehost(name string) bool {
+	if len(dsdl.filehosts) == 0 {
+		return false
+	}
+
 	for _, v := range dsdl.filehosts {
 		if v.Name == name {
 			return true
@@ -144,6 +160,10 @@ func (dsdl *DSDL) IsValidFilehost(name string) bool {
 }
 
 func (dsdl *DSDL) EvaluateFilehost(url string) (FilehostImpl, error) {
+	if len(dsdl.filehosts) == 0 {
+		return nil, fmt.Errorf("Cannot evaluate filehost from empty registration list")
+	}
+
 	for _, v := range dsdl.filehosts {
 		for _, wildcard := range v.AllowedUrlWildcards {
 			r, _ := regexp.Compile(wildcard)
