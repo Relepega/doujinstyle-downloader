@@ -20,16 +20,16 @@ func TestProperFunctioning(t *testing.T) {
 		log.Fatalf("Filehost not found matching this url: \"%s\"", aggregatorName)
 	}
 
-	aggregator := aggregatorConstructor()
+	aggregator := aggregatorConstructor("112334", nil)
 
 	// get filehost url
-	filehostUrl, err := aggregator.EvaluateDownloadUrl()
+	filehostPage, err := aggregator.EvaluateDownloadPage()
 	if err != nil {
 		log.Fatalf("Cannot evaluate a filehost url from this aggregator link", aggregatorName)
 	}
 
 	// get filehost
-	filehost, err := d.EvaluateFilehost(filehostUrl)
+	filehost, err := d.EvaluateFilehost(filehostPage.URL())
 	if err != nil {
 		log.Fatalf("Filehost not found matching this url: \"%s\"", "")
 	}
