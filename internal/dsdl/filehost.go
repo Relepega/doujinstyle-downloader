@@ -1,8 +1,8 @@
 package dsdl
 
 type FilehostImpl interface {
-	FetchFileName() (string, error)
-	FetchFileExt() (string, error)
+	EvaluateFileName() (string, error)
+	EvaluateFileExt() (string, error)
 }
 
 type FilehostConstrFn func() *FilehostImpl

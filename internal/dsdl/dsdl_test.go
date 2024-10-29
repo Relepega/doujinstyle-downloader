@@ -12,18 +12,20 @@ func TestProperFunctioning(t *testing.T) {
 
 	d := NewDSDL(ctx)
 
-	aggregatorUrl := "test"
+	aggregatorName := "test"
 
 	// get aggregator
-	aggregator, err := d.EvaluateAggregator(aggregatorUrl)
+	aggregatorConstructor, err := d.EvaluateAggregator(aggregatorName)
 	if err != nil {
-		log.Fatalf("Filehost not found matching this url: \"%s\"", aggregatorUrl)
+		log.Fatalf("Filehost not found matching this url: \"%s\"", aggregatorName)
 	}
+
+	aggregator := aggregatorConstructor()
 
 	// get filehost url
 	filehostUrl, err := aggregator.EvaluateDownloadUrl()
 	if err != nil {
-		log.Fatalf("Cannot evaluate a filehost url from this aggregator link", aggregatorUrl)
+		log.Fatalf("Cannot evaluate a filehost url from this aggregator link", aggregatorName)
 	}
 
 	// get filehost

@@ -3,12 +3,19 @@ package dsdl
 import (
 	"context"
 	"fmt"
+	"regexp"
+
+	"github.com/playwright-community/playwright-go"
 )
 
 type (
 	Aggregators []*Aggregator
 	Filehosts   []*Filehost
 )
+
+type PwPageNavigator interface {
+	Page() playwright.Page
+}
 
 const (
 	ERR_REGISTERED_AGGREGATOR = "Aggregator is already registered"
@@ -79,6 +86,30 @@ func (dsdl *DSDL) IsValidAggregator(name string) bool {
 	return false
 }
 
+func (dsdl *DSDL) EvaluateAggregator(aggrID string) (AggregatorConstrFn, error) {
+	for _, v := range dsdl.aggregators {
+		if v.Name == aggrID {
+			return v.Constructor, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Aggregator not found:\"%s\"", aggrID)
+}
+
+func (dsdl *DSDL) EvaluateAggregatorFromUrl(url string) (AggregatorConstrFn, error) {
+	for _, v := range dsdl.aggregators {
+		for _, wildcard := range v.AllowedUrlWildcards {
+			r, _ := regexp.Compile(wildcard)
+
+			if r.MatchString(url) {
+				return v.Constructor, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("Aggregator not found for this url: \"%s\"", url)
+}
+
 func (dsdl *DSDL) RegisterFilehost(f *Filehost) error {
 	unique := true
 
@@ -110,4 +141,18 @@ func (dsdl *DSDL) IsValidFilehost(name string) bool {
 	}
 
 	return false
+}
+
+func (dsdl *DSDL) EvaluateFilehost(url string) (FilehostImpl, error) {
+	for _, v := range dsdl.filehosts {
+		for _, wildcard := range v.AllowedUrlWildcards {
+			r, _ := regexp.Compile(wildcard)
+
+			if r.MatchString(url) {
+				return *v.Constructor(), nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("Filehost not found for this url: \"%s\"", url)
 }
