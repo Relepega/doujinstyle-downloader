@@ -23,7 +23,7 @@ type Doujinstyle struct {
 	page playwright.Page
 }
 
-func NewDoujinstyle(slug string, p playwright.Page) *Doujinstyle {
+func NewDoujinstyle(slug string, p playwright.Page) dsdl.AggregatorImpl {
 	var url string
 
 	if strings.HasSuffix(slug, "https") {

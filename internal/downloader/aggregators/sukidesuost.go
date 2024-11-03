@@ -23,7 +23,7 @@ type SukiDesuOST struct {
 	page playwright.Page
 }
 
-func NewSukiDesuOst(slug string, p playwright.Page) *SukiDesuOST {
+func NewSukiDesuOst(slug string, p playwright.Page) dsdl.AggregatorImpl {
 	var url string
 
 	if strings.Contains(slug, SDO_HOSTNAME) {
