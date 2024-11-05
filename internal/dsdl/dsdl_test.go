@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"testing"
 )
 
@@ -25,13 +26,16 @@ func TestProperFunctioning(t *testing.T) {
 	// get filehost url
 	filehostPage, err := aggregator.EvaluateDownloadPage()
 	if err != nil {
-		log.Fatalf("Cannot evaluate a filehost url from this aggregator link", aggregatorName)
+		log.Fatalf(
+			"Cannot evaluate a filehost url from this aggregator link: \"%s\"",
+			aggregatorName,
+		)
 	}
 
 	// get filehost
 	filehost, err := d.EvaluateFilehost(filehostPage.URL())
 	if err != nil {
-		log.Fatalf("Filehost not found matching this url: \"%s\"", "")
+		log.Fatalf("Filehost not found matching this url: \"%s\"", filehostPage.URL())
 	}
 
 	var fn string
@@ -54,4 +58,10 @@ func TestProperFunctioning(t *testing.T) {
 	}
 
 	filename := fmt.Sprintf("%s.%s", fn, fext)
+
+	dlpath := filepath.Join(".", "test-downloads", filename)
+
+	// this has to come from task
+	var progress int8
+	filehost.Download(dlpath, &progress)
 }

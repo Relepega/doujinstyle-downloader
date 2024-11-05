@@ -11,6 +11,7 @@ type Task struct {
 	TempDir      string
 	DownloadsDir string
 	Filename     string
+	Progress     int8
 }
 
 func NewTask() *Task {

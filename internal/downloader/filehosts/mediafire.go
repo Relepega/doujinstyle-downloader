@@ -3,7 +3,6 @@ package filehosts
 import (
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -35,11 +34,49 @@ func (m *Mediafire) Page() playwright.Page {
 	return m.page
 }
 
-func (m *Mediafire) EvaluateFileName() (string, error)
+func (m *Mediafire) EvaluateFileName() (string, error) {
+	fn_intf, err := m.page.Evaluate("document.querySelector('.dl-btn-label').innerText")
+	if err != nil {
+		return "", err
+	}
 
-func (m *Mediafire) EvaluateFileExt() (string, error)
+	fn, ok := fn_intf.(string)
+	if !ok {
+		return "", fmt.Errorf("Cannot convert data into string")
+	}
 
-func (m *Mediafire) Download() error {
+	return appUtils.CleanString(fn), nil
+}
+
+func (m *Mediafire) EvaluateFileExt() (string, error) {
+	fn, err := m.EvaluateFileName()
+	if err != nil {
+		return "", err
+	}
+
+	ext_intf, err := m.page.Evaluate("document.querySelector('.dl-btn-label').innerText")
+	if err != nil {
+		return "", err
+	}
+
+	ext_str, ok := ext_intf.(string)
+	if !ok {
+		return "", fmt.Errorf("Cannot convert data into string")
+	}
+
+	ext := ext_str[len(fn)+1:]
+
+	return ext, nil
+}
+
+func (m *Mediafire) Download(downloadPath string, progress *int8) error {
+	if !m.isFolder() {
+		err := m.downloadSingleFile(downloadPath, progress)
+		return err
+	}
+
+	var dummyProgress int8
+
 	return nil
 }
 
@@ -144,14 +181,10 @@ func (m *Mediafire) fetchFolderContent(
 	return fd, nil
 }
 
-func (m *Mediafire) downloadSingleFile(
-	filename string,
-	dlPage playwright.Page,
-	progress *int8,
-) error {
+func (m *Mediafire) downloadSingleFile(fp string, progress *int8) error {
 	// file is still in upload status?
 	for {
-		res, err := dlPage.Evaluate(
+		res, err := m.page.Evaluate(
 			"() => document.querySelector(\".DownloadStatus.DownloadStatus--uploading\")",
 		)
 		if err != nil {
@@ -165,29 +198,6 @@ func (m *Mediafire) downloadSingleFile(
 		time.Sleep(time.Second * 5)
 	}
 
-	var extension string
-
-	ext, _ := dlPage.Evaluate(
-		"document.querySelector('.filetype > span:nth-child(2)').innerText.slice(2, -1).toLocaleLowerCase()",
-	)
-	if ext == nil {
-		ext, _ = dlPage.Evaluate(`() => {
-			let data = document.querySelector('.dl-btn-label').title.split('.')
-			return data[data.length - 1]
-		}`)
-
-		extension = fmt.Sprintf(".%v", ext)
-	} else {
-		extension = fmt.Sprintf("%v", ext)
-
-		re, err := regexp.Compile(`\.[a-zA-Z0-9]+`)
-		if err != nil {
-			return err
-		}
-		extension = strings.ToLower(re.FindString(extension))
-	}
-
-	fp := filepath.Join(m.dlPath, filename+extension)
 	fileExists, err := appUtils.FileExists(fp)
 	if err != nil {
 		return err
@@ -196,7 +206,7 @@ func (m *Mediafire) downloadSingleFile(
 		return nil
 	}
 
-	href, err := dlPage.Evaluate("document.querySelector('#downloadButton').href")
+	href, err := m.page.Evaluate("document.querySelector('#downloadButton').href")
 	if err != nil {
 		fmt.Println("it's me, a deferred button render!")
 		return err
@@ -211,14 +221,14 @@ func (m *Mediafire) downloadSingleFile(
 		downloadUrl,
 		progress,
 		func(p int8) {
-			pub, _ := pubsub.GetGlobalPublisher("queue")
-			pub.Publish(&pubsub.PublishEvent{
-				EvtType: "update-task-progress",
-				Data: &tq_eventbroker.UpdateTaskProgress{
-					Id:       m.albumID,
-					Progress: p,
-				},
-			})
+			// pub, _ := pubsub.GetGlobalPublisher("queue")
+			// pub.Publish(&pubsub.PublishEvent{
+			// 	EvtType: "update-task-progress",
+			// 	Data: &tq_eventbroker.UpdateTaskProgress{
+			// 		Id:       m.albumID,
+			// 		Progress: p,
+			// 	},
+			// })
 		},
 		false,
 	)

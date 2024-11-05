@@ -7,7 +7,7 @@ type FilehostImpl interface {
 
 	EvaluateFileName() (string, error)
 	EvaluateFileExt() (string, error)
-	Download() error
+	Download(downloadPath string, progress *int8) error
 }
 
 type FilehostConstrFn func() *FilehostImpl
