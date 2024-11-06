@@ -2,6 +2,7 @@ package filehosts
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -75,9 +76,45 @@ func (m *Mediafire) Download(downloadPath string, progress *int8) error {
 		return err
 	}
 
+	key := m.getFolderKey()
+
+	files, err := m.fetchFolderContent(key, downloadPath)
+	if err != nil {
+		return err
+	}
+
+	totalFiles := len(files)
+	downloadedFiles := 0
+
+	*progress = 0
+
 	var dummyProgress int8
 
-	return nil
+	currDownloadDir := downloadPath
+
+	for _, f := range files {
+		_, err = m.page.Goto(f.Url)
+		if err != nil {
+			return err
+		}
+
+		dlPath := filepath.Join(currDownloadDir, f.Directory)
+		folderExists, _ := appUtils.DirectoryExists(dlPath)
+		if !folderExists {
+			os.MkdirAll(dlPath, 0755)
+		}
+
+		ok, _ := appUtils.FileExists(filepath.Join(dlPath, f.Filename))
+		if !ok {
+			currDownloadDir = dlPath
+			m.downloadSingleFile(dlPath, &dummyProgress)
+		}
+
+		downloadedFiles++
+		*progress = int8((float64(downloadedFiles) / float64(totalFiles)) * 100)
+	}
+
+	return err
 }
 
 /*
