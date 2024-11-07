@@ -12,6 +12,7 @@ package dsdl
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -19,7 +20,7 @@ const ERR_NO_RES_FOUND = "No results found"
 
 type (
 	// function that is responsible to automatically run the queue
-	QueueRunner func(tq *TQProxy, stop <-chan struct{}, opts interface{})
+	QueueRunner func(tq *TQProxy, stop <-chan struct{}, opts interface{}) error
 )
 
 // A TQProxy is a proxy that contains both Queue and Tracker instances.
@@ -65,6 +66,21 @@ func NewTQWrapper(fn QueueRunner, ctx context.Context) *TQProxy {
 	return proxy
 }
 
+// same thing as NewTQWrapper, but this has to be called from dsdl engine
+func newTQWrapperFromEngine(fn QueueRunner, ctx context.Context, dsdl *DSDL) *TQProxy {
+	proxy := &TQProxy{
+		q:              NewQueue(),
+		t:              NewTracker(),
+		qRunner:        fn,
+		stopRunner:     make(chan struct{}),
+		isQueueRunning: false,
+	}
+
+	proxy.ctx = context.WithValue(ctx, "dsdl", dsdl)
+
+	return proxy
+}
+
 // GetQueue returns the underlying pointer to the Queue instance
 func (tq *TQProxy) GetQueue() *Queue {
 	return tq.q
@@ -86,7 +102,10 @@ func (tq *TQProxy) GetTracker() *Tracker {
 //     to be casted into the proper type inside the runner fn.
 func (tq *TQProxy) RunQueue(opts interface{}) {
 	go func(tq *TQProxy, stop chan struct{}, opts interface{}) {
-		tq.qRunner(tq, stop, opts)
+		err := tq.qRunner(tq, stop, opts)
+		if err != nil {
+			log.Fatalf("RunQueue: %v", err)
+		}
 	}(tq, tq.stopRunner, opts)
 
 	tq.isQueueRunning = true
@@ -280,6 +299,6 @@ func (tq *TQProxy) TrackerCountFromState(completionState int) (int, error) {
 	return tq.t.CountFromState(completionState)
 }
 
-func (tq *TQProxy) Context() any {
-	return tq.ctx.Value("tlp")
+func (tq *TQProxy) Context() *DSDL {
+	return tq.ctx.Value("dsdl").(*DSDL)
 }

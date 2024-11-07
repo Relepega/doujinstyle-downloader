@@ -29,6 +29,8 @@ type DSDL struct {
 	aggregators Aggregators
 	filehosts   Filehosts
 
+	browser playwright.Browser
+
 	// whole application's context
 	Ctx context.Context
 }
@@ -46,11 +48,15 @@ func (dsdl *DSDL) NewTQProxy(fn QueueRunner) {
 		return
 	}
 
-	dsdl.Tq = NewTQWrapper(fn, dsdl.Ctx)
+	dsdl.Tq = newTQWrapperFromEngine(fn, dsdl.Ctx, dsdl)
 }
 
 func (dsdl *DSDL) GetTQProxy() *TQProxy {
 	return dsdl.Tq
+}
+
+func (dsdl *DSDL) GetBrowserInstance() playwright.Browser {
+	return dsdl.browser
 }
 
 func (dsdl *DSDL) RegisterAggregator(f *Aggregator) error {

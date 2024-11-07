@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	tlp "github.com/relepega/doujinstyle-downloader/internal/topLevelProxy"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
 	ssehub "github.com/relepega/doujinstyle-downloader/internal/webserver/SSEHub"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
@@ -134,9 +133,4 @@ func (ws *Webserver) Start(ctx context.Context) error {
 		log.Println("Graceful webserver shutdown complete.")
 		return nil
 	}
-}
-
-func (ws *Webserver) Context() *tlp.TLProxy {
-	v, _ := ws.ctx.Value("tlp").(*tlp.TLProxy)
-	return v
 }

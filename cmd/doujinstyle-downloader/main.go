@@ -44,6 +44,6 @@ func main() {
 
 	// init modules
 	cfg := initConfig()
-	engine := initEngine(ctx)
+	engine := initEngine(cfg, ctx)
 	server := initServer(cfg, ctx)
 }

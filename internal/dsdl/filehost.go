@@ -10,7 +10,7 @@ type FilehostImpl interface {
 	Download(downloadPath string, progress *int8) error
 }
 
-type FilehostConstrFn func() *FilehostImpl
+type FilehostConstrFn func() FilehostImpl
 
 type Filehost struct {
 	// open webpage
