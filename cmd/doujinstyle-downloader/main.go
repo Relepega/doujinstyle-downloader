@@ -40,10 +40,13 @@ func main() {
 		log.Fatalf("Couldn't install playwright dependencies: %v", err)
 	}
 
+	// clear screen
 	fmt.Print("\033[H\033[2J")
 
 	// init modules
 	cfg := initConfig()
 	engine := initEngine(cfg, ctx)
-	server := initServer(cfg, ctx)
+	server := initServer(cfg, ctx, engine)
+
+	server.Start()
 }

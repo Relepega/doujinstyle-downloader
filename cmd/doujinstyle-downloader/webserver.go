@@ -8,10 +8,14 @@ import (
 	webserver "github.com/relepega/doujinstyle-downloader/internal/webserver/v2"
 )
 
-func initServer(cfg *configManager.Config, ctx context.Context) *webserver.Webserver {
-	server := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, ctx)
+func initServer(
+	cfg *configManager.Config,
+	ctx context.Context,
+	userData interface{},
+) *webserver.Webserver {
+	server := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, ctx, userData)
 
-	err := server.Start(ctx)
+	err := server.Start()
 	if err != nil {
 		log.Fatalln(err)
 	}

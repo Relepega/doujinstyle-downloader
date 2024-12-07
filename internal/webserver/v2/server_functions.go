@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"runtime"
 	"syscall"
+
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 )
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
@@ -32,6 +34,7 @@ func (ws *Webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dsdl, _ := ws.UserData.(*dsdl.DSDL)
 	ws.templates.ExecuteWithWriter(w, "index", ws.q.GetUIData())
 }
 

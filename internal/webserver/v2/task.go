@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/services"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 	"github.com/relepega/doujinstyle-downloader/internal/taskQueue/task"
 )
 
@@ -45,6 +46,8 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 
 	slugList := strings.Split(slugs, delimiter)
 
+	engine, _ := ws.UserData.(*dsdl.DSDL)
+
 	for _, slug := range slugList {
 		if slug == "" {
 			continue
@@ -52,7 +55,7 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 
 		task := task.NewTaskFromSlug(slug)
 
-		ws.Context().Tq.AddNodeFromValue(task)
+		engine.Tq.AddNodeFromValue(task)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -71,8 +74,10 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	engine, _ := ws.UserData.(*dsdl.DSDL)
+
 	for _, s := range slugs {
-		ws.ctx.RemoveNodeWithComparator(s, func(int_v, user_v interface{}) bool {
+		engine.Tq.RemoveNodeWithComparator(s, func(int_v, user_v interface{}) bool {
 			task, ok := int_v.(task.Task)
 			if !ok {
 				return false
@@ -83,7 +88,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 				return false
 			}
 
-			return task.Slug == slug
+			return task.AggregatorSlug == slug
 		})
 	}
 }

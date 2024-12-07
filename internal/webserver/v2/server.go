@@ -32,9 +32,16 @@ type Webserver struct {
 	msgChan chan *SSEEvents.SSEMessage
 
 	ctx context.Context
+
+	UserData interface{}
 }
 
-func NewWebServer(address string, port uint16, ctx context.Context) *Webserver {
+func NewWebServer(
+	address string,
+	port uint16,
+	ctx context.Context,
+	userData interface{},
+) *Webserver {
 	server := &http.Server{}
 
 	t, err := templates.NewTemplates()
@@ -65,6 +72,8 @@ func NewWebServer(address string, port uint16, ctx context.Context) *Webserver {
 		templates: t,
 
 		ctx: ctx,
+
+		UserData: userData,
 	}
 
 	webServer.msgChan = make(chan *SSEEvents.SSEMessage)
@@ -97,7 +106,7 @@ func (ws *Webserver) buildRoutes() *http.ServeMux {
 	return mux
 }
 
-func (ws *Webserver) Start(ctx context.Context) error {
+func (ws *Webserver) Start() error {
 	defer close(ws.msgChan)
 
 	mux := ws.buildRoutes()
@@ -121,7 +130,7 @@ func (ws *Webserver) Start(ctx context.Context) error {
 
 	// Wait for either the context to be cancelled or for the server to stop serving new connections
 	select {
-	case <-ctx.Done():
+	case <-ws.ctx.Done():
 		// Context was cancelled, start the graceful shutdown
 		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownRelease()
