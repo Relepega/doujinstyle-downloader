@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/relepega/doujinstyle-downloader/internal/downloader/services"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 	"github.com/relepega/doujinstyle-downloader/internal/taskQueue/task"
 )
@@ -27,6 +26,8 @@ func isValidMode(m string, ms []string) bool {
 }
 
 func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
+	engine, _ := ws.UserData.(*dsdl.DSDL)
+
 	slugs := r.FormValue("Slugs")
 	service := strings.TrimSpace(r.FormValue("Service"))
 
@@ -38,15 +39,13 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if service == "" || !services.IsValidService(service) {
+	if service == "" || !engine.IsValidAggregator(service) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintln(w, "Not a valid service")
 		return
 	}
 
 	slugList := strings.Split(slugs, delimiter)
-
-	engine, _ := ws.UserData.(*dsdl.DSDL)
 
 	for _, slug := range slugList {
 		if slug == "" {
@@ -62,7 +61,27 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, slugList, service)
 }
 
-func (ws *Webserver) handleTaskUpdate(w http.ResponseWriter, r *http.Request) {}
+func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Request) {
+	engine, _ := ws.UserData.(*dsdl.DSDL)
+
+	slug := r.FormValue("Slug")
+
+	if slug == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "A task slug is required")
+		return
+	}
+
+	// TODO: need to implement the task struct
+	taskVal, err := engine.Tq.GetNodeWithComparator(slug, func(item, target interface{}) bool {
+		i := item.(any)
+		t := target.(string)
+
+		return false
+	})
+
+	engine.Tq.ResetTaskState(taskVal)
+}
 
 func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 	slugs := r.FormValue("Slugs")
