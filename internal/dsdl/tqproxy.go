@@ -174,6 +174,28 @@ func (tq *TQProxy) AddNodeFromValue(v interface{}) (interface{}, error) {
 	return n.Value(), nil
 }
 
+// Checks and returns the matching task, if it exists, from the result of a compararion function.
+//
+// Returns:
+//
+//   - task:   task corresponding to the comparator returning a truthy value
+//   - error: returned when a Node with an equal value is found in the tracker
+func (tq *TQProxy) GetNodeWithComparator(
+	target interface{},
+	comp func(item, target interface{}) bool,
+) (interface{}, error) {
+	tq.Lock()
+	defer tq.Unlock()
+
+	for k := range tq.t.db_tasks {
+		if comp(k, target) {
+			return k, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Couldn't find a matching task")
+}
+
 // Removes the node at the HEAD of the queue and returns its value
 func (tq *TQProxy) Dequeue() (interface{}, error) {
 	tq.Lock()

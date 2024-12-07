@@ -27,7 +27,7 @@ func newTestingRunnerOpts(t int, d time.Duration) testingRunnerOptions {
 	}
 }
 
-func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) {
+func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) error {
 	options := testingRunnerOptions{
 		Threads:      1,
 		TaskDuration: time.Second,
@@ -45,7 +45,7 @@ func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) {
 	for {
 		select {
 		case <-stop:
-			return
+			return nil
 
 		default:
 			tcount, err := tq.TrackerCountFromState(TASK_STATE_RUNNING)
@@ -112,7 +112,7 @@ func taskRunner(tq *TQProxy, myData *testingDataType, duration time.Duration) {
 
 func TestAddNode(t *testing.T) {
 	tq := NewTQWrapper(
-		func(tq *TQProxy, stop <-chan struct{}, opts interface{}) {},
+		func(tq *TQProxy, stop <-chan struct{}, opts interface{}) error { return nil },
 		context.Background(),
 	)
 
@@ -144,7 +144,7 @@ func TestAddNode(t *testing.T) {
 
 func TestHasNode(t *testing.T) {
 	tq := NewTQWrapper(
-		func(tq *TQProxy, stop <-chan struct{}, opts interface{}) {},
+		func(tq *TQProxy, stop <-chan struct{}, opts interface{}) error { return nil },
 		context.Background(),
 	)
 
