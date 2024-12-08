@@ -157,13 +157,13 @@ func (tq *TQProxy) AddNode(n *Node) error {
 // Returns:
 //
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) AddNodeFromValue(v interface{}) (interface{}, error) {
+func (tq *TQProxy) AddNodeFromValue(v interface{}) error {
 	tq.Lock()
 	defer tq.Unlock()
 
 	alreadyExists := tq.t.Has(v)
 	if alreadyExists {
-		return nil, fmt.Errorf("A node with an equal value already exists")
+		return fmt.Errorf("A node with an equal value already exists")
 	}
 
 	n := NewNode(v)
@@ -171,7 +171,35 @@ func (tq *TQProxy) AddNodeFromValue(v interface{}) (interface{}, error) {
 	tq.q.Enqueue(n)
 	tq.t.Add(v)
 
-	return n.Value(), nil
+	return nil
+}
+
+// Checks if the tracker already holds an equal node value through a comparator function.
+//
+// If not, creates a new Node and appends it to the queue and the tracker.
+//
+// Returns:
+//
+//   - error: returned when a Node with an equal value is found in the tracker
+func (tq *TQProxy) AddNodeFromValueWithComparator(
+	value interface{},
+	comp func(item, target interface{}) bool,
+) error {
+	tq.Lock()
+	defer tq.Unlock()
+
+	for k := range tq.t.db_tasks {
+		if comp(k, value) {
+			return fmt.Errorf("A node with an equal value already exists")
+		}
+	}
+
+	n := NewNode(value)
+
+	tq.q.Enqueue(n)
+	tq.t.Add(value)
+
+	return nil
 }
 
 // Checks and returns the matching task, if it exists, from the result of a compararion function.

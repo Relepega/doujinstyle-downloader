@@ -47,18 +47,30 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 
 	slugList := strings.Split(slugs, delimiter)
 
+	var happenedErrors []string
+
 	for _, slug := range slugList {
 		if slug == "" {
 			continue
 		}
 
-		task := task.NewTaskFromSlug(slug)
+		newTask := task.NewTaskFromSlug(slug)
 
-		engine.Tq.AddNodeFromValue(task)
+		err := engine.Tq.AddNodeFromValueWithComparator(
+			newTask,
+			func(item, target interface{}) bool {
+				toCompare := item.(*task.Task)
+
+				return toCompare.AggregatorSlug == newTask.AggregatorSlug
+			},
+		)
+		if err != nil {
+			happenedErrors = append(happenedErrors, err.Error())
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, slugList, service)
+	fmt.Fprintln(w, slugList, service, happenedErrors)
 }
 
 func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Request) {
@@ -72,15 +84,28 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// TODO: need to implement the task struct
 	taskVal, err := engine.Tq.GetNodeWithComparator(slug, func(item, target interface{}) bool {
-		i := item.(any)
+		i := item.(*task.Task)
 		t := target.(string)
 
-		return false
+		return i.AggregatorSlug == t
 	})
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "Slug not found")
+		return
+	}
 
 	engine.Tq.ResetTaskState(taskVal)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "Slug not found")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w)
 }
 
 func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
@@ -110,4 +135,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return task.AggregatorSlug == slug
 		})
 	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w)
 }
