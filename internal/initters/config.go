@@ -1,4 +1,4 @@
-package main
+package initters
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 )
 
-func initConfig() *configManager.Config {
+func InitConfig() *configManager.Config {
 	cfg := configManager.NewConfig()
 
 	err := cfg.Load()

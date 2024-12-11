@@ -1,4 +1,4 @@
-package main
+package initters
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/taskQueue/task"
 )
 
-func initEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
+func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	engine := dsdl.NewDSDL(ctx)
 
 	engine.RegisterAggregator(&dsdl.Aggregator{

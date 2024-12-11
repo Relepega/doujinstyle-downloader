@@ -11,6 +11,7 @@ import (
 	"github.com/playwright-community/playwright-go"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+	"github.com/relepega/doujinstyle-downloader/internal/initters"
 	"github.com/relepega/doujinstyle-downloader/internal/logger"
 )
 
@@ -44,9 +45,9 @@ func main() {
 	fmt.Print("\033[H\033[2J")
 
 	// init modules
-	cfg := initConfig()
-	engine := initEngine(cfg, ctx)
-	server := initServer(cfg, ctx, engine)
+	cfg := initters.InitConfig()
+	engine := initters.InitEngine(cfg, ctx)
+	server := initters.InitServer(cfg, ctx, engine)
 
 	server.Start()
 }
