@@ -2,10 +2,14 @@ package initters
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/aggregators"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/filehosts"
@@ -38,8 +42,22 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	return engine
 }
 
+func generateRandomFilename() (string, error) {
+	// Generate a random string of 16 characters
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+
+	// Convert the bytes to a hex string
+	filename := fmt.Sprintf("%x", b)
+
+	return filename, nil
+}
+
 func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error {
-	options, ok := opts.(configManager.Config)
+	options, ok := opts.(*configManager.Config)
 	if !ok {
 		log.Fatalln("Options are of wrong type")
 	}
@@ -71,12 +89,14 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 			}
 			taskData.SetDownloadState <- dsdl.TASK_STATE_RUNNING
 
-			go taskRunner(tq, taskData)
+			appUtils.CreateAppTempDir(appUtils.GetAppTempDir())
+
+			go taskRunner(tq, taskData, options.Download.Directory)
 		}
 	}
 }
 
-func taskRunner(tq *dsdl.TQProxy, taskData *task.Task) {
+func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 	markCompleted := func() {
 		err := tq.AdvanceTaskState(taskData)
 		if err != nil {
@@ -126,7 +146,78 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task) {
 				return
 			}
 
-			aggregator := aggConstFn(taskData.AggregatorSlug)
+			aggregator := aggConstFn(taskData.AggregatorSlug, p)
+
+			// check if page is actually not deleted
+			isValidPage, err := aggregator.Is404()
+			if err != nil {
+				taskData.Err = err
+				markCompleted()
+				return
+			}
+			if !isValidPage {
+				taskData.Err = fmt.Errorf(
+					"taskRunner: The requested page has been taken down or is invalid",
+				)
+				markCompleted()
+				return
+			}
+
+			// evaluate final filename
+			fname, err := aggregator.EvaluateFileName()
+			if err != nil {
+				taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the filename")
+				markCompleted()
+				return
+			}
+
+			fext, err := aggregator.EvaluateFileExt()
+			if err != nil {
+				taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the file extension")
+				markCompleted()
+				return
+			}
+
+			finalfp := filepath.Join(downloadPath, fmt.Sprintf("%s.%s", fname, fext))
+
+			// get download page
+			dlPage, err := aggregator.EvaluateDownloadPage()
+			if err != nil {
+				taskData.Err = err
+				markCompleted()
+				return
+			}
+
+			// parse a filehost downloader
+			filehost, err := engine.EvaluateFilehost(dlPage.URL())
+			if err != nil {
+				taskData.Err = err
+				markCompleted()
+				return
+			}
+
+			// TODO: edge cases on which the filename couldn't be evaluated from the aggregatorPage are not handled
+
+			// make a temp filename to download into
+			tempfn, err := generateRandomFilename()
+			if err != nil {
+				taskData.Err = err
+				markCompleted()
+				return
+			}
+
+			tempfp := filepath.Join(appUtils.GetAppTempDir(), tempfn)
+
+			// download the file into temp
+			err = filehost.Download(tempfp, &taskData.Progress)
+			if err != nil {
+				taskData.Err = err
+				markCompleted()
+				return
+			}
+
+			// move the temp file into final file
+			os.Rename(tempfp, finalfp)
 
 			// task done :)
 			markCompleted()

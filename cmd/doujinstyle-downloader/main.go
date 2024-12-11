@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -42,7 +41,7 @@ func main() {
 	}
 
 	// clear screen
-	fmt.Print("\033[H\033[2J")
+	// fmt.Print("\033[H\033[2J")
 
 	// init modules
 	cfg := initters.InitConfig()
