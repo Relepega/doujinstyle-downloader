@@ -98,6 +98,14 @@ func (t *Tracker) Has(nv interface{}) bool {
 	return false
 }
 
+// Returns all the tasks in the database
+func (t *Tracker) GetAll() map[interface{}]int {
+	t.Lock()
+	defer t.Unlock()
+
+	return t.db_tasks
+}
+
 // Removes a task from the Tracker
 //
 // Returns an error if trying to remove a task in a running state

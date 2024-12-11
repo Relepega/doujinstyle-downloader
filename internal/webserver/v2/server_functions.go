@@ -35,7 +35,7 @@ func (ws *Webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dsdl, _ := ws.UserData.(*dsdl.DSDL)
-	ws.templates.ExecuteWithWriter(w, "index", ws.q.GetUIData())
+	ws.templates.ExecuteWithWriter(w, "index", dsdl.Tq.GetTracker().GetAll())
 }
 
 func (ws *Webserver) handleRestartServer(w http.ResponseWriter, r *http.Request) {

@@ -96,11 +96,10 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	engine.Tq.ResetTaskState(taskVal)
-
+	err = engine.Tq.ResetTaskState(taskVal)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "Slug not found")
+		fmt.Fprintln(w, err.Error())
 		return
 	}
 
