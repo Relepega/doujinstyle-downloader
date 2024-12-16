@@ -1,9 +1,5 @@
 package task
 
-import (
-	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
-)
-
 type Task struct {
 	// Aggregator formal name (e.g "doujinstyle")
 	AggregatorName string
@@ -11,10 +7,6 @@ type Task struct {
 	AggregatorSlug string
 	// Filehost full url
 	FilehostUrl string
-	// Temporary directory that stores the incomplete download
-	TempDir string
-	// Directory that hosts the complete download
-	FinalDir string
 	// Downloaded filename
 	Filename string
 	// Sets the download state (e.g. "Downloading", "queued", "moving", ...) to the database
@@ -28,21 +20,17 @@ type Task struct {
 }
 
 func NewTask() *Task {
-	return &Task{
-		TempDir: appUtils.GetAppTempDir(),
-	}
+	return &Task{}
 }
 
 func NewTaskFromServiceURL(aggregatorSlug string) *Task {
 	return &Task{
 		AggregatorSlug: aggregatorSlug,
-		TempDir:        appUtils.GetAppTempDir(),
 	}
 }
 
 func NewTaskFromSlug(slug string) *Task {
 	return &Task{
 		AggregatorSlug: slug,
-		TempDir:        appUtils.GetAppTempDir(),
 	}
 }

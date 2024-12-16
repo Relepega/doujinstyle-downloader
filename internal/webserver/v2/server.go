@@ -91,12 +91,12 @@ func (ws *Webserver) buildRoutes() *http.ServeMux {
 	mux.Handle("/css/", http.StripPrefix("/css/", http.FileServer(cssDir)))
 	mux.Handle("/js/", http.StripPrefix("/js/", http.FileServer(jsDir)))
 
-	// POST   /tasks/add { ids: []string }
-	mux.HandleFunc("POST /tasks/add", ws.handleTaskAdd)
-	// PATCH  /tasks/update { mode: "single|multiple|failed", ids: []string }
-	mux.HandleFunc("POST /tasks/update", ws.handleTaskUpdateState)
-	// DELETE /tasks/delete { mode: "single|multiple|queued|failed|succeeded", ids: []string }
-	mux.HandleFunc("DELETE /tasks/delete", ws.handleTaskRemove)
+	// POST   /task { ids: []string }
+	mux.HandleFunc("POST /task", ws.handleTaskAdd)
+	// PATCH  /task { mode: "single|multiple|failed", ids: []string }
+	mux.HandleFunc("PATCH /task", ws.handleTaskUpdateState)
+	// DELETE /task { mode: "single|multiple|queued|failed|succeeded", ids: []string }
+	mux.HandleFunc("DELETE /task", ws.handleTaskRemove)
 
 	mux.HandleFunc("/", ws.handleIndexRoute)
 
