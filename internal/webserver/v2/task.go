@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
-	"github.com/relepega/doujinstyle-downloader/internal/taskQueue/task"
+	"github.com/relepega/doujinstyle-downloader/internal/task"
 )
 
 var (
@@ -54,7 +54,7 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		newTask := task.NewTaskFromSlug(slug)
+		newTask := task.NewTaskFromSlug(engine.Tq.SetDownloadState, slug)
 
 		err := engine.Tq.AddNodeFromValueWithComparator(
 			newTask,

@@ -14,7 +14,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/aggregators"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/filehosts"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
-	"github.com/relepega/doujinstyle-downloader/internal/taskQueue/task"
+	"github.com/relepega/doujinstyle-downloader/internal/task"
 )
 
 func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
@@ -67,6 +67,12 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 		case <-stop:
 			return nil
 
+		case updateEvt := <-tq.SetDownloadState:
+			t := updateEvt.TaskValue.(*task.Task)
+
+			tq.GetTracker().AdvanceState(updateEvt.TaskValue)
+			t.DownloadState = updateEvt.NewState
+
 		default:
 			tcount, err := tq.TrackerCountFromState(dsdl.TASK_STATE_RUNNING)
 			if err != nil {
@@ -87,7 +93,10 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 			if !ok {
 				panic("TaskRunner: Cannot convert node value into proper type\n")
 			}
-			taskData.SetDownloadState <- dsdl.TASK_STATE_RUNNING
+			taskData.SetDownloadState <- &dsdl.UpdateTaskDownloadState{
+				NewState:  dsdl.TASK_STATE_RUNNING,
+				TaskValue: taskData,
+			}
 
 			appUtils.CreateAppTempDir(appUtils.GetAppTempDir())
 
@@ -102,7 +111,10 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 		if err != nil {
 			panic(err)
 		}
-		taskData.SetDownloadState <- dsdl.TASK_STATE_COMPLETED
+		taskData.SetDownloadState <- &dsdl.UpdateTaskDownloadState{
+			NewState:  dsdl.TASK_STATE_COMPLETED,
+			TaskValue: taskData,
+		}
 	}
 
 	engine := tq.Context()
