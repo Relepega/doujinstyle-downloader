@@ -37,6 +37,10 @@ var statuses = map[int]string{
 	TASK_STATE_COMPLETED: TASK_STATE_COMPLETED_STR,
 }
 
+func GetStateStr(state int) string {
+	return statuses[state]
+}
+
 // Tracker data type. Stores all inserted tasks in a Key-Value kind of in-memory DB
 type Tracker struct {
 	sync.Mutex

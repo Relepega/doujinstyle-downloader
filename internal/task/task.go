@@ -9,13 +9,15 @@ type Task struct {
 	AggregatorSlug string
 	// Filehost full url
 	FilehostUrl string
+	// Full name to be displayed on GUI
+	DisplayName string
 	// Downloaded filename
 	Filename string
 	// Sets the download state (e.g. "Downloading", "queued", "moving", ...) to the database
 	SetDownloadState chan *dsdl.UpdateTaskDownloadState
 	//
 	DownloadState int
-	// State progress percentage (from 0 to 100)
+	// State progress percentage (from -1 (not yet downloading) to 100)
 	Progress int8
 	// Stores an eventual error occurred in the task lifecycle
 	Err error

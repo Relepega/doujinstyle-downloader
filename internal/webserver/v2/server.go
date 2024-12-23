@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
 	ssehub "github.com/relepega/doujinstyle-downloader/internal/webserver/SSEHub"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
@@ -57,6 +58,8 @@ func NewWebServer(
 		return fmt.Sprintf("%d", time.Now().Unix())
 	})
 
+	t.AddFunction("GetStateStr", dsdl.GetStateStr)
+
 	dir := filepath.Join(".", "views", "templates")
 	err = t.ParseGlob(fmt.Sprintf("%s/*.tmpl", dir))
 	if err != nil {
@@ -92,11 +95,13 @@ func (ws *Webserver) buildRoutes() *http.ServeMux {
 	mux.Handle("/js/", http.StripPrefix("/js/", http.FileServer(jsDir)))
 
 	// POST   /task { ids: []string }
-	mux.HandleFunc("POST /task", ws.handleTaskAdd)
+	mux.HandleFunc(fmt.Sprintf("POST %s/task", APIGroup), ws.handleTaskAdd)
 	// PATCH  /task { mode: "single|multiple|failed", ids: []string }
-	mux.HandleFunc("PATCH /task", ws.handleTaskUpdateState)
+	mux.HandleFunc(fmt.Sprintf("PATCH %s/task", APIGroup), ws.handleTaskUpdateState)
 	// DELETE /task { mode: "single|multiple|queued|failed|succeeded", ids: []string }
-	mux.HandleFunc("DELETE /task", ws.handleTaskRemove)
+	mux.HandleFunc(fmt.Sprintf("DELETE %s/task", APIGroup), ws.handleTaskRemove)
+
+	mux.HandleFunc("GET /events-stream", ws.handleEventStream)
 
 	mux.HandleFunc("/", ws.handleIndexRoute)
 

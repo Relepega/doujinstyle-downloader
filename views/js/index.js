@@ -15,15 +15,15 @@ serviceSelect.addEventListener('change', () => {
 /**
  *
  * @param {string} method
- * @param {string} albumID
+ * @param {string} slugs
  * @param {string} groupAction
  *
  */
-async function taskAction(method, albumID, groupAction) {
+async function taskAction(method, slugs, groupAction) {
 	const res = await fetch('/api/task', {
 		method: method,
 		body: JSON.stringify({
-			AlbumID: albumID,
+			Slugs: slugs,
 			GroupAction: groupAction,
 		}),
 	})
@@ -116,7 +116,7 @@ document
 		const formData = new FormData(form)
 		await fetch('/api/task', { method: 'POST', body: formData })
 
-		form.AlbumID.value = ''
+		form.Slugs.value = ''
 	})
 
 document

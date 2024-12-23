@@ -1,31 +1,31 @@
 {{ block "task" . }}
 <div 
-    id="{{ .AlbumID }}"
-    class='download-queue-element {{ if .Done }} {{ if .Error }} failure {{ else }} success {{ end }} {{ end }}'
+    id="{{ .AggregatorSlug }}"
+    class='download-queue-element {{ if eq (GetStateStr .DownloadState) "Completed" }} {{ if .Err }} failure {{ else }} success {{ end }} {{ end }}'
 >
     {{ template "task-content" .}}
 </div>
 {{ end }}
 
 {{ block "task-content" . }}
-    {{ if eq .Active false }}
-        <div class="btn delete" id="task-ctrl-remove-task" data-id="{{ .AlbumID }}">X</div>
+    {{ if ne .DownloadState 1 }}
+        <div class="btn delete" id="task-ctrl-remove-task" data-id="{{ .AggregatorSlug }}">X</div>
     {{ end }}
 
     <p>
         {{ .DisplayName }} 
-        {{ if and (eq .Active true) (gt .DownloadProgress -1) }}
-            (Downloading... {{ .DownloadProgress }}&percnt;)
+        {{ if and (ne (GetStateStr .DownloadState) "Running") (gt .Progress -1) }}
+            (Downloading... {{ .Progress }}&percnt;)
         {{ end }}
     </p>
 
-    {{ if .Error }}
+    {{ if .Err }}
         <div class="err">
             <h4>An error occurred:</h4>
-            <p id="{{ .AlbumID }}-error">{{ .Error }}</p>
+            <p id="{{ .AggregatorSlug }}-error">{{ .Err }}</p>
             <div class="err-btns">
-                <div class="btn err-btn copy-error" id="task-ctrl-copy-error" data-id="{{ .AlbumID }}">Copy Error</div>
-                <div class="btn err-btn retry" id="task-ctrl-retry" data-id="{{ .AlbumID }}">Download Again</div>
+                <div class="btn err-btn copy-error" id="task-ctrl-copy-error" data-id="{{ .AggregatorSlug }}">Copy.Err</div>
+                <div class="btn err-btn retry" id="task-ctrl-retry" data-id="{{ .AggregatorSlug }}">Download Again</div>
             </div>
         </div>
     {{ end }}

@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -19,6 +20,7 @@ func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 		select {
 		case msg := <-ws.msgChan:
 			s := msg.String()
+			fmt.Println(s)
 
 			// fmt.Fprintf(w, s)
 			// w.(http.Flusher).Flush()
