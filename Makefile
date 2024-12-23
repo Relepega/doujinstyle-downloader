@@ -54,6 +54,9 @@ debug:
 	air
 
 run:
+	go run $(APP_ENTRYPOINT)
+
+run-race:
 	go run --race $(APP_ENTRYPOINT)
 
 test:
