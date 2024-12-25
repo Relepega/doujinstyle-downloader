@@ -2,6 +2,7 @@ package v2
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -35,7 +36,10 @@ func (ws *Webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dsdl, _ := ws.UserData.(*dsdl.DSDL)
-	ws.templates.ExecuteWithWriter(w, "index", dsdl.Tq.GetTracker().GetAll())
+	err := ws.templates.ExecuteWithWriter(w, "index", dsdl.Tq.GetTracker().GetAll())
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 func (ws *Webserver) handleRestartServer(w http.ResponseWriter, r *http.Request) {

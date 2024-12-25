@@ -182,22 +182,43 @@ func (t *Tracker) GetState(nv interface{}) (string, error) {
 
 // Advances the completion state of a specific task
 //
-// Returns an error if the task has reached a completion state
-func (t *Tracker) AdvanceState(nv interface{}) error {
+// Returns an error if the task has reached a completion state and the updated state value
+func (t *Tracker) AdvanceState(nv interface{}) (int, error) {
 	t.Lock()
 	defer t.Unlock()
 
 	for k, v := range t.tasks_db {
 		if k == nv {
 			if v >= max_completion_state {
-				return fmt.Errorf("Cannot advance the status of this task anymore")
+				return -1, fmt.Errorf("Cannot advance the status of this task anymore")
 			}
 
 			t.tasks_db[k]++
+			return t.tasks_db[k], nil
+
 		}
 	}
 
-	return nil
+	return -1, nil
+}
+
+// Sets the state of a specific task. Returns an error if the task has not been found
+func (t *Tracker) SetState(nv interface{}, newState int) error {
+	t.Lock()
+	defer t.Unlock()
+
+	if newState < 0 || newState >= max_completion_state {
+		return fmt.Errorf("newState is out of bounds")
+	}
+
+	for k := range t.tasks_db {
+		if k == nv {
+			t.tasks_db[k] = newState
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Node not found")
 }
 
 // Regresses the completion state of a specific task

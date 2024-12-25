@@ -3,6 +3,7 @@ package dsdl
 import (
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 
 	"github.com/playwright-community/playwright-go"
@@ -37,6 +38,39 @@ type DSDL struct {
 
 func NewDSDL(ctx context.Context) *DSDL {
 	dsdl := &DSDL{}
+
+	dsdl.Ctx = context.WithValue(ctx, "dsdl", dsdl)
+
+	pw, err := playwright.Run()
+	if err != nil {
+		log.Fatalln("could not start playwright: ", err)
+	}
+
+	t := true
+	tout := 0.0
+
+	browser, err := pw.Chromium.Launch(
+		playwright.BrowserTypeLaunchOptions{
+			Headless:      &t,
+			Timeout:       &tout,
+			HandleSIGHUP:  &t,
+			HandleSIGINT:  &t,
+			HandleSIGTERM: &t,
+		},
+	)
+	if err != nil {
+		log.Fatalln("Couldn't start a new browser: ", err)
+	}
+
+	dsdl.browser = browser
+
+	return dsdl
+}
+
+func NewDSDLWithBrowser(ctx context.Context, browser playwright.Browser) *DSDL {
+	dsdl := &DSDL{
+		browser: browser,
+	}
 
 	dsdl.Ctx = context.WithValue(ctx, "dsdl", dsdl)
 

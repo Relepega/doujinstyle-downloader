@@ -1,21 +1,23 @@
 package task
 
-import "github.com/relepega/doujinstyle-downloader/internal/dsdl"
+import (
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
+)
 
 type Task struct {
 	// Aggregator formal name (e.g "doujinstyle")
 	AggregatorName string
 	// Can be either the full url or the page id
 	AggregatorSlug string
+	// Full URL calculated by combining name & slug
+	AggregatorPageURL string
 	// Filehost full url
 	FilehostUrl string
 	// Full name to be displayed on GUI
 	DisplayName string
 	// Downloaded filename
 	Filename string
-	// Sets the download state (e.g. "Downloading", "queued", "moving", ...) to the database
-	SetDownloadState chan *dsdl.UpdateTaskDownloadState
-	//
+	// Mirror value of the one stored in the database
 	DownloadState int
 	// State progress percentage (from -1 (not yet downloading) to 100)
 	Progress int8
@@ -25,29 +27,12 @@ type Task struct {
 	Stop chan struct{}
 }
 
-func NewTask(setDownloadStateChan chan *dsdl.UpdateTaskDownloadState) *Task {
+func NewTask(slug string) *Task {
 	return &Task{
-		SetDownloadState: setDownloadStateChan,
-		DownloadState:    dsdl.TASK_STATE_QUEUED,
-	}
-}
-
-func NewTaskFromServiceURL(
-	setDownloadStateChan chan *dsdl.UpdateTaskDownloadState,
-	aggregatorSlug string,
-) *Task {
-	return &Task{
-		AggregatorSlug:   aggregatorSlug,
-		SetDownloadState: setDownloadStateChan,
-		DownloadState:    dsdl.TASK_STATE_QUEUED,
-	}
-}
-
-func NewTaskFromSlug(setDownloadStateChan chan *dsdl.UpdateTaskDownloadState, slug string) *Task {
-	return &Task{
-		AggregatorSlug:   slug,
-		SetDownloadState: setDownloadStateChan,
-		DownloadState:    dsdl.TASK_STATE_QUEUED,
+		AggregatorSlug: slug,
+		DisplayName:    slug,
+		DownloadState:  dsdl.TASK_STATE_QUEUED,
+		Stop:           make(chan struct{}),
 	}
 }
 

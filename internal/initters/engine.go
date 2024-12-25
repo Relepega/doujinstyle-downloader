@@ -7,18 +7,29 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/aggregators"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/filehosts"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
+	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 )
 
 func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
-	engine := dsdl.NewDSDL(ctx)
+	log.Println("starting playwright")
+	pww, err := playwrightWrapper.UsePlaywright(
+		playwrightWrapper.WithBrowserType("firefox"),
+		cfg.Dev.PlaywrightDebug,
+		0.0,
+	)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.Println("playwright started without errors")
+
+	engine := dsdl.NewDSDLWithBrowser(ctx, pww.Browser)
 
 	engine.RegisterAggregator(&dsdl.Aggregator{
 		Name:        "doujinstyle",
@@ -67,54 +78,52 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 		case <-stop:
 			return nil
 
-		case updateEvt := <-tq.SetDownloadState:
-			t := updateEvt.TaskValue.(*task.Task)
-
-			tq.GetTracker().AdvanceState(updateEvt.TaskValue)
-			t.DownloadState = updateEvt.NewState
-
 		default:
-			tcount, err := tq.TrackerCountFromState(dsdl.TASK_STATE_RUNNING)
+			runningCount, err := tq.TrackerCountFromState(dsdl.TASK_STATE_RUNNING)
 			if err != nil {
 				continue
 			}
 
-			if tq.GetQueueLength() == 0 || tcount == int(options.Download.ConcurrentJobs) {
-				time.Sleep(time.Millisecond)
+			if tq.GetQueueLength() == 0 || runningCount == int(options.Download.ConcurrentJobs) {
 				continue
 			}
+			fmt.Println("qRunner 1")
 
-			taskVal, err := tq.AdvanceNewTaskState()
+			taskVal, newState, err := tq.AdvanceNewTaskState()
 			if err != nil {
 				continue
 			}
+			fmt.Println("qRunner 2")
 
 			taskData, ok := taskVal.(*task.Task)
 			if !ok {
 				panic("TaskRunner: Cannot convert node value into proper type\n")
 			}
-			taskData.SetDownloadState <- &dsdl.UpdateTaskDownloadState{
-				NewState:  dsdl.TASK_STATE_RUNNING,
-				TaskValue: taskData,
-			}
+			fmt.Println("qRunner 3")
+
+			taskData.DownloadState = newState
+
+			fmt.Println("qRunner 4")
 
 			appUtils.CreateAppTempDir(appUtils.GetAppTempDir())
 
+			fmt.Println("qRunner 5")
+
 			go taskRunner(tq, taskData, options.Download.Directory)
+
+			fmt.Println("qRunner 6")
+
 		}
 	}
 }
 
 func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 	markCompleted := func() {
-		err := tq.AdvanceTaskState(taskData)
+		newState, err := tq.AdvanceTaskState(taskData)
 		if err != nil {
 			panic(err)
 		}
-		taskData.SetDownloadState <- &dsdl.UpdateTaskDownloadState{
-			NewState:  dsdl.TASK_STATE_COMPLETED,
-			TaskValue: taskData,
-		}
+		taskData.DownloadState = newState
 	}
 
 	engine := tq.Context()
@@ -135,6 +144,8 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 
 			// mark running, so that we don't end with a memory leak :)
 			running = true
+
+			taskData.DisplayName = "it doesn't change ffs"
 
 			// process the task
 			aggConstFn, err := engine.EvaluateAggregator(taskData.AggregatorName)

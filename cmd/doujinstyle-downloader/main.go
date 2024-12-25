@@ -48,5 +48,15 @@ func main() {
 	engine := initters.InitEngine(cfg, ctx)
 	server := initters.InitServer(cfg, ctx, engine)
 
-	server.Start()
+	go func() {
+		err := server.Start()
+		if err != nil {
+			log.Println("App did not shut down correctly")
+			log.Fatalln(err)
+		}
+	}()
+
+	<-ctx.Done()
+
+	log.Println("App shut down successfully")
 }

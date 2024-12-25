@@ -70,7 +70,7 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		newTask := task.NewTaskFromSlug(engine.Tq.SetDownloadState, slug)
+		newTask := task.NewTask(slug)
 
 		err := engine.Tq.AddNodeFromValueWithComparator(
 			newTask,
