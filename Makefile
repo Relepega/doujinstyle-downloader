@@ -50,8 +50,13 @@ build-all:
 
 	@echo "done!"
 
-debug:
+air:
 	air
+
+debug:
+	make build
+	dlv exec  ./build/$(APP_NAME)
+
 
 run:
 	go run $(APP_ENTRYPOINT)
