@@ -58,7 +58,7 @@ func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) error {
 				continue
 			}
 
-			taskVal, err := tq.AdvanceNewTaskState()
+			taskVal, _, err := tq.AdvanceNewTaskState()
 			if err != nil {
 				continue
 			}
@@ -76,7 +76,7 @@ func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) error {
 
 func taskRunner(tq *TQProxy, myData *testingDataType, duration time.Duration) {
 	markCompleted := func() {
-		err := tq.AdvanceTaskState(myData)
+		_, err := tq.AdvanceTaskState(myData)
 		if err != nil {
 			panic(err)
 		}

@@ -20,11 +20,7 @@ const ERR_NO_RES_FOUND = "No results found"
 
 type (
 	// function that is responsible to automatically run the queue
-	QueueRunner             func(tq *TQProxy, stop <-chan struct{}, opts interface{}) error
-	UpdateTaskDownloadState struct {
-		NewState  int
-		TaskValue interface{}
-	}
+	QueueRunner func(tq *TQProxy, stop <-chan struct{}, opts interface{}) error
 )
 
 // A TQProxy is a proxy that contains both Queue and Tracker instances.
@@ -44,8 +40,6 @@ type TQProxy struct {
 	isQueueRunning bool
 	//
 	comparatorFn func(item, target interface{}) bool
-	//
-	SetDownloadState chan *UpdateTaskDownloadState
 
 	// parent context
 	ctx context.Context
@@ -70,7 +64,6 @@ func NewTQWrapper(fn QueueRunner, ctx context.Context) *TQProxy {
 		comparatorFn: func(item, target interface{}) bool {
 			return item == target
 		},
-		SetDownloadState: make(chan *UpdateTaskDownloadState),
 	}
 
 	proxy.ctx = context.WithValue(ctx, "tq", proxy)
@@ -89,7 +82,6 @@ func newTQWrapperFromEngine(fn QueueRunner, ctx context.Context, dsdl *DSDL) *TQ
 		comparatorFn: func(item, target interface{}) bool {
 			return item == target
 		},
-		SetDownloadState: make(chan *UpdateTaskDownloadState),
 	}
 
 	proxy.ctx = context.WithValue(ctx, "dsdl", dsdl)
@@ -180,13 +172,13 @@ func (tq *TQProxy) AddNode(n *Node) error {
 // Returns:
 //
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) AddNodeFromValue(value interface{}) error {
+func (tq *TQProxy) AddNodeFromValue(value interface{}) (interface{}, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
 	for k := range tq.t.tasks_db {
 		if tq.comparatorFn(k, value) {
-			return fmt.Errorf("A node with an equal value already exists")
+			return value, fmt.Errorf("A node with an equal value already exists")
 		}
 	}
 
@@ -195,7 +187,7 @@ func (tq *TQProxy) AddNodeFromValue(value interface{}) error {
 	tq.q.Enqueue(n)
 	tq.t.Add(value)
 
-	return nil
+	return value, nil
 }
 
 // Checks if the tracker already holds an equal node value through a comparator function.
@@ -344,29 +336,29 @@ func (tq *TQProxy) Has(v interface{}) bool {
 
 // Advances a task's state by finding it by value and incrementing its state.
 //
-// Returns an error when the state cannot be incremented anymore or the task cannot be found.
-func (tq *TQProxy) AdvanceTaskState(v interface{}) error {
+// Returns an error when the state cannot be incremented anymore or the task cannot be found and the updated state value.
+func (tq *TQProxy) AdvanceTaskState(v interface{}) (int, error) {
 	return tq.t.AdvanceState(v)
 }
 
 // Advances a task's state by finding it by value and incrementing its state.
 //
-// Returns an error when the state cannot be incremented anymore or the task cannot be found or the task is in a running state.
-func (tq *TQProxy) AdvanceNewTaskState() (interface{}, error) {
+// Returns an error when the state cannot be incremented anymore or the task cannot be found or the task is in a running state and the updated state value .
+func (tq *TQProxy) AdvanceNewTaskState() (interface{}, int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
 	nv, err := tq.q.Dequeue()
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
-	err = tq.t.AdvanceState(nv)
+	newState, err := tq.t.AdvanceState(nv)
 	if err != nil {
-		return nil, err
+		return nil, newState, err
 	}
 
-	return nv, nil
+	return nv, newState, nil
 }
 
 // Regresses a task's state by finding it by value and decrementing its state.
