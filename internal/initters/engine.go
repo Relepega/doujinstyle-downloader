@@ -87,32 +87,21 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 			if tq.GetQueueLength() == 0 || runningCount == int(options.Download.ConcurrentJobs) {
 				continue
 			}
-			fmt.Println("qRunner 1")
 
 			taskVal, newState, err := tq.AdvanceNewTaskState()
 			if err != nil {
 				continue
 			}
-			fmt.Println("qRunner 2")
 
 			taskData, ok := taskVal.(*task.Task)
 			if !ok {
 				panic("TaskRunner: Cannot convert node value into proper type\n")
 			}
-			fmt.Println("qRunner 3")
-
 			taskData.DownloadState = newState
-
-			fmt.Println("qRunner 4")
 
 			appUtils.CreateAppTempDir(appUtils.GetAppTempDir())
 
-			fmt.Println("qRunner 5")
-
 			go taskRunner(tq, taskData, options.Download.Directory)
-
-			fmt.Println("qRunner 6")
-
 		}
 	}
 }
@@ -145,8 +134,6 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 			// mark running, so that we don't end with a memory leak :)
 			running = true
 
-			taskData.DisplayName = "it doesn't change ffs"
-
 			// process the task
 			aggConstFn, err := engine.EvaluateAggregator(taskData.AggregatorName)
 			if err != nil {
@@ -170,6 +157,14 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 			}
 
 			aggregator := aggConstFn(taskData.AggregatorSlug, p)
+
+			_, err = p.Goto(aggregator.Url())
+			// check internet connection
+			if err != nil {
+				taskData.Err = err
+				markCompleted()
+				return
+			}
 
 			// check if page is actually not deleted
 			isValidPage, err := aggregator.Is404()
