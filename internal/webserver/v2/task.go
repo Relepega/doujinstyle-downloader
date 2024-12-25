@@ -70,8 +70,19 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		newTask := task.NewTask(slug)
+		// set values to struct fields
+		newTask := &task.Task{
+			AggregatorName: service,
+			AggregatorSlug: slug,
+			DisplayName:    slug,
+		}
+		newTask.AggregatorName = service
 
+		if strings.HasPrefix(slug, "http") {
+			newTask.AggregatorPageURL = slug
+		}
+
+		// add task to engine
 		err := engine.Tq.AddNodeFromValueWithComparator(
 			newTask,
 			func(item, target interface{}) bool {
@@ -82,8 +93,10 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		)
 		if err != nil {
 			happenedErrors = append(happenedErrors, err.Error())
+			continue
 		}
 
+		// render template
 		t, err := ws.templates.Execute("task", newTask)
 		if err != nil {
 			ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
@@ -100,6 +113,7 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		ws.msgChan <- SSEEvents.NewSSEMessageWithError(fmt.Errorf("%+v", happenedErrors))
 	}
 
+	// :)
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, slugList, service, happenedErrors)
 }
