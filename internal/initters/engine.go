@@ -49,6 +49,14 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 
 	engine.NewTQProxy(queueRunner)
 
+	engine.GetTQProxy().SetComparatorFunc(func(item, target interface{}) bool {
+		t := item.(*task.Task)
+		dbTask := item.(*task.Task)
+
+		return (dbTask.AggregatorSlug == t.AggregatorSlug ||
+			dbTask.AggregatorPageURL == t.AggregatorPageURL) && dbTask.ID() != t.ID()
+	})
+
 	engine.Tq.RunQueue(cfg)
 
 	return engine
@@ -162,6 +170,8 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 
 			aggregator := aggConstFn(taskData.AggregatorSlug, p)
 
+			taskData.AggregatorPageURL = aggregator.Url()
+
 			_, err = p.Goto(aggregator.Url())
 			// check internet connection
 			if err != nil {
@@ -205,6 +215,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 
 			// evaluate final filename
 			fname, err := aggregator.EvaluateFileName()
+			fmt.Println("filename:", fname)
 			if err != nil {
 				fname, err = filehost.EvaluateFileName()
 				if err != nil {
@@ -213,6 +224,8 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 					return
 				}
 			}
+
+			taskData.DisplayName = fname
 
 			fext, err := aggregator.EvaluateFileExt()
 			if err != nil {
@@ -224,6 +237,8 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 					return
 				}
 			}
+
+			// re-check if task is already done by other means
 
 			// check if out dirs exist
 			if !appUtils.DirectoryExists(downloadDir) {
