@@ -33,10 +33,12 @@ func TestProperFunctioning(t *testing.T) {
 	}
 
 	// get filehost
-	filehost, err := d.EvaluateFilehost(filehostPage.URL())
+	filehostConstr, err := d.EvaluateFilehost(filehostPage.URL())
 	if err != nil {
 		log.Fatalf("Filehost not found matching this url: \"%s\"", filehostPage.URL())
 	}
+
+	filehost := filehostConstr(filehostPage)
 
 	var fn string
 	var fext string
