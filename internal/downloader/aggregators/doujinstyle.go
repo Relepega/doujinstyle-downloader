@@ -26,7 +26,7 @@ type Doujinstyle struct {
 func NewDoujinstyle(slug string, p playwright.Page) dsdl.AggregatorImpl {
 	var url string
 
-	if strings.HasSuffix(slug, "https") {
+	if strings.HasPrefix(slug, "http") {
 		url = slug
 	} else {
 		url = fmt.Sprintf("%s%s", DOUJINSTYLE_ALBUM_URL, slug)
@@ -48,22 +48,18 @@ func (d *Doujinstyle) Page() playwright.Page {
 
 func (d *Doujinstyle) Is404() (bool, error) {
 	valInterface, err := d.page.Evaluate(
-		"() => document.querySelector('h3').innerText == 'Insufficient information to display content.'",
+		"document.querySelector('h3').innerText == 'Insufficient information to display content.'",
 	)
 	if err != nil {
 		return false, fmt.Errorf("Could not evaluate selector: %v", err)
 	}
 
-	valBool, ok := valInterface.(bool)
+	val, ok := valInterface.(bool)
 	if !ok {
 		return false, fmt.Errorf("Could not convert value: %v", err)
 	}
 
-	if valBool {
-		return true, nil
-	}
-
-	return false, nil
+	return val, nil
 }
 
 func (d *Doujinstyle) EvaluateFileName() (string, error) {

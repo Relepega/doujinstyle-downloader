@@ -52,7 +52,7 @@ func (s *SukiDesuOST) Page() playwright.Page {
 
 func (sdo *SukiDesuOST) Is404() (bool, error) {
 	valInterface, _ := sdo.page.Evaluate(
-		"() => document.querySelector('.jeg_404_content') ? true : false",
+		"document.querySelector('.jeg_404_content') ? true : false",
 	)
 	val, ok := valInterface.(bool)
 
@@ -60,11 +60,7 @@ func (sdo *SukiDesuOST) Is404() (bool, error) {
 		return false, fmt.Errorf("Could not convert value: %v", val)
 	}
 
-	if val {
-		return true, nil
-	}
-
-	return false, nil
+	return val, nil
 }
 
 func (sdo *SukiDesuOST) EvaluateFileName() (string, error) {
