@@ -74,7 +74,7 @@ func (d *Doujinstyle) EvaluateFileName() (string, error) {
 	}
 
 	format, err := d.page.Evaluate(`
-	   Array.from(document.querySelectorAll(".d.page.pan1")).find(el => el.innerText == "Format:").nextElementSibling.innerText
+	   Array.from(document.querySelectorAll("mainbar > div > .pageWrap > .pageSpan1")).find(el => el.innerText == "Format:").nextElementSibling.innerText || ""
 	`)
 	if err != nil {
 		return "", err
