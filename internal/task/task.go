@@ -1,10 +1,14 @@
 package task
 
 import (
+	"time"
+
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 )
 
 type Task struct {
+	// The actual Unique ID
+	timestamp int64
 	// Aggregator formal name (e.g "doujinstyle")
 	AggregatorName string
 	// Can be either the full url or the page id
@@ -29,6 +33,7 @@ type Task struct {
 
 func NewTask(slug string) *Task {
 	return &Task{
+		timestamp:      time.Now().UnixMicro(),
 		AggregatorSlug: slug,
 		DisplayName:    slug,
 		DownloadState:  dsdl.TASK_STATE_QUEUED,
@@ -38,4 +43,8 @@ func NewTask(slug string) *Task {
 
 func (t *Task) SetProgress(p int8) {
 	t.Progress = p
+}
+
+func (t *Task) ID() int64 {
+	return t.timestamp
 }
