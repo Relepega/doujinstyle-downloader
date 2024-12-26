@@ -183,23 +183,6 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 				return
 			}
 
-			// evaluate final filename
-			fname, err := aggregator.EvaluateFileName()
-			if err != nil {
-				taskData.Err = fmt.Errorf("Aggregator: Couldn't evaluate the filename")
-				markCompleted()
-				return
-			}
-
-			fext, err := aggregator.EvaluateFileExt()
-			if err != nil {
-				taskData.Err = fmt.Errorf("Aggregator: Couldn't evaluate the file extension")
-				markCompleted()
-				return
-			}
-
-			finalfp := filepath.Join(downloadPath, fmt.Sprintf("%s.%s", fname, fext))
-
 			// get download page
 			dlPage, err := aggregator.EvaluateDownloadPage()
 			if err != nil {
@@ -216,7 +199,29 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 				return
 			}
 
-			// TODO: edge cases on which the filename couldn't be evaluated from the aggregatorPage are not handled
+			// evaluate final filename
+			fname, err := aggregator.EvaluateFileName()
+			if err != nil {
+				fname, err = filehost.EvaluateFileName()
+				if err != nil {
+					taskData.Err = fmt.Errorf("Aggregator: Couldn't evaluate the filename")
+					markCompleted()
+					return
+				}
+			}
+
+			fext, err := aggregator.EvaluateFileExt()
+			if err != nil {
+				fext, err = filehost.EvaluateFileExt()
+				if err != nil {
+
+					taskData.Err = fmt.Errorf("Aggregator: Couldn't evaluate the file extension")
+					markCompleted()
+					return
+				}
+			}
+
+			finalfp := filepath.Join(downloadPath, fmt.Sprintf("%s.%s", fname, fext))
 
 			// make a temp filename to download into
 			tempfn, err := generateRandomFilename()
