@@ -27,8 +27,14 @@ type mediafire_file_data struct {
 	Url       string
 }
 
-func NewMediafire() dsdl.FilehostImpl {
-	return &Mediafire{}
+func NewMediafire(p playwright.Page) dsdl.FilehostImpl {
+	return &Mediafire{
+		page: p,
+	}
+}
+
+func (m *Mediafire) SetPage(p playwright.Page) {
+	m.page = p
 }
 
 func (m *Mediafire) Page() playwright.Page {
@@ -50,22 +56,31 @@ func (m *Mediafire) EvaluateFileName() (string, error) {
 }
 
 func (m *Mediafire) EvaluateFileExt() (string, error) {
-	fn, err := m.EvaluateFileName()
+	// return m.page.Evaluate(`(() => {
+	//        let title = document.querySelector('.dl-btn-label').title
+	//        let innerText = document.querySelector('.dl-btn-label').innerText
+	//
+	//        let start   = innerText.split('').length
+	//
+	//        return title.split('').slice(start+1).join('')
+	//    })() `)
+
+	innerText, err := m.EvaluateFileName()
 	if err != nil {
 		return "", err
 	}
 
-	ext_intf, err := m.page.Evaluate("document.querySelector('.dl-btn-label').innerText")
+	title_iface, err := m.page.Evaluate("document.querySelector('.dl-btn-label').title")
 	if err != nil {
 		return "", err
 	}
 
-	ext_str, ok := ext_intf.(string)
+	title, ok := title_iface.(string)
 	if !ok {
 		return "", fmt.Errorf("Cannot convert data into string")
 	}
 
-	ext := ext_str[len(fn)+1:]
+	ext := title[len(innerText)+1:]
 
 	return ext, nil
 }

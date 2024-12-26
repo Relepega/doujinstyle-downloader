@@ -42,8 +42,9 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	})
 
 	engine.RegisterFilehost(&dsdl.Filehost{
-		Name:        "mediafire",
-		Constructor: filehosts.NewMediafire,
+		Name:                "mediafire",
+		AllowedUrlWildcards: []string{"www.mediafire.com"},
+		Constructor:         filehosts.NewMediafire,
 	})
 
 	engine.NewTQProxy(queueRunner)
@@ -190,21 +191,23 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 				markCompleted()
 				return
 			}
+			defer dlPage.Close()
 
 			// parse a filehost downloader
-			filehost, err := engine.EvaluateFilehost(dlPage.URL())
+			filehostConstructor, err := engine.EvaluateFilehost(dlPage.URL())
 			if err != nil {
 				taskData.Err = err
 				markCompleted()
 				return
 			}
+			filehost := filehostConstructor(dlPage)
 
 			// evaluate final filename
 			fname, err := aggregator.EvaluateFileName()
 			if err != nil {
 				fname, err = filehost.EvaluateFileName()
 				if err != nil {
-					taskData.Err = fmt.Errorf("Aggregator: Couldn't evaluate the filename")
+					taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the filename")
 					markCompleted()
 					return
 				}
@@ -215,7 +218,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 				fext, err = filehost.EvaluateFileExt()
 				if err != nil {
 
-					taskData.Err = fmt.Errorf("Aggregator: Couldn't evaluate the file extension")
+					taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the file extension")
 					markCompleted()
 					return
 				}

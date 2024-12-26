@@ -199,7 +199,7 @@ func (dsdl *DSDL) IsValidFilehost(name string) bool {
 	return false
 }
 
-func (dsdl *DSDL) EvaluateFilehost(url string) (FilehostImpl, error) {
+func (dsdl *DSDL) EvaluateFilehost(url string) (FilehostConstrFn, error) {
 	if len(dsdl.filehosts) == 0 {
 		return nil, fmt.Errorf("Cannot evaluate filehost from empty registration list")
 	}
@@ -209,7 +209,7 @@ func (dsdl *DSDL) EvaluateFilehost(url string) (FilehostImpl, error) {
 			r, _ := regexp.Compile(wildcard)
 
 			if r.MatchString(url) {
-				return v.Constructor(), nil
+				return v.Constructor, nil
 			}
 		}
 	}
