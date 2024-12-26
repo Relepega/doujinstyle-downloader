@@ -23,7 +23,7 @@ func main() {
 
 	// init logger
 	logdir := filepath.Join(".", "Logs")
-	err := appUtils.CreateFolder(logdir)
+	err := appUtils.MkdirAll(logdir)
 	if err != nil {
 		log.Fatalln(err)
 	}
