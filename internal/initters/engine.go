@@ -169,13 +169,13 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 			}
 
 			// check if page is actually not deleted
-			isValidPage, err := aggregator.Is404()
+			is404, err := aggregator.Is404()
 			if err != nil {
 				taskData.Err = err
 				markCompleted()
 				return
 			}
-			if !isValidPage {
+			if is404 {
 				taskData.Err = fmt.Errorf(
 					"taskRunner: The requested page has been taken down or is invalid",
 				)
