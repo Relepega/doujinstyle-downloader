@@ -85,15 +85,15 @@ func (m *Mediafire) EvaluateFileExt() (string, error) {
 	return ext, nil
 }
 
-func (m *Mediafire) Download(downloadPath string, progress *int8) error {
+func (m *Mediafire) Download(tempDir, finalDir, filename string, progress *int8) error {
 	if !m.isFolder() {
-		err := m.downloadSingleFile(downloadPath, progress)
+		err := m.downloadSingleFile(tempDir, finalDir, filename, progress)
 		return err
 	}
 
 	key := m.getFolderKey()
 
-	files, err := m.fetchFolderContent(key, downloadPath)
+	files, err := m.fetchFolderContent(key, tempDir, filepath.Join(finalDir, filename))
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (m *Mediafire) Download(downloadPath string, progress *int8) error {
 
 	var dummyProgress int8
 
-	currDownloadDir := downloadPath
+	currDownloadDir := finalDir
 
 	for _, f := range files {
 		_, err = m.page.Goto(f.Url)
@@ -114,7 +114,7 @@ func (m *Mediafire) Download(downloadPath string, progress *int8) error {
 		}
 
 		dlPath := filepath.Join(currDownloadDir, f.Directory)
-		folderExists, _ := appUtils.DirectoryExists(dlPath)
+		folderExists := appUtils.DirectoryExists(dlPath)
 		if !folderExists {
 			os.MkdirAll(dlPath, 0755)
 		}
@@ -122,7 +122,7 @@ func (m *Mediafire) Download(downloadPath string, progress *int8) error {
 		ok, _ := appUtils.FileExists(filepath.Join(dlPath, f.Filename))
 		if !ok {
 			currDownloadDir = dlPath
-			m.downloadSingleFile(dlPath, &dummyProgress)
+			m.downloadSingleFile(tempDir, finalDir, filename, &dummyProgress)
 		}
 
 		downloadedFiles++
@@ -160,9 +160,11 @@ func (m *Mediafire) getFolderKey() string {
 	return folderkey
 }
 
+// the finalDir is being treated as the root dir for the folder
 func (m *Mediafire) fetchFolderContent(
-	folderKey string,
-	dir string,
+	folderKey,
+	tempFilepath,
+	baseDir string,
 ) ([]*mediafire_file_data, error) {
 	fd := []*mediafire_file_data{}
 
@@ -208,7 +210,7 @@ func (m *Mediafire) fetchFolderContent(
 		splitFn := strings.Split(f.Filename, ".")
 
 		fd = append(fd, &mediafire_file_data{
-			Directory: dir,
+			Directory: baseDir,
 			Filename:  strings.Join(splitFn[0:len(splitFn)-1], "."),
 			Url:       f.Links.NormalDownload,
 		})
@@ -220,9 +222,9 @@ func (m *Mediafire) fetchFolderContent(
 			continue
 		}
 
-		newDir := filepath.Join(dir, folder.Name)
+		nestedFinalFP := filepath.Join(baseDir, folder.Name)
 
-		newFd, err := m.fetchFolderContent(folder.FolderKey, newDir)
+		newFd, err := m.fetchFolderContent(folder.FolderKey, tempFilepath, nestedFinalFP)
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +235,7 @@ func (m *Mediafire) fetchFolderContent(
 	return fd, nil
 }
 
-func (m *Mediafire) downloadSingleFile(fp string, progress *int8) error {
+func (m *Mediafire) downloadSingleFile(tempDir, finalDir, filename string, progress *int8) error {
 	// file is still in upload status?
 	for {
 		res, err := m.page.Evaluate(
@@ -250,7 +252,9 @@ func (m *Mediafire) downloadSingleFile(fp string, progress *int8) error {
 		time.Sleep(time.Second * 5)
 	}
 
-	fileExists, err := appUtils.FileExists(fp)
+	finalFilepath := filepath.Join(finalDir, filename)
+
+	fileExists, err := appUtils.FileExists(finalFilepath)
 	if err != nil {
 		return err
 	}
@@ -269,8 +273,9 @@ func (m *Mediafire) downloadSingleFile(fp string, progress *int8) error {
 	}
 
 	err = appUtils.DownloadFile(
-		fp,
 		downloadUrl,
+		tempDir,
+		finalFilepath,
 		progress,
 		func(p int8) {
 			// pub, _ := pubsub.GetGlobalPublisher("queue")
@@ -282,7 +287,6 @@ func (m *Mediafire) downloadSingleFile(fp string, progress *int8) error {
 			// 	},
 			// })
 		},
-		false,
 	)
 	if err != nil {
 		return err

@@ -13,7 +13,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/store"
 )
 
-func CreateFolder(dir string) error {
+func MkdirAll(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0755)
 		if err != nil {
@@ -37,12 +37,12 @@ func FileExists(fp string) (bool, error) {
 	return true, nil
 }
 
-func DirectoryExists(path string) (bool, error) {
+func DirectoryExists(path string) bool {
 	info, err := os.Stat(path)
 	if err == nil && info.IsDir() {
-		return true, nil
+		return true
 	}
-	return false, nil
+	return false
 }
 
 func GetAppTempDir() string {
@@ -56,34 +56,25 @@ func GetAppTempDir() string {
 	return tempdir
 }
 
-func CreateAppTempDir(dir string) error {
-	dir_exists, err := DirectoryExists(dir)
+func DownloadFile(
+	url,
+	tempDir,
+	finalFilepath string,
+	progress *int8,
+	callback func(p int8),
+) (err error) {
+	exists, err := FileExists(finalFilepath)
 	if err != nil {
 		return err
 	}
 
-	if !dir_exists {
-		CreateFolder(dir)
-	}
-
-	return nil
-}
-
-func DownloadFile(
-	fp string,
-	url string,
-	progress *int8,
-	callback func(p int8),
-	useAltTempDir bool,
-) (err error) {
-	tempdir := ""
-
-	if useAltTempDir {
-		tempdir = GetAppTempDir()
+	if exists {
+		*progress = 100
+		return nil
 	}
 
 	// write to a temp file first to avoid incomplete downloads
-	tempf, err := os.CreateTemp(tempdir, "doujinstyleDownloader-")
+	tempf, err := os.CreateTemp(tempDir, "*")
 	if err != nil {
 		return err
 	}
@@ -166,7 +157,7 @@ func DownloadFile(
 	}
 
 	// Copy content to final location
-	out, err := os.Create(fp)
+	out, err := os.Create(finalFilepath)
 	if err != nil {
 		return err
 	}

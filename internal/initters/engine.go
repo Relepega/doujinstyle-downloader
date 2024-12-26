@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
+
+	"github.com/playwright-community/playwright-go"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
@@ -100,20 +100,21 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 			}
 			taskData.DownloadState = newState
 
-			appUtils.CreateAppTempDir(appUtils.GetAppTempDir())
-
-			go taskRunner(tq, taskData, options.Download.Directory)
+			go taskRunner(tq, taskData, options.Download.Directory, options.Download.Tempdir)
 		}
 	}
 }
 
-func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
+func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempDir string) {
+	var bwContext playwright.BrowserContext
+
 	markCompleted := func() {
 		newState, err := tq.AdvanceTaskState(taskData)
 		if err != nil {
 			panic(err)
 		}
 		taskData.DownloadState = newState
+		bwContext.Close()
 	}
 
 	engine := tq.Context()
@@ -143,7 +144,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 				return
 			}
 
-			bwContext, err := engine.GetBrowserInstance().NewContext()
+			bwContext, err = engine.GetBrowserInstance().NewContext()
 			if err != nil {
 				taskData.Err = fmt.Errorf("Playwright: Cannot open new browser context")
 				markCompleted()
@@ -224,28 +225,30 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 				}
 			}
 
-			finalfp := filepath.Join(downloadPath, fmt.Sprintf("%s.%s", fname, fext))
-
-			// make a temp filename to download into
-			tempfn, err := generateRandomFilename()
-			if err != nil {
-				taskData.Err = err
-				markCompleted()
-				return
+			// check if out dirs exist
+			if !appUtils.DirectoryExists(downloadDir) {
+				err := appUtils.MkdirAll(downloadDir)
+				if err != nil {
+					log.Fatalln("taskRunner (dir_check):", err)
+				}
 			}
 
-			tempfp := filepath.Join(appUtils.GetAppTempDir(), tempfn)
+			if !appUtils.DirectoryExists(tempDir) {
+				err := appUtils.MkdirAll(tempDir)
+				if err != nil {
+					log.Fatalln("taskRunner (dir_check):", err)
+				}
+			}
 
 			// download the file into temp
-			err = filehost.Download(tempfp, &taskData.Progress)
+			fullFilename := fmt.Sprintf("%s.%s", fname, fext)
+
+			err = filehost.Download(tempDir, downloadDir, fullFilename, &taskData.Progress)
 			if err != nil {
 				taskData.Err = err
 				markCompleted()
 				return
 			}
-
-			// move the temp file into final file
-			os.Rename(tempfp, finalfp)
 
 			// task done :)
 			markCompleted()
