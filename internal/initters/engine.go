@@ -144,7 +144,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 
 			bwContext, err := engine.GetBrowserInstance().NewContext()
 			if err != nil {
-				taskData.Err = fmt.Errorf("taskRunner: Cannot open new browser context")
+				taskData.Err = fmt.Errorf("Playwright: Cannot open new browser context")
 				markCompleted()
 				return
 			}
@@ -152,7 +152,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 
 			p, err := bwContext.NewPage()
 			if err != nil {
-				taskData.Err = fmt.Errorf("taskRunner: Cannot open new browser context page")
+				taskData.Err = fmt.Errorf("Playwright: Cannot open new browser context page")
 				markCompleted()
 				return
 			}
@@ -177,7 +177,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 			}
 			if is404 {
 				taskData.Err = fmt.Errorf(
-					"taskRunner: The requested page has been taken down or is invalid",
+					"Aggregator: The requested page has been taken down or is invalid",
 				)
 				markCompleted()
 				return
@@ -186,14 +186,14 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 			// evaluate final filename
 			fname, err := aggregator.EvaluateFileName()
 			if err != nil {
-				taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the filename")
+				taskData.Err = fmt.Errorf("Aggregator: Couldn't evaluate the filename")
 				markCompleted()
 				return
 			}
 
 			fext, err := aggregator.EvaluateFileExt()
 			if err != nil {
-				taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the file extension")
+				taskData.Err = fmt.Errorf("Aggregator: Couldn't evaluate the file extension")
 				markCompleted()
 				return
 			}
