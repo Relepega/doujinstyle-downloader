@@ -20,8 +20,8 @@ import (
 func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	log.Println("starting playwright")
 	pww, err := playwrightWrapper.UsePlaywright(
-		playwrightWrapper.WithBrowserType("firefox"),
-		cfg.Dev.PlaywrightDebug,
+		"firefox",
+		!cfg.Dev.PlaywrightDebug,
 		0.0,
 	)
 	if err != nil {
@@ -148,6 +148,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 				markCompleted()
 				return
 			}
+			defer bwContext.Close()
 
 			p, err := bwContext.NewPage()
 			if err != nil {
@@ -155,6 +156,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadPath string) {
 				markCompleted()
 				return
 			}
+			defer p.Close()
 
 			aggregator := aggConstFn(taskData.AggregatorSlug, p)
 
