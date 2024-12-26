@@ -13,7 +13,7 @@
     {{ end }}
 
     <p>
-        {{ .DisplayName }} +{{ .DownloadState }}+
+        {{ .DisplayName }} 
         {{ if and (eq (GetStateStr .DownloadState) "Running") (gt .Progress -1) }}
             (Downloading... {{ .Progress }}&percnt;)
         {{ end }}
