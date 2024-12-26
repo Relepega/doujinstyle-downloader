@@ -18,11 +18,9 @@ type Config struct {
 		Port uint16
 	}
 	Download struct {
-		Directory      string
 		ConcurrentJobs int8
-	}
-	App struct {
-		Tempdir string
+		Directory      string
+		Tempdir        string
 	}
 	Dev struct {
 		PlaywrightDebug bool
@@ -43,10 +41,9 @@ func NewConfig() *Config {
 	cfg.Server.Host = "127.0.0.1"
 	cfg.Server.Port = 5522
 
-	cfg.Download.Directory = "./Downloads"
 	cfg.Download.ConcurrentJobs = 2
-
-	cfg.App.Tempdir = "./Downloads/.tmp"
+	cfg.Download.Directory = "./Downloads"
+	cfg.Download.Tempdir = "./Downloads/.tmp"
 
 	cfg.Dev.PlaywrightDebug = false
 	cfg.Dev.ServerLogging = false
@@ -107,22 +104,19 @@ func updateCfg(old *Config, latest *Config) *Config {
 
 	downloadCfg, ok := oldCfg["Download"].(map[string]interface{})
 	if ok {
+		_, ok = downloadCfg["ConcurrentJobs"]
+		if ok {
+			latest.Download.ConcurrentJobs = old.Download.ConcurrentJobs
+		}
+
 		_, ok = downloadCfg["Directory"]
 		if ok {
 			latest.Download.Directory = old.Download.Directory
 		}
 
-		_, ok = downloadCfg["ConcurrentJobs"]
+		_, ok = downloadCfg["Tempdir"]
 		if ok {
-			latest.Download.ConcurrentJobs = old.Download.ConcurrentJobs
-		}
-	}
-
-	appCfg, ok := oldCfg["App"].(map[string]interface{})
-	if ok {
-		_, ok = appCfg["Tempdir"]
-		if ok {
-			latest.App.Tempdir = old.App.Tempdir
+			latest.Download.Tempdir = old.Download.Tempdir
 		}
 	}
 
