@@ -261,6 +261,20 @@ func (tq *TQProxy) GetNodeWithComparator(
 	return nil, fmt.Errorf("Couldn't find a matching task")
 }
 
+// finds a task by using the embedded comparator function
+func (tq *TQProxy) Find(target interface{}) (bool, interface{}) {
+	tq.Lock()
+	defer tq.Unlock()
+
+	for k := range tq.t.tasks_db {
+		if tq.comparatorFn(k, target) {
+			return true, k
+		}
+	}
+
+	return false, nil
+}
+
 // Removes the node at the HEAD of the queue and returns its value
 func (tq *TQProxy) Dequeue() (interface{}, error) {
 	tq.Lock()
