@@ -71,12 +71,8 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// set values to struct fields
-		newTask := &task.Task{
-			AggregatorName: service,
-			AggregatorSlug: slug,
-			DisplayName:    slug,
-		}
-		newTask.AggregatorName = service
+		newTask := task.NewTask(slug)
+		newTask.Aggregator = service
 
 		if strings.HasPrefix(slug, "http") {
 			newTask.AggregatorPageURL = slug
@@ -88,7 +84,7 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 			func(item, target interface{}) bool {
 				toCompare := item.(*task.Task)
 
-				return toCompare.AggregatorSlug == newTask.AggregatorSlug
+				return toCompare.Slug == newTask.Slug
 			},
 		)
 		if err != nil {
@@ -133,7 +129,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 		i := item.(*task.Task)
 		t := target.(string)
 
-		return i.AggregatorSlug == t
+		return i.Slug == t
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -210,7 +206,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 				return false
 			}
 
-			return task.AggregatorSlug == slug
+			return task.Slug == slug
 		})
 
 		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("remove-task", s)

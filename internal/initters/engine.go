@@ -2,7 +2,6 @@ package initters
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
 
@@ -50,30 +49,20 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	engine.NewTQProxy(queueRunner)
 
 	engine.GetTQProxy().SetComparatorFunc(func(item, target interface{}) bool {
-		t := item.(*task.Task)
+		t := target.(*task.Task)
 		dbTask := item.(*task.Task)
 
-		return (dbTask.AggregatorSlug == t.AggregatorSlug ||
-			dbTask.AggregatorPageURL == t.AggregatorPageURL) && dbTask.ID() != t.ID()
+		if dbTask.ID() == t.ID() {
+			return false
+		}
+
+		return dbTask.Slug == t.Slug ||
+			dbTask.AggregatorPageURL == t.AggregatorPageURL
 	})
 
 	engine.Tq.RunQueue(cfg)
 
 	return engine
-}
-
-func generateRandomFilename() (string, error) {
-	// Generate a random string of 16 characters
-	b := make([]byte, 16)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-
-	// Convert the bytes to a hex string
-	filename := fmt.Sprintf("%x", b)
-
-	return filename, nil
 }
 
 func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error {
@@ -145,7 +134,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			running = true
 
 			// process the task
-			aggConstFn, err := engine.EvaluateAggregator(taskData.AggregatorName)
+			aggConstFn, err := engine.EvaluateAggregator(taskData.Aggregator)
 			if err != nil {
 				taskData.Err = err
 				markCompleted()
@@ -168,7 +157,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			}
 			defer p.Close()
 
-			aggregator := aggConstFn(taskData.AggregatorSlug, p)
+			aggregator := aggConstFn(taskData.Slug, p)
 
 			taskData.AggregatorPageURL = aggregator.Url()
 
@@ -179,6 +168,8 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 				markCompleted()
 				return
 			}
+
+			taskData.Slug = aggregator.Slug()
 
 			// check if page is actually not deleted
 			is404, err := aggregator.Is404()
@@ -215,7 +206,6 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 
 			// evaluate final filename
 			fname, err := aggregator.EvaluateFileName()
-			fmt.Println("filename:", fname)
 			if err != nil {
 				fname, err = filehost.EvaluateFileName()
 				if err != nil {
@@ -239,6 +229,12 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			}
 
 			// re-check if task is already done by other means
+			found, _ := tq.Find(taskData)
+			if found {
+				taskData.Err = fmt.Errorf("This task is already present in the database")
+				markCompleted()
+				return
+			}
 
 			// check if out dirs exist
 			if !appUtils.DirectoryExists(downloadDir) {

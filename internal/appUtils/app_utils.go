@@ -1,6 +1,7 @@
 package appUtils
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -54,6 +55,17 @@ func GetAppTempDir() string {
 	tempdir, _ := v.(string)
 
 	return tempdir
+}
+
+func GenerateRandomFilename() string {
+	// Generate a random string of 16 characters
+	b := make([]byte, 16)
+	rand.Read(b)
+
+	// Convert the bytes to a hex string
+	filename := fmt.Sprintf("%x", b)
+
+	return filename
 }
 
 func DownloadFile(

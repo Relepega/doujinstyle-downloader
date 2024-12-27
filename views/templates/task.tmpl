@@ -1,6 +1,6 @@
 {{ block "task" . }}
 <div 
-    id="{{ .AggregatorSlug }}"
+    id="{{ .Slug }}"
     class='download-queue-element {{ if eq (GetStateStr .DownloadState) "Completed" }} {{ if .Err }} failure {{ else }} success {{ end }} {{ end }}'
 >
     {{ template "task-content" .}}
@@ -9,7 +9,7 @@
 
 {{ block "task-content" . }}
     {{ if ne .DownloadState 1 }}
-        <div class="btn delete" id="task-ctrl-remove-task" data-id="{{ .AggregatorSlug }}">X</div>
+        <div class="btn delete" id="task-ctrl-remove-task" data-id="{{ .Slug }}">X</div>
     {{ end }}
 
     <p>
@@ -22,10 +22,10 @@
     {{ if .Err }}
         <div class="err">
             <h4>An error occurred:</h4>
-            <p id="{{ .AggregatorSlug }}-error">{{ .Err }}</p>
+            <p id="{{ .Slug }}-error">{{ .Err }}</p>
             <div class="err-btns">
-                <div class="btn err-btn copy-error" id="task-ctrl-copy-error" data-id="{{ .AggregatorSlug }}">Copy Err</div>
-                <div class="btn err-btn retry" id="task-ctrl-retry" data-id="{{ .AggregatorSlug }}">Download Again</div>
+                <div class="btn err-btn copy-error" id="task-ctrl-copy-error" data-id="{{ .Slug }}">Copy Err</div>
+                <div class="btn err-btn retry" id="task-ctrl-retry" data-id="{{ .Slug }}">Download Again</div>
             </div>
         </div>
     {{ end }}
