@@ -1,18 +1,20 @@
 package task
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 )
 
 type Task struct {
 	// The actual Unique ID
-	timestamp int64
+	Id string
 	// Aggregator formal name (e.g "doujinstyle")
-	AggregatorName string
+	Aggregator string
 	// Can be either the full url or the page id
-	AggregatorSlug string
+	Slug string
 	// Full URL calculated by combining name & slug
 	AggregatorPageURL string
 	// Filehost full url
@@ -32,19 +34,27 @@ type Task struct {
 }
 
 func NewTask(slug string) *Task {
-	return &Task{
-		timestamp:      time.Now().UnixMicro(),
-		AggregatorSlug: slug,
-		DisplayName:    slug,
-		DownloadState:  dsdl.TASK_STATE_QUEUED,
-		Stop:           make(chan struct{}),
+	t := &Task{
+		Id: fmt.Sprintf(
+			"%d-%s",
+			time.Now().UnixMilli(),
+			appUtils.GenerateRandomFilename(),
+		),
+		Slug:          slug,
+		DisplayName:   slug,
+		DownloadState: dsdl.TASK_STATE_QUEUED,
+		Stop:          make(chan struct{}),
 	}
+
+	fmt.Printf("new task: %+v\n", t)
+
+	return t
 }
 
 func (t *Task) SetProgress(p int8) {
 	t.Progress = p
 }
 
-func (t *Task) ID() int64 {
-	return t.timestamp
+func (t *Task) ID() string {
+	return t.Id
 }
