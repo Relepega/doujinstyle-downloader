@@ -20,6 +20,7 @@ type Doujinstyle struct {
 	dsdl.Aggregator
 
 	url  string
+	slug string
 	page playwright.Page
 }
 
@@ -40,6 +41,10 @@ func NewDoujinstyle(slug string, p playwright.Page) dsdl.AggregatorImpl {
 
 func (d *Doujinstyle) Url() string {
 	return d.url
+}
+
+func (d *Doujinstyle) Slug() string {
+	return d.page.URL()[len(DOUJINSTYLE_ALBUM_URL):]
 }
 
 func (d *Doujinstyle) Page() playwright.Page {

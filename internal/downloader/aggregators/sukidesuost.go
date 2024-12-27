@@ -46,6 +46,10 @@ func (s *SukiDesuOST) Url() string {
 	return s.url
 }
 
+func (s *SukiDesuOST) Slug() string {
+	return s.page.URL()[len(SDO_ALBUM_URL):]
+}
+
 func (s *SukiDesuOST) Page() playwright.Page {
 	return s.page
 }

@@ -6,6 +6,7 @@ type AggregatorImpl interface {
 	PwPageNavigator
 
 	Url() string
+	Slug() string
 	Is404() (bool, error)
 	EvaluateFileName() (string, error)
 	EvaluateFileExt() (string, error)
