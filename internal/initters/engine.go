@@ -22,6 +22,7 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 		"firefox",
 		!cfg.Dev.PlaywrightDebug,
 		0.0,
+		&cfg.Download.Tempdir,
 	)
 	if err != nil {
 		log.Fatalln(err)
@@ -41,9 +42,15 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	})
 
 	engine.RegisterFilehost(&dsdl.Filehost{
-		Name:                "mediafire",
+		Name:                "Mediafire",
 		AllowedUrlWildcards: []string{"www.mediafire.com"},
 		Constructor:         filehosts.NewMediafire,
+	})
+
+	engine.RegisterFilehost(&dsdl.Filehost{
+		Name:                "Mega",
+		AllowedUrlWildcards: []string{"mega.nz"},
+		Constructor:         filehosts.NewMega,
 	})
 
 	engine.NewTQProxy(queueRunner)

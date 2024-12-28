@@ -13,8 +13,6 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 )
 
-// \S*mediafire.com\S*
-
 type Mediafire struct {
 	dsdl.Filehost
 

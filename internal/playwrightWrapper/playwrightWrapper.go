@@ -59,6 +59,7 @@ func UsePlaywright(
 	browserType string,
 	headless bool,
 	timeout float64,
+	DownloadsPath *string,
 ) (*PwContainer, error) {
 	HandleInterrupts := true
 
@@ -87,6 +88,7 @@ func UsePlaywright(
 			HandleSIGHUP:  &HandleInterrupts,
 			HandleSIGINT:  &HandleInterrupts,
 			HandleSIGTERM: &HandleInterrupts,
+			DownloadsPath: DownloadsPath,
 		},
 	)
 	if err != nil {
