@@ -38,11 +38,14 @@ type TQProxy struct {
 	stopRunner chan struct{}
 	// whether the qRunner function is running or not
 	isQueueRunning bool
-	//
+	// compares every value in the DB (item) to the targt (user value)
 	comparatorFn func(item, target interface{}) bool
 
 	// parent context
 	ctx context.Context
+
+	// lock for the find method
+	findLock sync.Mutex
 }
 
 // NewTQWrapper: Returns a new pointer to TQWrapper
@@ -125,12 +128,18 @@ func (tq *TQProxy) RunQueue(opts interface{}) {
 //
 // implemented in the function itself
 func (tq *TQProxy) StopQueue() {
+	tq.Lock()
+	defer tq.Unlock()
+
 	tq.stopRunner <- struct{}{}
 	tq.isQueueRunning = false
 }
 
 // Returns the running status of the qRunner function
 func (tq *TQProxy) IsQueueRunning() bool {
+	tq.Lock()
+	defer tq.Unlock()
+
 	return tq.isQueueRunning
 }
 
@@ -138,6 +147,9 @@ func (tq *TQProxy) IsQueueRunning() bool {
 //
 // Use it if the defualt comparator function isn't working as expected
 func (tq *TQProxy) SetComparatorFunc(newComparator func(item, target interface{}) bool) {
+	tq.Lock()
+	defer tq.Unlock()
+
 	tq.comparatorFn = newComparator
 }
 
@@ -293,6 +305,9 @@ func (tq *TQProxy) Dequeue() (interface{}, error) {
 //
 //   - error: Tracker fails to remove the node
 func (tq *TQProxy) RemoveNode(v interface{}) error {
+	tq.Lock()
+	defer tq.Unlock()
+
 	tq.q.Remove(v, func(val1, val2 interface{}) bool {
 		if val1 == val2 {
 			return true
@@ -352,6 +367,9 @@ func (tq *TQProxy) Has(v interface{}) bool {
 //
 // Returns an error when the state cannot be incremented anymore or the task cannot be found and the updated state value.
 func (tq *TQProxy) AdvanceTaskState(v interface{}) (int, error) {
+	tq.Lock()
+	defer tq.Unlock()
+
 	return tq.t.AdvanceState(v)
 }
 
@@ -379,6 +397,9 @@ func (tq *TQProxy) AdvanceNewTaskState() (interface{}, int, error) {
 //
 // Returns an error when the state cannot be decremented anymore or the task cannot be found or the task is in a running state.
 func (tq *TQProxy) RegressTaskState(v interface{}) error {
+	tq.Lock()
+	defer tq.Unlock()
+
 	return tq.t.RegressState(v)
 }
 
@@ -386,16 +407,25 @@ func (tq *TQProxy) RegressTaskState(v interface{}) error {
 //
 // Returns an error when the task cannot be found or the task is in a running state.
 func (tq *TQProxy) ResetTaskState(v interface{}) error {
+	tq.Lock()
+	defer tq.Unlock()
+
 	return tq.t.RegressState(v)
 }
 
 // Returns the number of tasks in the queue
 func (tq *TQProxy) GetQueueLength() int {
+	tq.Lock()
+	defer tq.Unlock()
+
 	return tq.q.Length()
 }
 
 // Returns the number of tasks in the tracker
 func (tq *TQProxy) TrackerCount() int {
+	tq.Lock()
+	defer tq.Unlock()
+
 	return tq.t.Count()
 }
 
@@ -403,6 +433,9 @@ func (tq *TQProxy) TrackerCount() int {
 //
 // It can also return an error when the completionState is invalid
 func (tq *TQProxy) TrackerCountFromState(completionState int) (int, error) {
+	tq.Lock()
+	defer tq.Unlock()
+
 	return tq.t.CountFromState(completionState)
 }
 

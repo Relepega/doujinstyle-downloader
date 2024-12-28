@@ -46,8 +46,6 @@ func NewTask(slug string) *Task {
 		Stop:          make(chan struct{}),
 	}
 
-	fmt.Printf("new task: %+v\n", t)
-
 	return t
 }
 
