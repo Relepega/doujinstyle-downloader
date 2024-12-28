@@ -204,6 +204,8 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			}
 			filehost := filehostConstructor(dlPage)
 
+			taskData.FilehostUrl = filehost.Page().URL()
+
 			// evaluate final filename
 			fname, err := aggregator.EvaluateFileName()
 			if err != nil {
