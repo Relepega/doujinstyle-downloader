@@ -186,6 +186,18 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 				return
 			}
 
+			// evaluate displayName filename
+			fname, err := aggregator.EvaluateFileName()
+			if err != nil {
+				taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate displayName")
+				markCompleted()
+				return
+			}
+
+			if fname != "" {
+				taskData.DisplayName = fname
+			}
+
 			// get download page
 			dlPage, err := aggregator.EvaluateDownloadPage()
 			if err != nil {
@@ -207,17 +219,17 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			taskData.FilehostUrl = filehost.Page().URL()
 
 			// evaluate final filename
-			fname, err := aggregator.EvaluateFileName()
-			if err != nil {
+			if fname == "" {
 				fname, err = filehost.EvaluateFileName()
 				if err != nil {
 					taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the filename")
 					markCompleted()
 					return
 				}
-			}
 
-			taskData.DisplayName = fname
+				// setting the filename only if it is stil not set
+				taskData.DisplayName = fname
+			}
 
 			fext, err := aggregator.EvaluateFileExt()
 			if err != nil {
