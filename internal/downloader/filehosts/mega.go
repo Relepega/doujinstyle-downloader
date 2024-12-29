@@ -190,9 +190,6 @@ func (m *Mega) Download(tempDir, finalDir, filename string, progress *int8) erro
 				continue
 			}
 
-			dlProgress := int8(conv)
-			fmt.Printf("downloading (%d)\n", dlProgress)
-
 			*progress = int8(conv)
 		}
 

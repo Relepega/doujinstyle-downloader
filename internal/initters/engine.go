@@ -195,12 +195,6 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 
 			// evaluate displayName filename
 			fname, err := aggregator.EvaluateFileName()
-			if err != nil {
-				taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate displayName")
-				markCompleted()
-				return
-			}
-
 			if fname != "" {
 				taskData.DisplayName = fname
 			}

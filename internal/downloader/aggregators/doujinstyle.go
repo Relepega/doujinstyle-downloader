@@ -127,23 +127,23 @@ aggregator-specific functions
 
 */
 
-func (d *Doujinstyle) getExhibitions(strVal string) string {
+func (d *Doujinstyle) getExhibitions(tags string) string {
 	re := regexp.MustCompile("^(C[0-9]+)|(M[0-9]-[0-9]+)|(AC[0-9])$")
 	matches := []string{}
 
-	for _, substr := range strings.Split(strVal, ", ") {
+	for _, substr := range strings.Split(tags, ", ") {
 		if re.MatchString(substr) {
 			matches = append(matches, substr)
 		}
 	}
 
-	var fullStr string
+	var exhibitions string
 
 	if len(matches) == 0 {
-		fullStr = ""
+		exhibitions = ""
 	} else {
-		fullStr = " [" + strings.Join(matches, ", ") + "]"
+		exhibitions = " [" + strings.Join(matches, ", ") + "]"
 	}
 
-	return fullStr
+	return exhibitions
 }
