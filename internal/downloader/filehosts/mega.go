@@ -87,7 +87,7 @@ func (m *Mega) EvaluateFileExt() (string, error) {
 	return fmt.Sprintf("%v", ext)[1:], nil
 }
 
-func (m *Mega) Download(tempDir, finalDir, filename string, progress *int8) error {
+func (m *Mega) Download(tempDir, finalDir, filename string, setProgress func(p int8)) error {
 	err := m.waitForPageLoad()
 	if err != nil {
 		return err
@@ -190,7 +190,7 @@ func (m *Mega) Download(tempDir, finalDir, filename string, progress *int8) erro
 				continue
 			}
 
-			*progress = int8(conv)
+			setProgress(int8(conv))
 		}
 
 		return err

@@ -13,6 +13,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/filehosts"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
+	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 )
 
@@ -111,6 +112,12 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 
 func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempDir string) {
 	var bwContext playwright.BrowserContext
+	var publisher *pubsub.Publisher
+
+	publisher, err := pubsub.GetGlobalPublisher("task-updater")
+	if err != nil {
+		publisher = pubsub.NewGlobalPublisher("task-updater")
+	}
 
 	markCompleted := func() {
 		newState, err := tq.AdvanceTaskState(taskData)
@@ -118,10 +125,21 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			panic(err)
 		}
 		taskData.DownloadState = newState
+
 		bwContext.Close()
+
+		publisher.Publish(&pubsub.PublishEvent{
+			EvtType: "mark-task-as-done",
+			Data:    taskData,
+		})
 	}
 
 	engine := tq.Context()
+
+	publisher.Publish(&pubsub.PublishEvent{
+		EvtType: "activate-task",
+		Data:    taskData,
+	})
 
 	running := false
 
@@ -130,6 +148,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 		case <-taskData.Stop:
 			taskData.Err = fmt.Errorf("task aborted by the user")
 			markCompleted()
+
 			return
 
 		default:
@@ -255,21 +274,30 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			if !appUtils.DirectoryExists(downloadDir) {
 				err := appUtils.MkdirAll(downloadDir)
 				if err != nil {
-					log.Fatalln("taskRunner (dir_check):", err)
+					log.Fatalln("taskRunner.DirCheck:", err)
 				}
 			}
 
 			if !appUtils.DirectoryExists(tempDir) {
 				err := appUtils.MkdirAll(tempDir)
 				if err != nil {
-					log.Fatalln("taskRunner (dir_check):", err)
+					log.Fatalln("taskRunner.DirCheck:", err)
 				}
 			}
 
 			// download the file into temp
 			fullFilename := fmt.Sprintf("%s.%s", fname, fext)
 
-			err = filehost.Download(tempDir, downloadDir, fullFilename, &taskData.Progress)
+			updateHandler := func(prog int8) {
+				taskData.Progress = prog
+
+				publisher.Publish(&pubsub.PublishEvent{
+					EvtType: "update-node-content",
+					Data:    taskData,
+				})
+			}
+
+			err = filehost.Download(tempDir, downloadDir, fullFilename, updateHandler)
 			if err != nil {
 				taskData.Err = err
 				markCompleted()

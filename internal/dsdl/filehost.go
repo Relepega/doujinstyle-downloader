@@ -7,7 +7,7 @@ type FilehostImpl interface {
 
 	EvaluateFileName() (string, error)
 	EvaluateFileExt() (string, error)
-	Download(tempDir, finalDir, filename string, progress *int8) error
+	Download(tempDir, finalDir, filename string, setProgress func(p int8)) error
 }
 
 type FilehostConstrFn func(p playwright.Page) FilehostImpl

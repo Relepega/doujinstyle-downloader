@@ -72,16 +72,19 @@ func DownloadFile(
 	url,
 	tempDir,
 	finalFilepath string,
-	progress *int8,
-	callback func(p int8),
+	setProgress func(p int8),
 ) (err error) {
+	if setProgress == nil {
+		return fmt.Errorf("DownloadFile: setProgress cannot be nil")
+	}
+
 	exists, err := FileExists(finalFilepath)
 	if err != nil {
 		return err
 	}
 
 	if exists {
-		*progress = 100
+		setProgress(100)
 		return nil
 	}
 
@@ -133,12 +136,9 @@ func DownloadFile(
 
 		// Calculate and update the progress
 		currentProgress := int8((float64(currentSize) / float64(totalSize)) * 100)
-		if progress != nil {
-			*progress = currentProgress
-		}
 
-		if callback != nil {
-			callback(currentProgress)
+		if setProgress != nil {
+			setProgress(currentProgress)
 		}
 
 		// Write the chunk to the temp file

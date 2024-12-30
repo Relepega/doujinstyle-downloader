@@ -83,9 +83,10 @@ func (m *Mediafire) EvaluateFileExt() (string, error) {
 	return ext, nil
 }
 
-func (m *Mediafire) Download(tempDir, finalDir, filename string, progress *int8) error {
+func (m *Mediafire) Download(tempDir, finalDir, filename string, setProgress func(p int8),
+) error {
 	if !m.isFolder() {
-		err := m.downloadSingleFile(tempDir, finalDir, filename, progress)
+		err := m.downloadSingleFile(tempDir, finalDir, filename, setProgress)
 		return err
 	}
 
@@ -99,9 +100,7 @@ func (m *Mediafire) Download(tempDir, finalDir, filename string, progress *int8)
 	totalFiles := len(files)
 	downloadedFiles := 0
 
-	*progress = 0
-
-	var dummyProgress int8
+	setProgress(0)
 
 	currDownloadDir := finalDir
 
@@ -120,11 +119,11 @@ func (m *Mediafire) Download(tempDir, finalDir, filename string, progress *int8)
 		ok, _ := appUtils.FileExists(filepath.Join(dlPath, f.Filename))
 		if !ok {
 			currDownloadDir = dlPath
-			m.downloadSingleFile(tempDir, finalDir, filename, &dummyProgress)
+			m.downloadSingleFile(tempDir, finalDir, filename, func(p int8) {})
 		}
 
 		downloadedFiles++
-		*progress = int8((float64(downloadedFiles) / float64(totalFiles)) * 100)
+		setProgress(int8((float64(downloadedFiles) / float64(totalFiles)) * 100))
 	}
 
 	return err
@@ -233,7 +232,10 @@ func (m *Mediafire) fetchFolderContent(
 	return fd, nil
 }
 
-func (m *Mediafire) downloadSingleFile(tempDir, finalDir, filename string, progress *int8) error {
+func (m *Mediafire) downloadSingleFile(
+	tempDir, finalDir, filename string,
+	setProgress func(p int8),
+) error {
 	// file is still in upload status?
 	for {
 		res, err := m.page.Evaluate(
@@ -274,17 +276,7 @@ func (m *Mediafire) downloadSingleFile(tempDir, finalDir, filename string, progr
 		downloadUrl,
 		tempDir,
 		finalFilepath,
-		progress,
-		func(p int8) {
-			// pub, _ := pubsub.GetGlobalPublisher("queue")
-			// pub.Publish(&pubsub.PublishEvent{
-			// 	EvtType: "update-task-progress",
-			// 	Data: &tq_eventbroker.UpdateTaskProgress{
-			// 		Id:       m.albumID,
-			// 		Progress: p,
-			// 	},
-			// })
-		},
+		setProgress,
 	)
 	if err != nil {
 		return err
