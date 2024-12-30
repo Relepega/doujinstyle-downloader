@@ -12,6 +12,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/initters"
 	"github.com/relepega/doujinstyle-downloader/internal/logger"
+	webserver "github.com/relepega/doujinstyle-downloader/internal/webserver/v2"
 )
 
 func main() {
@@ -46,13 +47,12 @@ func main() {
 	// init modules
 	cfg := initters.InitConfig()
 	engine := initters.InitEngine(cfg, ctx)
-	server := initters.InitServer(cfg, ctx, engine)
+	server := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, ctx, engine)
 
 	go func() {
 		err := server.Start()
 		if err != nil {
-			log.Println("App did not shut down correctly")
-			log.Fatalln(err)
+			log.Fatalln("App did not shut down correctly:", err)
 		}
 	}()
 
