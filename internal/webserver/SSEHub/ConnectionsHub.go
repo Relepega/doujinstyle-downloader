@@ -56,7 +56,7 @@ func (h *ConnectionsHub) Broadcast(msg string) {
 	defer h.Unlock()
 
 	for _, c := range h.clients {
-		fmt.Fprintf(c.writer, msg)
+		fmt.Fprintf(c.writer, "%v", msg)
 		c.writer.(http.Flusher).Flush()
 	}
 }

@@ -43,14 +43,11 @@ func NewTask(slug string) *Task {
 		Slug:          slug,
 		DisplayName:   slug,
 		DownloadState: dsdl.TASK_STATE_QUEUED,
+		Progress:      -1,
 		Stop:          make(chan struct{}),
 	}
 
 	return t
-}
-
-func (t *Task) SetProgress(p int8) {
-	t.Progress = p
 }
 
 func (t *Task) ID() string {

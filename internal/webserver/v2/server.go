@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
-	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
 	ssehub "github.com/relepega/doujinstyle-downloader/internal/webserver/SSEHub"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
 )
@@ -30,7 +29,7 @@ type Webserver struct {
 
 	templates *templates.Templates
 
-	msgChan chan *SSEEvents.SSEMessage
+	msgChan chan string
 
 	ctx context.Context
 
@@ -79,7 +78,7 @@ func NewWebServer(
 		UserData: userData,
 	}
 
-	webServer.msgChan = make(chan *SSEEvents.SSEMessage)
+	webServer.msgChan = make(chan string)
 
 	return webServer
 }
@@ -123,6 +122,8 @@ func (ws *Webserver) Start() error {
 	ws.httpServer.Addr = netAddr
 	ws.httpServer.Handler = mux
 
+	go ws.parseAndSendUpdates()
+
 	// Start the server in a goroutine
 	go func() {
 		if err := ws.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
@@ -147,4 +148,12 @@ func (ws *Webserver) Start() error {
 		log.Println("Graceful webserver shutdown complete.")
 		return nil
 	}
+}
+
+func (ws *Webserver) GetSSEMessageChan() *chan string {
+	return &ws.msgChan
+}
+
+func (ws *Webserver) GetTemplates() templates.Templates {
+	return *ws.templates
 }

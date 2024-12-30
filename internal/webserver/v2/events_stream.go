@@ -18,12 +18,8 @@ func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case msg := <-ws.msgChan:
-			s := msg.String()
 			// fmt.Println(s)
-
-			// fmt.Fprintf(w, s)
-			// w.(http.Flusher).Flush()
-			ws.connections.Broadcast(s)
+			ws.connections.Broadcast(msg)
 
 		case <-r.Context().Done():
 			ws.connections.Removeclient(client)

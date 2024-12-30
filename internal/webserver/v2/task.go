@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
+	"github.com/relepega/doujinstyle-downloader/internal/webserver/v2/sse"
 )
 
 var (
@@ -35,8 +37,9 @@ func isValidMode(m string, ms []string) bool {
 func (ws *Webserver) handleError(w http.ResponseWriter, err error) {
 	log.Println("error: ", err)
 
-	ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+	e := sse.NewSSEBuilder().Event("error").Data(err.Error()).Build()
 
+	ws.msgChan <- e
 	w.WriteHeader(http.StatusInternalServerError)
 	fmt.Fprintln(w, err.Error())
 }
@@ -95,18 +98,18 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		// render template
 		t, err := ws.templates.Execute("task", newTask)
 		if err != nil {
-			ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+			ws.msgChan <- sse.NewSSEBuilder().Event("error").Data(err.Error()).Build()
 
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintln(w, err.Error())
 
 			return
 		}
-		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("new-task", t)
+		ws.msgChan <- sse.NewSSEBuilder().Event("new-task").Data(appUtils.CleanString(t)).Build()
 	}
 
 	if len(happenedErrors) != 0 {
-		ws.msgChan <- SSEEvents.NewSSEMessageWithError(fmt.Errorf("%+v", happenedErrors))
+		ws.msgChan <- sse.NewSSEBuilder().Event("error").Data(fmt.Errorf("%+v", happenedErrors).Error()).Build()
 	}
 
 	// :)
@@ -162,7 +165,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 		ws.handleError(w, err)
 		return
 	}
-	ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node", val)
+	ws.msgChan <- sse.NewSSEBuilder().Event("replace-node").Data(val).Build()
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w)
@@ -209,7 +212,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return task.Slug == slug
 		})
 
-		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("remove-task", s)
+		ws.msgChan <- sse.NewSSEBuilder().Event("remove-task").Data(s).Build()
 	}
 
 	w.WriteHeader(http.StatusOK)
