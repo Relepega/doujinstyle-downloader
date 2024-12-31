@@ -117,51 +117,116 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Request) {
+	taskIDs := r.FormValue("IDs")
+	mode := strings.TrimSpace(r.FormValue("Mode"))
+	// fmt.Println("mode", mode)
+
+	if !isValidMode(mode, validRemoveModes) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "Not a valid mode")
+		return
+	}
+
 	engine, _ := ws.UserData.(*dsdl.DSDL)
 
-	nodeID := r.FormValue("Id")
+	var happenedErrors []string
 
-	if nodeID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "A node ID is required")
-		return
+	if mode == "single" || mode == "multiple" {
+		delimiter := "|"
+
+		if taskIDs == "" || taskIDs == delimiter {
+			ws.handleError(w, fmt.Errorf("At least one Album ID is required"))
+			return
+		}
+
+		idList := strings.Split(taskIDs, delimiter)
+
+		for _, id := range idList {
+			node, err := engine.Tq.GetNodeWithComparator(id, func(item, target interface{}) bool {
+				t := item.(*task.Task)
+				id := target.(string)
+
+				return t.Id == id
+			})
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
+
+			t := node.(*task.Task)
+			t.DownloadState = dsdl.TASK_STATE_QUEUED
+			t.Err = nil
+
+			err = engine.Tq.ResetTaskState(node)
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
+
+			tmpl, _ := ws.templates.Execute("task", node)
+
+			uievt := sse.NewUIEventBuilder().
+				Event(sse.UIEvent_ReplaceNode).
+				TargetNodeID(id).
+				ReceiverNodeSelector("#queued").
+				Content(tmpl).
+				Position(sse.UIRenderPos_BeforeEnd).
+				Build()
+
+			ws.msgChan <- sse.NewSSEBuilder().Event("replace-node").Data(uievt).Build()
+		}
+
+		if len(happenedErrors) != 0 {
+			ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
+			return
+		}
+
+		goto retNoErr
 	}
 
-	taskVal, err := engine.Tq.GetNodeWithComparator(nodeID, func(item, target interface{}) bool {
-		i := item.(*task.Task)
-		t := target.(string)
+	switch mode {
+	case "failed":
+		nodes, err := engine.Tq.GetNodesWithProgressState(dsdl.TASK_STATE_COMPLETED)
+		if err != nil {
+			ws.handleError(w, err)
+		}
 
-		return i.Slug == t
-	})
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "Slug not found")
-		return
+		for _, node := range nodes {
+			t := node.(*task.Task)
+
+			if t.Err == nil {
+				continue
+			}
+
+			t.DownloadState = dsdl.TASK_STATE_QUEUED
+			t.Err = nil
+
+			err := engine.Tq.ResetTaskState(node)
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
+
+			tmpl, _ := ws.templates.Execute("task", t)
+
+			uievt := sse.NewUIEventBuilder().
+				Event(sse.UIEvent_ReplaceNode).
+				TargetNodeID(t.Id).
+				ReceiverNodeSelector("#queued").
+				Content(tmpl).
+				Position(sse.UIRenderPos_BeforeEnd).
+				Build()
+
+			ws.msgChan <- sse.NewSSEBuilder().Event("replace-node").Data(uievt).Build()
+		}
+
+		if len(happenedErrors) != 0 {
+			ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
+			return
+		}
 	}
 
-	err = engine.Tq.ResetTaskState(taskVal)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, err.Error())
-		return
-	}
-
-	t, err := ws.templates.Execute("task", taskVal)
-	if err != nil {
-		ws.handleError(w, err)
-		return
-	}
-
-	uievt := sse.NewUIEventBuilder().
-		Event(sse.UIEvent_ReplaceNode).
-		TargetNodeID(nodeID).
-		ReceiverNodeSelector("#queued").
-		Content(appUtils.CleanString(t)).
-		Position(sse.UIRenderPos_AfterBegin).
-		Build()
-
-	ws.msgChan <- sse.NewSSEBuilder().Event("replace-node").Data(uievt).Build()
-
+retNoErr:
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w)
 }
@@ -179,12 +244,12 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 	engine, _ := ws.UserData.(*dsdl.DSDL)
 
-	sendMultiUpdate := func() {
-		t, _ := ws.templates.Execute("ended_tasks", engine.Tq.GetTracker().GetAll())
+	sendMultiUpdate := func(division string) {
+		t, _ := ws.templates.Execute(division+"_tasks", engine.Tq.GetTracker().GetAll())
 
 		uievt := sse.NewUIEventBuilder().
 			Event(sse.UIEvent_ReplaceNodeContent).
-			ReceiverNodeSelector("ended").
+			ReceiverNodeSelector(division).
 			Content(t).
 			Position(sse.UIRenderPos_AfterBegin).
 			Build()
@@ -192,7 +257,6 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		ws.msgChan <- sse.NewSSEBuilder().Event("update-node-content").Data(uievt).Build()
 	}
 
-	// var event string
 	var happenedErrors []string
 
 	if mode == "single" || mode == "multiple" {
@@ -221,6 +285,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 		if len(happenedErrors) != 0 {
 			ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
+			return
 		}
 
 		goto retNoErr
@@ -234,7 +299,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		goto retNoErr
+		sendMultiUpdate("queued")
 
 	case "completed":
 		_, err := engine.Tq.RemoveFromState(dsdl.TASK_STATE_COMPLETED)
@@ -243,9 +308,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sendMultiUpdate()
-
-		goto retNoErr
+		sendMultiUpdate("ended")
 
 	case "failed":
 		err := engine.Tq.RemoveNodeWithComparator(
@@ -262,9 +325,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sendMultiUpdate()
-
-		goto retNoErr
+		sendMultiUpdate("ended")
 
 	case "succeeded":
 		err := engine.Tq.RemoveNodeWithComparator(
@@ -281,9 +342,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sendMultiUpdate()
-
-		goto retNoErr
+		sendMultiUpdate("ended")
 
 	}
 

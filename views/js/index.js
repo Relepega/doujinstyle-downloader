@@ -74,7 +74,7 @@ document.addEventListener('click', async function (evt) {
 		}
 
 		case 'retry-fail-completed': {
-			await taskAction('DELETE', '', 'retry-fail-completed')
+			await taskAction('PATCH', '', 'failed')
 			break
 		}
 
@@ -95,10 +95,11 @@ document.addEventListener('click', async function (evt) {
 		}
 
 		case 'task-ctrl-retry': {
-			const albumID = evt.target.attributes['data-id'].value
+			const id = evt.target.attributes['data-id'].value
 
 			const formData = new FormData()
-			formData.append('AlbumID', albumID)
+			formData.append('IDs', id)
+            formData.append('Mode', 'single')
 
 			await fetch('/api/task', { method: 'PATCH', body: formData }).then(
 				async (res) => {
