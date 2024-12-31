@@ -7,7 +7,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/v2/sse"
 )
 
-func (ws *Webserver) parseAndSendUpdates() {
+func (ws *Webserver) sseMessageBroker() {
 	publisher, err := pubsub.GetGlobalPublisher("task-updater")
 	if err != nil {
 		publisher = pubsub.NewGlobalPublisher("task-updater")

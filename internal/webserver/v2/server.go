@@ -115,14 +115,12 @@ func (ws *Webserver) Start() error {
 
 	mux := ws.buildRoutes()
 
-	// go ws.SSEMsgBroker()
-
 	netAddr := fmt.Sprintf("%s:%d", ws.address, ws.port)
 
 	ws.httpServer.Addr = netAddr
 	ws.httpServer.Handler = mux
 
-	go ws.parseAndSendUpdates()
+	go ws.sseMessageBroker()
 
 	// Start the server in a goroutine
 	go func() {

@@ -11,22 +11,20 @@ document.addEventListener('DOMContentLoaded', () => {
 serviceSelect.addEventListener('change', () => {
 	localStorage.setItem('LastSelectedService', serviceSelect.value)
 })
-
+    
 /**
  *
  * @param {string} method
- * @param {string} slugs
- * @param {string} groupAction
+ * @param {string[]} ids
+ * @param {string} mode
  *
  */
-async function taskAction(method, slugs, groupAction) {
-	const res = await fetch('/api/task', {
-		method: method,
-		body: JSON.stringify({
-			Slugs: slugs,
-			GroupAction: groupAction,
-		}),
-	})
+async function taskAction(method, ids, mode) {
+    let data = new FormData()
+    data.append("IDs", ids)
+    data.append("Mode", mode)
+
+	const res = await fetch('/api/task', { method: method, body: data })
 
 	if (!res.ok) {
 		const text = await res.text()
@@ -34,26 +32,44 @@ async function taskAction(method, slugs, groupAction) {
 	}
 }
 
+function aggregateNodeIDFromEnded() {
+    let ids = ''
+
+    const nodes = document.querySelector('#ended').childNodes
+
+    nodes.forEach((node, idx) => {
+        if (idx == 0 || idx == nodes.length - 1) return
+
+        if (ids === '') {
+            ids = node.id
+        } else {
+            ids += '|' + node.id
+        }
+    })
+
+    return ids
+}
+
 document.addEventListener('click', async function (evt) {
 	// console.log(evt)
 	switch (evt.target.id) {
 		case 'clear-queued': {
-			await taskAction('DELETE', '', 'clear-queued')
+			await taskAction('DELETE', '', 'queued')
 			break
 		}
 
 		case 'clear-all-completed': {
-			taskAction('DELETE', '', 'clear-all-completed')
+			await taskAction('DELETE', '', 'completed')
 			break
 		}
 
 		case 'clear-success-completed': {
-			await taskAction('DELETE', '', 'clear-success-completed')
+			await taskAction('DELETE', '', 'succeeded')
 			break
 		}
 
 		case 'clear-fail-completed': {
-			await taskAction('DELETE', '', 'clear-fail-completed')
+			await taskAction('DELETE', '', 'failed')
 			break
 		}
 
@@ -63,8 +79,8 @@ document.addEventListener('click', async function (evt) {
 		}
 
 		case 'task-ctrl-remove-task': {
-			const albumID = evt.target.attributes['data-id'].value
-			await taskAction('DELETE', albumID, '')
+			const taskID = evt.target.attributes['data-id'].value
+			await taskAction('DELETE', taskID, 'single')
 			break
 		}
 
@@ -155,7 +171,7 @@ source.addEventListener('new-task', function (event) {
 		.insertAdjacentHTML('beforeend', event.data)
 })
 
-source.addEventListener('remove-task', function (event) {
+source.addEventListener('remove-node', function (event) {
 	// console.log('to remove: ', event.data)
 	const node = document.getElementById(event.data)
 
