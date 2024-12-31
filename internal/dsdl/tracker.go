@@ -68,7 +68,7 @@ func (t *Tracker) CountFromState(completionState int) (int, error) {
 	defer t.Unlock()
 
 	if completionState < 0 || completionState >= max_completion_state {
-		return -1, fmt.Errorf("Argument is not a valid state within constraints")
+		return -1, fmt.Errorf("CompletionState is not a value within constraints")
 	}
 
 	count := 0
@@ -130,7 +130,7 @@ func (t *Tracker) Remove(nv interface{}) error {
 	return nil
 }
 
-// Removes a task from the Tracker
+// Removes multiple tasks with the same state from the Tracker
 //
 // Returns the number of affected tasks. If -1, then the state is out of range
 func (t *Tracker) RemoveFromState(completionState int) int {

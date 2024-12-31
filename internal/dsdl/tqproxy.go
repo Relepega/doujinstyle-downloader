@@ -251,6 +251,28 @@ func (tq *TQProxy) GetNode(
 	return nil, fmt.Errorf("Couldn't find a matching task")
 }
 
+// Returns all the values with the matching progress state.
+//
+// Returns an error if the funciton parameter is out of bounds.
+func (tq *TQProxy) GetNodesWithProgressState(state int) ([]interface{}, error) {
+	tq.Lock()
+	defer tq.Unlock()
+
+	var nodes []interface{}
+
+	if state < 0 || state >= max_completion_state {
+		return nodes, fmt.Errorf("State is not a value within constraints")
+	}
+
+	for k, v := range tq.t.tasks_db {
+		if v == state {
+			nodes = append(nodes, k)
+		}
+	}
+
+	return nodes, nil
+}
+
 // Checks and returns the matching task, if it exists, from the result of a compararion function.
 //
 // Returns:
