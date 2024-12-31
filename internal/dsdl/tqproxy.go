@@ -321,6 +321,31 @@ func (tq *TQProxy) RemoveNode(v interface{}) error {
 	return err
 }
 
+// Removes a task from the Tracker by state
+//
+// Returns:
+//
+//  - the number of affected tasks.
+//
+//  - an error if the state is out of range
+
+// Returns the number of affected tasks. If -1, then the state is out of range
+func (tq *TQProxy) RemoveFromState(completionState int) (int, error) {
+	tq.Lock()
+	defer tq.Unlock()
+
+	if completionState < 0 || completionState >= max_completion_state {
+		return 0, fmt.Errorf("Completion state out of range")
+	}
+
+	count := tq.t.RemoveFromState(completionState)
+	if count == -1 {
+		return 0, fmt.Errorf("Completion state out of range")
+	}
+
+	return count, nil
+}
+
 // Removes a node from the Tracker by value
 //
 // Params:

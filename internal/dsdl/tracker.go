@@ -130,6 +130,27 @@ func (t *Tracker) Remove(nv interface{}) error {
 	return nil
 }
 
+// Removes a task from the Tracker
+//
+// Returns the number of affected tasks. If -1, then the state is out of range
+func (t *Tracker) RemoveFromState(completionState int) int {
+	t.Lock()
+	defer t.Unlock()
+
+	if completionState < 0 || completionState >= max_completion_state {
+		return -1
+	}
+
+	count := 0
+	for k, v := range t.tasks_db {
+		if v == completionState {
+			delete(t.tasks_db, k)
+		}
+	}
+
+	return count
+}
+
 // Empties the tracker
 func (t *Tracker) RemoveAll() {
 	t.Lock()
