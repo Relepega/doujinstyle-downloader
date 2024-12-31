@@ -122,7 +122,7 @@ func (ueb *UIEventBuilder) BuildWithError() (string, error) {
 		return "", fmt.Errorf("Event cannot be null")
 	}
 
-	if ueb.targetNodeID == "" {
+	if ueb.targetNodeID == "" && ueb.event != UIEvent_ReplaceNodeContent {
 		return "", fmt.Errorf("TargetNodeID cannot be null")
 	}
 
@@ -154,7 +154,7 @@ func (ueb *UIEventBuilder) Build() string {
 		log.Fatalln("Event cannot be null")
 	}
 
-	if ueb.targetNodeID == "" {
+	if ueb.targetNodeID == "" && ueb.event != UIEvent_ReplaceNodeContent {
 		log.Fatalln("TargetNodeID cannot be null")
 	}
 
