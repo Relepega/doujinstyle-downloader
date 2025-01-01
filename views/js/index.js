@@ -186,7 +186,7 @@ source.addEventListener('remove-node', function (event) {
 
 source.addEventListener('replace-node', function (event) {
 	const data = JSON.parse(event.data)
-	//console.log('replace-node parsed data: ', data)
+	console.log('replace-node parsed data: ', data)
 
 	const node = document.getElementById(data.TargetNodeID)
 	if (node) {

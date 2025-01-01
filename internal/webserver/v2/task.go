@@ -163,7 +163,11 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 				continue
 			}
 
-			tmpl, _ := ws.templates.Execute("task", node)
+			tmpl, err := ws.templates.Execute("task", node)
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
 
 			uievt := sse.NewUIEventBuilder().
 				Event(sse.UIEvent_ReplaceNode).
@@ -207,7 +211,11 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 				continue
 			}
 
-			tmpl, _ := ws.templates.Execute("task", t)
+			tmpl, err := ws.templates.Execute("task", t)
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
 
 			uievt := sse.NewUIEventBuilder().
 				Event(sse.UIEvent_ReplaceNode).
