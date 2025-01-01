@@ -165,7 +165,7 @@ source.addEventListener('message', function (event) {
 })
 
 source.addEventListener('new-task', function (event) {
-	 //console.log('new task', event)
+	//console.log('new task', event)
 	// https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML
 	document
 		.getElementById('queued')
@@ -173,7 +173,7 @@ source.addEventListener('new-task', function (event) {
 })
 
 source.addEventListener('remove-node', function (event) {
-	// console.log('to remove: ', event.data)
+	//console.log('to remove: ', event.data)
 	const node = document.getElementById(event.data)
 
 	if (!node) {
@@ -186,7 +186,7 @@ source.addEventListener('remove-node', function (event) {
 
 source.addEventListener('replace-node', function (event) {
 	const data = JSON.parse(event.data)
-	console.log('replace-node parsed data: ', data)
+	//console.log('replace-node parsed data: ', data)
 
 	const node = document.getElementById(data.TargetNodeID)
 	if (node) {

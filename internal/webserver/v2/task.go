@@ -325,7 +325,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 				t := item.(*task.Task)
 				state := target.(int)
 
-				return t.DownloadState == state && t.Err == nil
+				return t.DownloadState == state && t.Err != nil
 			},
 		)
 		if err != nil {
@@ -342,7 +342,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 				t := item.(*task.Task)
 				state := target.(int)
 
-				return t.DownloadState == state && t.Err != nil
+				return t.DownloadState == state && t.Err == nil
 			},
 		)
 		if err != nil {
