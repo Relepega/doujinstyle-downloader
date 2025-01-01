@@ -43,9 +43,6 @@ type TQProxy struct {
 
 	// parent context
 	ctx context.Context
-
-	// lock for the find method
-	findLock sync.Mutex
 }
 
 // NewTQWrapper: Returns a new pointer to TQWrapper
@@ -387,13 +384,17 @@ func (tq *TQProxy) RemoveNodeWithComparator(
 
 	removed, val := tq.q.Remove(v, comp)
 
-	if !removed {
-		return fmt.Errorf(ERR_NO_RES_FOUND)
+	if val != nil && !removed {
+		return fmt.Errorf("Match found but couldn't remove it")
 	}
 
-	err := tq.t.Remove(val)
+	for k := range tq.GetTracker().tasks_db {
+		if comp(k, v) {
+			delete(tq.GetTracker().tasks_db, k)
+		}
+	}
 
-	return err
+	return nil
 }
 
 // Returns whether or not an equal value has been found in the tracker

@@ -174,15 +174,20 @@ func (q *Queue) Remove(
 	node := q.head
 
 	for {
-		if comparator(node.value, value) {
-			node.next.prev = node.prev
-			node.prev.next = node.next
-
-			return true, node.value
+		if node == nil {
+			break
 		}
 
-		if node.next == nil {
-			break
+		if comparator(node.value, value) {
+			if node.next != nil {
+				node.next.prev = node.prev
+			}
+
+			if node.prev != nil {
+				node.prev.next = node.next
+			}
+
+			return true, node.value
 		}
 
 		node = node.next
@@ -203,15 +208,20 @@ func (q *Queue) RemoveAll(value interface{}, comparator func(val1, val2 interfac
 	node := q.head
 
 	for {
-		if comparator(node.value, value) {
-			node.next.prev = node.prev
-			node.prev.next = node.next
-
-			matched = true
+		if node == nil {
+			break
 		}
 
-		if node.next == nil {
-			break
+		if comparator(node.value, value) {
+			if node.next != nil {
+				node.next.prev = node.prev
+			}
+
+			if node.prev != nil {
+				node.prev.next = node.next
+			}
+
+			matched = true
 		}
 
 		node = node.next
