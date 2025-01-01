@@ -457,7 +457,14 @@ func (tq *TQProxy) ResetTaskState(v interface{}) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	return tq.t.RegressState(v)
+	err := tq.t.SetState(v, TASK_STATE_QUEUED)
+	if err != nil {
+		return err
+	}
+
+	tq.q.Enqueue(NewNode(v))
+
+	return nil
 }
 
 // Returns the number of tasks in the queue
