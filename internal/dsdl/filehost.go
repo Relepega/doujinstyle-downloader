@@ -5,6 +5,8 @@ import "github.com/playwright-community/playwright-go"
 type FilehostImpl interface {
 	PwPageNavigator
 
+	SetPage(p playwright.Page)
+	Page() playwright.Page
 	EvaluateFileName() (string, error)
 	EvaluateFileExt() (string, error)
 	Download(tempDir, finalDir, filename string, setProgress func(p int8)) error

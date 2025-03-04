@@ -54,6 +54,12 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 		Constructor:         filehosts.NewMega,
 	})
 
+	engine.RegisterFilehost(&dsdl.Filehost{
+		Name:                "Google Drive",
+		AllowedUrlWildcards: []string{"drive.google.com"},
+		Constructor:         filehosts.NewGDrive,
+	})
+
 	engine.NewTQProxy(queueRunner)
 
 	engine.GetTQProxy().SetComparatorFunc(func(item, target interface{}) bool {
