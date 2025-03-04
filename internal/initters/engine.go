@@ -60,6 +60,12 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 		Constructor:         filehosts.NewGDrive,
 	})
 
+	engine.RegisterFilehost(&dsdl.Filehost{
+		Name:                "Jottacloud",
+		AllowedUrlWildcards: []string{"jottacloud.com"},
+		Constructor:         filehosts.NewJottacloud,
+	})
+
 	engine.NewTQProxy(queueRunner)
 
 	engine.GetTQProxy().SetComparatorFunc(func(item, target interface{}) bool {
