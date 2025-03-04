@@ -63,7 +63,8 @@ func TestProperFunctioning(t *testing.T) {
 
 	dlpath := filepath.Join(".", "test-downloads", filename)
 
-	// this has to come from task
-	var progress int8
-	filehost.Download(dlpath, &progress)
+	err = filehost.Download(dlpath, dlpath, filename, func(p int8) {})
+	if err != nil {
+		log.Fatalln("Could not download file:", err)
+	}
 }

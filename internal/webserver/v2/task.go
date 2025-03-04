@@ -81,7 +81,7 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// add task to engine
-		err := engine.Tq.AddNodeFromValueWithComparator(
+		err := engine.Tq.EnqueueFromValueWithComparator(
 			newTask,
 			func(item, target interface{}) bool {
 				toCompare := item.(*task.Task)
@@ -142,7 +142,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 		idList := strings.Split(taskIDs, delimiter)
 
 		for _, id := range idList {
-			node, err := engine.Tq.GetNodeWithComparator(id, func(item, target interface{}) bool {
+			node, err := engine.Tq.FindWithComparator(id, func(item, target interface{}) bool {
 				t := item.(*task.Task)
 				id := target.(string)
 
@@ -190,7 +190,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 
 	switch mode {
 	case "failed":
-		nodes, err := engine.Tq.GetNodesWithProgressState(dsdl.TASK_STATE_COMPLETED)
+		nodes, err := engine.Tq.FindWithProgressState(dsdl.TASK_STATE_COMPLETED)
 		if err != nil {
 			ws.handleError(w, err)
 		}
@@ -278,7 +278,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		idList := strings.Split(taskIDs, delimiter)
 
 		for _, id := range idList {
-			err := engine.Tq.RemoveNodeWithComparator(id, func(item, target interface{}) bool {
+			err := engine.Tq.RemoveWithComparator(id, func(item, target interface{}) bool {
 				id := target.(string)
 				t := item.(*task.Task)
 
@@ -319,7 +319,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		sendMultiUpdate("ended")
 
 	case "failed":
-		err := engine.Tq.RemoveNodeWithComparator(
+		err := engine.Tq.RemoveWithComparator(
 			dsdl.TASK_STATE_COMPLETED,
 			func(item, target interface{}) bool {
 				t := item.(*task.Task)
@@ -336,7 +336,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		sendMultiUpdate("ended")
 
 	case "succeeded":
-		err := engine.Tq.RemoveNodeWithComparator(
+		err := engine.Tq.RemoveWithComparator(
 			dsdl.TASK_STATE_COMPLETED,
 			func(item, target interface{}) bool {
 				t := item.(*task.Task)

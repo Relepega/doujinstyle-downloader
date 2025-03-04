@@ -48,7 +48,7 @@ func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) error {
 			return nil
 
 		default:
-			tcount, err := tq.TrackerCountFromState(TASK_STATE_RUNNING)
+			tcount, err := tq.GetTrackerCountFromState(TASK_STATE_RUNNING)
 			if err != nil {
 				continue
 			}
@@ -58,7 +58,12 @@ func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) error {
 				continue
 			}
 
-			taskVal, _, err := tq.AdvanceNewTaskState()
+			taskVal, err := tq.Dequeue()
+			if err != nil {
+				continue
+			}
+
+			_, err = tq.AdvanceTaskState(taskVal)
 			if err != nil {
 				continue
 			}
@@ -116,13 +121,13 @@ func TestAddNode(t *testing.T) {
 		context.Background(),
 	)
 
-	nv, err := tq.AddNodeFromValue(1)
+	nv, err := tq.EnqueueFromValue(1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	qlen := tq.GetQueueLength()
-	tlen := tq.TrackerCount()
+	tlen := tq.GetTrackerCount()
 
 	if qlen != 1 {
 		t.Errorf("Queue has wrong length: has %d, should be 1", qlen)
@@ -150,12 +155,12 @@ func TestHasNode(t *testing.T) {
 
 	node := NewNode(1)
 
-	err := tq.AddNode(node)
+	err := tq.Enqueue(node)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !tq.Has(node.value) {
+	if found, _, _ := tq.Find(node.value); !found {
 		t.Errorf("TQ should already hold this value: %+v", node.value)
 	}
 }
@@ -164,7 +169,7 @@ func TestRunQueue(t *testing.T) {
 	tq := NewTQWrapper(runQ, context.Background())
 	tq.RunQueue(newTestingRunnerOpts(1, time.Second*2))
 
-	nv, err := tq.AddNodeFromValue(&testingDataType{
+	nv, err := tq.EnqueueFromValue(&testingDataType{
 		value: 573,
 		err:   nil,
 		state: make(chan int, 1),
@@ -192,7 +197,7 @@ func TestRunQueue(t *testing.T) {
 		t.Fatalf("Wrong task status: got \"%d\", expected \"%d\"", taskState, TASK_STATE_RUNNING)
 	}
 
-	tcount, err := tq.TrackerCountFromState(TASK_STATE_RUNNING)
+	tcount, err := tq.GetTrackerCountFromState(TASK_STATE_RUNNING)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +225,7 @@ func TestRunQueue(t *testing.T) {
 	taskState = <-v.state
 
 	qlen = tq.GetQueueLength()
-	tlen := tq.TrackerCount()
+	tlen := tq.GetTrackerCount()
 
 	if qlen != 0 {
 		t.Errorf("Queue has wrong length: has %d, should be 0", qlen)
@@ -252,7 +257,7 @@ func TestMultipleCoroutines(t *testing.T) {
 	ntasks := 1000
 
 	for i := 0; i < ntasks; i++ {
-		_, err := tq.AddNodeFromValue(&testingDataType{
+		_, err := tq.EnqueueFromValue(&testingDataType{
 			value: i,
 			err:   nil,
 			// make it buffered so that the runner goroutine isn't blocked
@@ -267,7 +272,7 @@ func TestMultipleCoroutines(t *testing.T) {
 	time.Sleep(time.Second * 2)
 
 	qlen := tq.GetQueueLength()
-	tlen := tq.TrackerCount()
+	tlen := tq.GetTrackerCount()
 
 	if qlen != ntasks-4 {
 		t.Errorf("Queue has wrong length: has %d, should be %d", qlen, ntasks-4)
@@ -277,7 +282,7 @@ func TestMultipleCoroutines(t *testing.T) {
 		t.Errorf("Tracker has wrong length: has %d, should be %d", tlen, ntasks)
 	}
 
-	count, err := tq.TrackerCountFromState(TASK_STATE_RUNNING)
+	count, err := tq.GetTrackerCountFromState(TASK_STATE_RUNNING)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,12 +312,12 @@ func TestAbortTask(t *testing.T) {
 		stop:  make(chan struct{}),
 	}
 
-	_, err := tq.AddNodeFromValue(nv1)
+	_, err := tq.EnqueueFromValue(nv1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = tq.AddNodeFromValue(nv2)
+	_, err = tq.EnqueueFromValue(nv2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +333,7 @@ func TestAbortTask(t *testing.T) {
 
 	tq.StopQueue()
 
-	countDone, err := tq.TrackerCountFromState(TASK_STATE_COMPLETED)
+	countDone, err := tq.GetTrackerCountFromState(TASK_STATE_COMPLETED)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,7 +350,7 @@ func TestCloseRunner(t *testing.T) {
 	ntasks := 1000
 
 	for i := 0; i < ntasks; i++ {
-		_, err := tq.AddNodeFromValue(&testingDataType{
+		_, err := tq.EnqueueFromValue(&testingDataType{
 			value: i,
 			err:   nil,
 			// make it buffered so that the runner goroutine isn't blocked

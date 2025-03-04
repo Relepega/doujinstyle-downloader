@@ -90,7 +90,7 @@ func (t *Tracker) Add(nv interface{}) {
 }
 
 // Checks whether a task with an equal value is already present in the Tracker
-func (t *Tracker) Has(nv interface{}) bool {
+func (t *Tracker) Get(nv interface{}) bool {
 	t.Lock()
 	defer t.Unlock()
 
@@ -201,6 +201,25 @@ func (t *Tracker) GetState(nv interface{}) (string, error) {
 	return "", fmt.Errorf("Node not found")
 }
 
+// Sets the state of a specific task. Returns an error if the task has not been found
+func (t *Tracker) SetState(nv interface{}, newState int) error {
+	t.Lock()
+	defer t.Unlock()
+
+	if newState < 0 || newState >= max_completion_state {
+		return fmt.Errorf("newState is out of bounds")
+	}
+
+	for k := range t.tasks_db {
+		if k == nv {
+			t.tasks_db[k] = newState
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Node not found")
+}
+
 // Advances the completion state of a specific task
 //
 // Returns an error if the task has reached a completion state and the updated state value
@@ -221,25 +240,6 @@ func (t *Tracker) AdvanceState(nv interface{}) (int, error) {
 	}
 
 	return -1, nil
-}
-
-// Sets the state of a specific task. Returns an error if the task has not been found
-func (t *Tracker) SetState(nv interface{}, newState int) error {
-	t.Lock()
-	defer t.Unlock()
-
-	if newState < 0 || newState >= max_completion_state {
-		return fmt.Errorf("newState is out of bounds")
-	}
-
-	for k := range t.tasks_db {
-		if k == nv {
-			t.tasks_db[k] = newState
-			return nil
-		}
-	}
-
-	return fmt.Errorf("Node not found")
 }
 
 // Regresses the completion state of a specific task

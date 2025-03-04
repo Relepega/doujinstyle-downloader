@@ -85,7 +85,7 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 			return nil
 
 		default:
-			runningCount, err := tq.TrackerCountFromState(dsdl.TASK_STATE_RUNNING)
+			runningCount, err := tq.GetTrackerCountFromState(dsdl.TASK_STATE_RUNNING)
 			if err != nil {
 				continue
 			}
@@ -94,7 +94,12 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 				continue
 			}
 
-			taskVal, newState, err := tq.AdvanceNewTaskState()
+			taskVal, err := tq.Dequeue()
+			if err != nil {
+				continue
+			}
+
+			newState, err := tq.AdvanceTaskState(taskVal)
 			if err != nil {
 				continue
 			}
@@ -263,7 +268,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			}
 
 			// re-check if task is already done by other means
-			found, _ := tq.Find(taskData)
+			found, _, _ := tq.Find(taskData)
 			if found {
 				taskData.Err = fmt.Errorf("This task is already present in the database")
 				markCompleted()

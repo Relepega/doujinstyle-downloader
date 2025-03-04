@@ -159,11 +159,11 @@ func (tq *TQProxy) SetComparatorFunc(newComparator func(item, target interface{}
 // Returns:
 //
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) AddNode(n *Node) error {
+func (tq *TQProxy) Enqueue(n *Node) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	alreadyExists := tq.t.Has(n.Value())
+	alreadyExists := tq.t.Get(n.Value())
 	if alreadyExists {
 		return fmt.Errorf("A node with an equal value already exists")
 	}
@@ -181,7 +181,7 @@ func (tq *TQProxy) AddNode(n *Node) error {
 // Returns:
 //
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) AddNodeFromValue(value interface{}) (interface{}, error) {
+func (tq *TQProxy) EnqueueFromValue(value interface{}) (interface{}, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -206,7 +206,7 @@ func (tq *TQProxy) AddNodeFromValue(value interface{}) (interface{}, error) {
 // Returns:
 //
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) AddNodeFromValueWithComparator(
+func (tq *TQProxy) EnqueueFromValueWithComparator(
 	value interface{},
 	comp func(item, target interface{}) bool,
 ) error {
@@ -233,25 +233,31 @@ func (tq *TQProxy) AddNodeFromValueWithComparator(
 //
 //   - task:   task corresponding to the comparator returning a truthy value
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) GetNode(
-	target interface{},
-) (interface{}, error) {
+
+// Finds a task by using the embedded comparator function
+//
+// Returns:
+//
+//   - found: if task is found in the db
+//   - task:  task corresponding to the comparator returning a truthy value
+//   - error: returned when a Node with an equal value is found in the tracker
+func (tq *TQProxy) Find(target interface{}) (bool, interface{}, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
 	for k := range tq.t.tasks_db {
 		if tq.comparatorFn(k, target) {
-			return k, nil
+			return true, k, nil
 		}
 	}
 
-	return nil, fmt.Errorf("Couldn't find a matching task")
+	return false, nil, fmt.Errorf("Couldn't find a matching task")
 }
 
 // Returns all the values with the matching progress state.
 //
 // Returns an error if the funciton parameter is out of bounds.
-func (tq *TQProxy) GetNodesWithProgressState(state int) ([]interface{}, error) {
+func (tq *TQProxy) FindWithProgressState(state int) ([]interface{}, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -276,7 +282,7 @@ func (tq *TQProxy) GetNodesWithProgressState(state int) ([]interface{}, error) {
 //
 //   - task:   task corresponding to the comparator returning a truthy value
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) GetNodeWithComparator(
+func (tq *TQProxy) FindWithComparator(
 	target interface{},
 	comp func(item, target interface{}) bool,
 ) (interface{}, error) {
@@ -290,20 +296,6 @@ func (tq *TQProxy) GetNodeWithComparator(
 	}
 
 	return nil, fmt.Errorf("Couldn't find a matching task")
-}
-
-// finds a task by using the embedded comparator function
-func (tq *TQProxy) Find(target interface{}) (bool, interface{}) {
-	tq.Lock()
-	defer tq.Unlock()
-
-	for k := range tq.t.tasks_db {
-		if tq.comparatorFn(k, target) {
-			return true, k
-		}
-	}
-
-	return false, nil
 }
 
 // Removes the node at the HEAD of the queue and returns its value
@@ -323,7 +315,7 @@ func (tq *TQProxy) Dequeue() (interface{}, error) {
 // Returns:
 //
 //   - error: Tracker fails to remove the node
-func (tq *TQProxy) RemoveNode(v interface{}) error {
+func (tq *TQProxy) Remove(v interface{}) error {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -375,7 +367,7 @@ func (tq *TQProxy) RemoveFromState(completionState int) (int, error) {
 // Returns:
 //
 //   - error: Tracker fails to remove the node
-func (tq *TQProxy) RemoveNodeWithComparator(
+func (tq *TQProxy) RemoveWithComparator(
 	v interface{},
 	comp func(item, target interface{}) bool,
 ) error {
@@ -397,20 +389,6 @@ func (tq *TQProxy) RemoveNodeWithComparator(
 	return nil
 }
 
-// Returns whether or not an equal value has been found in the tracker
-func (tq *TQProxy) Has(v interface{}) bool {
-	tq.Lock()
-	defer tq.Unlock()
-
-	for t := range tq.GetTracker().GetAll() {
-		if tq.comparatorFn(t, v) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // Advances a task's state by finding it by value and incrementing its state.
 //
 // Returns an error when the state cannot be incremented anymore or the task cannot be found and the updated state value.
@@ -419,26 +397,6 @@ func (tq *TQProxy) AdvanceTaskState(v interface{}) (int, error) {
 	defer tq.Unlock()
 
 	return tq.t.AdvanceState(v)
-}
-
-// Advances a task's state by finding it by value and incrementing its state.
-//
-// Returns an error when the state cannot be incremented anymore or the task cannot be found or the task is in a running state and the updated state value .
-func (tq *TQProxy) AdvanceNewTaskState() (interface{}, int, error) {
-	tq.Lock()
-	defer tq.Unlock()
-
-	nv, err := tq.q.Dequeue()
-	if err != nil {
-		return nil, -1, err
-	}
-
-	newState, err := tq.t.AdvanceState(nv)
-	if err != nil {
-		return nil, newState, err
-	}
-
-	return nv, newState, nil
 }
 
 // Regresses a task's state by finding it by value and decrementing its state.
@@ -477,7 +435,7 @@ func (tq *TQProxy) GetQueueLength() int {
 }
 
 // Returns the number of tasks in the tracker
-func (tq *TQProxy) TrackerCount() int {
+func (tq *TQProxy) GetTrackerCount() int {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -487,7 +445,7 @@ func (tq *TQProxy) TrackerCount() int {
 // Returns the number of tasks that are in a defined completion state.
 //
 // It can also return an error when the completionState is invalid
-func (tq *TQProxy) TrackerCountFromState(completionState int) (int, error) {
+func (tq *TQProxy) GetTrackerCountFromState(completionState int) (int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 

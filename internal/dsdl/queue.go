@@ -239,24 +239,3 @@ func (q *Queue) Reset(value interface{}) {
 	q.tail = nil
 	q.length = 0
 }
-
-// func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
-// 	for _, item := range q.items {
-// 		if comparator(item, value) {
-// 			return true
-// 		}
-// 	}
-//
-// 	return false
-// }
-//
-// func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
-// 	for i, item := range q.items {
-// 		if comparator(item, value) {
-// 			q.items = append(q.items[:i], q.items[i+1:]...)
-// 			return true
-// 		}
-// 	}
-//
-// 	return false
-// }
