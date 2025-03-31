@@ -7,7 +7,7 @@
 // TQWrapper: The recommended way of interacting with the package functionality if you need both queuing and tracking functionality.
 //
 // This wrapper ensures that everything is synchronized correctly.
-package queue
+package dsdl
 
 import (
 	"fmt"
@@ -137,7 +137,10 @@ func (q *Queue) Back() (*Node, error) {
 // Returns wether or not a node with the same value exists in the queue
 //
 // The comparation between values is done in a comparator function
-func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
+func (q *Queue) Has(
+	value interface{},
+	comparator func(val1, val2 interface{}) bool,
+) (bool, interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -145,7 +148,7 @@ func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) b
 
 	for {
 		if comparator(node.value, value) {
-			return true
+			return true, node.value
 		}
 
 		if node.next == nil {
@@ -155,34 +158,42 @@ func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) b
 		node = node.next
 	}
 
-	return false
+	return false, nil
 }
 
 // Removes A SINGLE NODE with the same value if it exists in the queue. The comparation between values is done in a comparator function
 //
 // Returns wether or not the node has been found and removed
-func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
+func (q *Queue) Remove(
+	value interface{},
+	comparator func(val1, val2 interface{}) bool,
+) (bool, interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	node := q.head
 
 	for {
-		if comparator(node.value, value) {
-			node.next.prev = node.prev
-			node.prev.next = node.next
-
-			return true
+		if node == nil {
+			break
 		}
 
-		if node.next == nil {
-			break
+		if comparator(node.value, value) {
+			if node.next != nil {
+				node.next.prev = node.prev
+			}
+
+			if node.prev != nil {
+				node.prev.next = node.next
+			}
+
+			return true, node.value
 		}
 
 		node = node.next
 	}
 
-	return false
+	return false, nil
 }
 
 // Removes ALL THE NODE(S) with the same value if it exists in the queue. The comparation between values is done in a comparator function
@@ -197,15 +208,20 @@ func (q *Queue) RemoveAll(value interface{}, comparator func(val1, val2 interfac
 	node := q.head
 
 	for {
-		if comparator(node.value, value) {
-			node.next.prev = node.prev
-			node.prev.next = node.next
-
-			matched = true
+		if node == nil {
+			break
 		}
 
-		if node.next == nil {
-			break
+		if comparator(node.value, value) {
+			if node.next != nil {
+				node.next.prev = node.prev
+			}
+
+			if node.prev != nil {
+				node.prev.next = node.next
+			}
+
+			matched = true
 		}
 
 		node = node.next
@@ -223,24 +239,3 @@ func (q *Queue) Reset(value interface{}) {
 	q.tail = nil
 	q.length = 0
 }
-
-// func (q *Queue) Has(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
-// 	for _, item := range q.items {
-// 		if comparator(item, value) {
-// 			return true
-// 		}
-// 	}
-//
-// 	return false
-// }
-//
-// func (q *Queue) Remove(value interface{}, comparator func(val1, val2 interface{}) bool) bool {
-// 	for i, item := range q.items {
-// 		if comparator(item, value) {
-// 			q.items = append(q.items[:i], q.items[i+1:]...)
-// 			return true
-// 		}
-// 	}
-//
-// 	return false
-// }

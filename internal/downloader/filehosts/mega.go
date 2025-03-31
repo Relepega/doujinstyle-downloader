@@ -1,4 +1,4 @@
-package hosts
+package filehosts
 
 import (
 	"fmt"
@@ -9,36 +9,30 @@ import (
 
 	"github.com/playwright-community/playwright-go"
 
-	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
-	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
-	tq_eventbroker "github.com/relepega/doujinstyle-downloader/internal/taskQueue/tq_event_broker"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 )
 
-type mega struct {
-	Host
+type Mega struct {
+	dsdl.Filehost
 
 	page playwright.Page
-
-	albumID   string
-	albumName string
-
-	dlPath     string
-	dlProgress *int8
 }
 
-func newMega(p playwright.Page, albumID, albumName, downloadPath string, progress *int8) Host {
-	return &mega{
+func NewMega(p playwright.Page) dsdl.FilehostImpl {
+	return &Mega{
 		page: p,
-
-		albumID:   albumID,
-		albumName: albumName,
-
-		dlPath:     downloadPath,
-		dlProgress: progress,
 	}
 }
 
-func (m *mega) Download() error {
+func (m *Mega) SetPage(p playwright.Page) {
+	m.page = p
+}
+
+func (m *Mega) Page() playwright.Page {
+	return m.page
+}
+
+func (m *Mega) waitForPageLoad() error {
 	for {
 		val, _ := m.page.Evaluate(
 			"() => document.querySelector('#loading').classList.contains('hidden')",
@@ -64,6 +58,54 @@ func (m *mega) Download() error {
 		time.Sleep(time.Second * 5)
 	}
 
+	return nil
+}
+
+// TODO: implement this function
+func (m *Mega) EvaluateFileName() (string, error) {
+	err := m.waitForPageLoad()
+	if err != nil {
+		return "", err
+	}
+
+	return "", nil
+}
+
+func (m *Mega) EvaluateFileExt() (string, error) {
+	err := m.waitForPageLoad()
+	if err != nil {
+		return "", err
+	}
+
+	ext, err := m.page.Evaluate("document.querySelector('.extension').innerText")
+	if err != nil {
+		// assume the file to download is a compressed folder.
+		// by default mega compresses a folder in a .zip archive
+		return "zip", nil
+	}
+
+	return fmt.Sprintf("%v", ext)[1:], nil
+}
+
+func (m *Mega) Download(tempDir, finalDir, filename string, setProgress func(p int8)) error {
+	err := m.waitForPageLoad()
+	if err != nil {
+		return err
+	}
+
+	// waiting for loading spinner to disappear
+	for {
+		val, _ := m.page.Evaluate(
+			"document.querySelectorAll('.loading-spinner')[2].classList.contains('hidden')",
+		)
+		isHidden, _ := val.(bool)
+
+		if isHidden {
+			time.Sleep(500 * time.Millisecond)
+			break
+		}
+	}
+
 	// limited quota
 	// val, err := m.page.Evaluate(
 	// 	"document.querySelector('.limited-bandwidth-dialog')?.getAttribute('aria-modal') == 'true'",
@@ -77,35 +119,26 @@ func (m *mega) Download() error {
 	// 	return fmt.Errorf("Mega: You’re running out of transfer quota")
 	// }
 
-	// actual download
-	ext, err := m.page.Evaluate("document.querySelector('.extension').innerText")
-	if err != nil {
-		ext = ".zip"
-	}
-	extension := fmt.Sprintf("%v", ext)
-
-	fp := filepath.Join(m.dlPath, m.albumName+extension)
-	fileExists, _ := appUtils.FileExists(fp)
-	if fileExists {
-		return nil
-	}
+	fp := filepath.Join(finalDir, filename)
 
 	timeout := 0.0
+
 	downloadHandler, err := m.page.ExpectDownload(func() error {
 		_, err := m.page.Evaluate(`() => {
 			const selectors = ['.js-default-download', '.fm-download-as-zip']
-			selectors.forEach(sel => {
-				let el = document.querySelector(sel)
-				if (el) {
-					el.click()
-					return
-				}
-			})
+            selectors.forEach(sel => {
+                let el = document.querySelector(sel)
+                if (el) {
+                    el.click()
+                    return
+                }
+            })
 		}`)
+		if err != nil {
+			return fmt.Errorf("Mega: Couldn't start download: %v", err)
+		}
 
 		errorDiv := m.page.Locator(".default-warning > .txt")
-
-		pub, _ := pubsub.GetGlobalPublisher("queue")
 
 		re := regexp.MustCompile(`\d+`)
 
@@ -157,15 +190,7 @@ func (m *mega) Download() error {
 				continue
 			}
 
-			*m.dlProgress = int8(conv)
-
-			pub.Publish(&pubsub.PublishEvent{
-				EvtType: "update-task-progress",
-				Data: &tq_eventbroker.UpdateTaskProgress{
-					Id:       m.albumID,
-					Progress: *m.dlProgress,
-				},
-			})
+			setProgress(int8(conv))
 		}
 
 		return err
@@ -175,13 +200,6 @@ func (m *mega) Download() error {
 	if err != nil {
 		return err
 	}
-
-	err = m.page.Close()
-	if err != nil {
-		return err
-	}
-
-	time.Sleep(time.Second)
 
 	err = downloadHandler.SaveAs(fp)
 	if err != nil {

@@ -7,7 +7,7 @@
 // TQWrapper: The recommended way of interacting with the package functionality if you need both queuing and tracking functionality.
 //
 // This wrapper ensures that everything is synchronized correctly.
-package queue
+package dsdl
 
 import (
 	"fmt"
@@ -37,23 +37,27 @@ var statuses = map[int]string{
 	TASK_STATE_COMPLETED: TASK_STATE_COMPLETED_STR,
 }
 
+func GetStateStr(state int) string {
+	return statuses[state]
+}
+
 // Tracker data type. Stores all inserted tasks in a Key-Value kind of in-memory DB
 type Tracker struct {
 	sync.Mutex
 
-	db_tasks map[interface{}]int
+	tasks_db map[interface{}]int
 }
 
 // Constructor for the Tracker data type
 func NewTracker() *Tracker {
 	return &Tracker{
-		db_tasks: make(map[interface{}]int, 15), // seems a fair, arbitrary value
+		tasks_db: make(map[interface{}]int, 15), // seems a fair, arbitrary value
 	}
 }
 
 // Returns the total number of stored tasks
 func (t *Tracker) Count() int {
-	return len(t.db_tasks)
+	return len(t.tasks_db)
 }
 
 // Returns the total count of tasks in a specific completion state.
@@ -64,11 +68,11 @@ func (t *Tracker) CountFromState(completionState int) (int, error) {
 	defer t.Unlock()
 
 	if completionState < 0 || completionState >= max_completion_state {
-		return -1, fmt.Errorf("Argument is not a valid state within constraints")
+		return -1, fmt.Errorf("CompletionState is not a value within constraints")
 	}
 
 	count := 0
-	for _, v := range t.db_tasks {
+	for _, v := range t.tasks_db {
 		if v == completionState {
 			count++
 		}
@@ -82,20 +86,28 @@ func (t *Tracker) Add(nv interface{}) {
 	t.Lock()
 	defer t.Unlock()
 
-	t.db_tasks[nv] = TASK_STATE_QUEUED
+	t.tasks_db[nv] = TASK_STATE_QUEUED
 }
 
 // Checks whether a task with an equal value is already present in the Tracker
-func (t *Tracker) Has(nv interface{}) bool {
+func (t *Tracker) Get(nv interface{}) bool {
 	t.Lock()
 	defer t.Unlock()
 
-	for k := range t.db_tasks {
+	for k := range t.tasks_db {
 		if k == nv {
 			return true
 		}
 	}
 	return false
+}
+
+// Returns all the tasks in the database
+func (t *Tracker) GetAll() map[interface{}]int {
+	t.Lock()
+	defer t.Unlock()
+
+	return t.tasks_db
 }
 
 // Removes a task from the Tracker
@@ -105,17 +117,38 @@ func (t *Tracker) Remove(nv interface{}) error {
 	t.Lock()
 	defer t.Unlock()
 
-	for k, v := range t.db_tasks {
+	for k, v := range t.tasks_db {
 		if k == nv {
 			if v == TASK_STATE_RUNNING {
 				return fmt.Errorf("Cannot remove a running task")
 			}
 
-			delete(t.db_tasks, k)
+			delete(t.tasks_db, k)
 		}
 	}
 
 	return nil
+}
+
+// Removes multiple tasks with the same state from the Tracker
+//
+// Returns the number of affected tasks. If -1, then the state is out of range
+func (t *Tracker) RemoveFromState(completionState int) int {
+	t.Lock()
+	defer t.Unlock()
+
+	if completionState < 0 || completionState >= max_completion_state {
+		return -1
+	}
+
+	count := 0
+	for k, v := range t.tasks_db {
+		if v == completionState {
+			delete(t.tasks_db, k)
+		}
+	}
+
+	return count
 }
 
 // Empties the tracker
@@ -123,9 +156,9 @@ func (t *Tracker) RemoveAll() {
 	t.Lock()
 	defer t.Unlock()
 
-	for k, v := range t.db_tasks {
+	for k, v := range t.tasks_db {
 		if v != TASK_STATE_RUNNING {
-			delete(t.db_tasks, k)
+			delete(t.tasks_db, k)
 		}
 	}
 }
@@ -145,9 +178,9 @@ func (t *Tracker) ResetFromCompletionState(completionState int) error {
 		return fmt.Errorf("Cannot cancel running tasks")
 	}
 
-	for k, v := range t.db_tasks {
+	for k, v := range t.tasks_db {
 		if v == completionState {
-			delete(t.db_tasks, k)
+			delete(t.tasks_db, k)
 		}
 	}
 
@@ -159,7 +192,7 @@ func (t *Tracker) GetState(nv interface{}) (string, error) {
 	t.Lock()
 	defer t.Unlock()
 
-	for k, v := range t.db_tasks {
+	for k, v := range t.tasks_db {
 		if k == nv {
 			return statuses[v], nil
 		}
@@ -168,24 +201,45 @@ func (t *Tracker) GetState(nv interface{}) (string, error) {
 	return "", fmt.Errorf("Node not found")
 }
 
-// Advances the completion state of a specific task
-//
-// Returns an error if the task has reached a completion state
-func (t *Tracker) AdvanceState(nv interface{}) error {
+// Sets the state of a specific task. Returns an error if the task has not been found
+func (t *Tracker) SetState(nv interface{}, newState int) error {
 	t.Lock()
 	defer t.Unlock()
 
-	for k, v := range t.db_tasks {
-		if k == nv {
-			if v >= max_completion_state {
-				return fmt.Errorf("Cannot advance the status of this task anymore")
-			}
+	if newState < 0 || newState >= max_completion_state {
+		return fmt.Errorf("newState is out of bounds")
+	}
 
-			t.db_tasks[k]++
+	for k := range t.tasks_db {
+		if k == nv {
+			t.tasks_db[k] = newState
+			return nil
 		}
 	}
 
-	return nil
+	return fmt.Errorf("Node not found")
+}
+
+// Advances the completion state of a specific task
+//
+// Returns an error if the task has reached a completion state and the updated state value
+func (t *Tracker) AdvanceState(nv interface{}) (int, error) {
+	t.Lock()
+	defer t.Unlock()
+
+	for k, v := range t.tasks_db {
+		if k == nv {
+			if v >= max_completion_state {
+				return -1, fmt.Errorf("Cannot advance the status of this task anymore")
+			}
+
+			t.tasks_db[k]++
+			return t.tasks_db[k], nil
+
+		}
+	}
+
+	return -1, nil
 }
 
 // Regresses the completion state of a specific task
@@ -195,13 +249,13 @@ func (t *Tracker) RegressState(nv interface{}) error {
 	t.Lock()
 	defer t.Unlock()
 
-	for k, v := range t.db_tasks {
+	for k, v := range t.tasks_db {
 		if k == nv {
 			if v <= 0 {
 				return fmt.Errorf("Cannot regress the status of this task anymore")
 			}
 
-			t.db_tasks[k]--
+			t.tasks_db[k]--
 		}
 	}
 
@@ -215,13 +269,13 @@ func (t *Tracker) ResetState(nv interface{}) error {
 	t.Lock()
 	defer t.Unlock()
 
-	for k, v := range t.db_tasks {
+	for k, v := range t.tasks_db {
 		if k == nv {
 			if v == TASK_STATE_RUNNING {
 				return fmt.Errorf("Cannot reset an already running task")
 			}
 
-			t.db_tasks[k] = TASK_STATE_QUEUED
+			t.tasks_db[k] = TASK_STATE_QUEUED
 		}
 	}
 

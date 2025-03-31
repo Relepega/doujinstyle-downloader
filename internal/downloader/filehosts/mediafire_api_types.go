@@ -1,4 +1,4 @@
-package hosts
+package filehosts
 
 /*
 	https://www.mediafire.com/api/1.5/folder/get_content.php?content_type=CONTENT_TYPE&version=1.5&folder_key=FOLDER_KEY&response_format=json

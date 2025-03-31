@@ -9,8 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
-	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 	ssehub "github.com/relepega/doujinstyle-downloader/internal/webserver/SSEHub"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
 )
@@ -21,7 +20,7 @@ const (
 	InternalGroup = APIGroup + "/internal"
 )
 
-type webserver struct {
+type Webserver struct {
 	address string
 	port    uint16
 
@@ -30,12 +29,19 @@ type webserver struct {
 
 	templates *templates.Templates
 
-	msgChan chan *SSEEvents.SSEMessage
+	msgChan chan string
 
-	q *taskQueue.Queue
+	ctx context.Context
+
+	UserData interface{}
 }
 
-func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserver {
+func NewWebServer(
+	address string,
+	port uint16,
+	ctx context.Context,
+	userData interface{},
+) *Webserver {
 	server := &http.Server{}
 
 	t, err := templates.NewTemplates()
@@ -51,13 +57,15 @@ func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserve
 		return fmt.Sprintf("%d", time.Now().Unix())
 	})
 
+	t.AddFunction("GetStateStr", dsdl.GetStateStr)
+
 	dir := filepath.Join(".", "views", "templates")
 	err = t.ParseGlob(fmt.Sprintf("%s/*.tmpl", dir))
 	if err != nil {
 		log.Fatalln("Templates parsing error:", err)
 	}
 
-	webServer := &webserver{
+	webServer := &Webserver{
 		address: address,
 		port:    port,
 
@@ -65,15 +73,17 @@ func NewWebServer(address string, port uint16, queue *taskQueue.Queue) *webserve
 
 		templates: t,
 
-		q: queue,
+		ctx: ctx,
+
+		UserData: userData,
 	}
 
-	webServer.msgChan = make(chan *SSEEvents.SSEMessage)
+	webServer.msgChan = make(chan string)
 
 	return webServer
 }
 
-func (ws *webserver) buildRoutes() *http.ServeMux {
+func (ws *Webserver) buildRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	cssDir := http.Dir(filepath.Join(".", "views", "css"))
@@ -83,29 +93,34 @@ func (ws *webserver) buildRoutes() *http.ServeMux {
 	mux.Handle("/css/", http.StripPrefix("/css/", http.FileServer(cssDir)))
 	mux.Handle("/js/", http.StripPrefix("/js/", http.FileServer(jsDir)))
 
-	// POST   /tasks/add { ids: []string }
-	// DELETE /tasks/delete { mode: "single"|"queued"|"failed"|"succeeded", ids: []string }
-	// PATCH  /tasks/update { mode: "single"|"failed", ids: []string }
+	// POST   /task { ids: []string }
+	mux.HandleFunc(fmt.Sprintf("POST %s/task", APIGroup), ws.handleTaskAdd)
+	// PATCH  /task { mode: "single|multiple|failed", ids: []string }
+	mux.HandleFunc(fmt.Sprintf("PATCH %s/task", APIGroup), ws.handleTaskUpdateState)
+	// DELETE /task { mode: "single|multiple|queued|failed|succeeded", ids: []string }
+	mux.HandleFunc(fmt.Sprintf("DELETE %s/task", APIGroup), ws.handleTaskRemove)
+
+	mux.HandleFunc("GET /events-stream", ws.handleEventStream)
 
 	mux.HandleFunc("/", ws.handleIndexRoute)
 
-	// maintainance
+	// maintenance
 	mux.HandleFunc(fmt.Sprintf("POST %s/restart", InternalGroup), ws.handleRestartServer)
 
 	return mux
 }
 
-func (ws *webserver) Start(ctx context.Context) error {
+func (ws *Webserver) Start() error {
 	defer close(ws.msgChan)
 
 	mux := ws.buildRoutes()
-
-	// go ws.SSEMsgBroker()
 
 	netAddr := fmt.Sprintf("%s:%d", ws.address, ws.port)
 
 	ws.httpServer.Addr = netAddr
 	ws.httpServer.Handler = mux
+
+	go ws.sseMessageBroker()
 
 	// Start the server in a goroutine
 	go func() {
@@ -119,7 +134,7 @@ func (ws *webserver) Start(ctx context.Context) error {
 
 	// Wait for either the context to be cancelled or for the server to stop serving new connections
 	select {
-	case <-ctx.Done():
+	case <-ws.ctx.Done():
 		// Context was cancelled, start the graceful shutdown
 		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownRelease()
@@ -131,4 +146,12 @@ func (ws *webserver) Start(ctx context.Context) error {
 		log.Println("Graceful webserver shutdown complete.")
 		return nil
 	}
+}
+
+func (ws *Webserver) GetSSEMessageChan() *chan string {
+	return &ws.msgChan
+}
+
+func (ws *Webserver) GetTemplates() templates.Templates {
+	return *ws.templates
 }

@@ -1,4 +1,4 @@
-package services
+package aggregators
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"github.com/playwright-community/playwright-go"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 )
 
 const (
@@ -15,49 +16,47 @@ const (
 	SDO_INVALID_TYPE_ERR = "value is not a string:"
 )
 
-type sukidesuost struct {
-	Service
+type SukiDesuOST struct {
+	dsdl.Aggregator
 
-	urlSlug string
+	url  string
+	page playwright.Page
 }
 
-func newSukidesuost(mediaID string) Service {
-	return &sukidesuost{
-		urlSlug: mediaID,
-	}
-}
-
-func (sdo *sukidesuost) OpenServicePage(ctx *playwright.BrowserContext) (playwright.Page, error) {
-	p, err := (*ctx).NewPage()
-	if err != nil {
-		return nil, fmt.Errorf("could not create page: %v", err)
-	}
-
+func NewSukiDesuOst(slug string, p playwright.Page) dsdl.AggregatorImpl {
 	var url string
 
-	if strings.Contains(sdo.urlSlug, SDO_HOSTNAME) {
-		if strings.HasPrefix(sdo.urlSlug, "http") {
-			url = sdo.urlSlug
+	if strings.Contains(slug, SDO_HOSTNAME) {
+		if strings.HasPrefix(slug, "http") {
+			url = slug
 		} else {
-			url = "https://" + sdo.urlSlug
+			url = "https://" + slug
 		}
 	} else {
-		url = SDO_ALBUM_URL + sdo.urlSlug
+		url = SDO_ALBUM_URL + slug
 	}
 
-	_, err = p.Goto(url, playwright.PageGotoOptions{
-		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not open sukidesuost page: %v", err)
+	return &SukiDesuOST{
+		page: p,
+		url:  url,
 	}
-
-	return p, nil
 }
 
-func (sdo *sukidesuost) CheckDMCA(p playwright.Page) (bool, error) {
-	valInterface, _ := p.Evaluate(
-		"() => document.querySelector('.jeg_404_content') ? true : false",
+func (s *SukiDesuOST) Url() string {
+	return s.url
+}
+
+func (s *SukiDesuOST) Slug() string {
+	return s.page.URL()[len(SDO_ALBUM_URL):]
+}
+
+func (s *SukiDesuOST) Page() playwright.Page {
+	return s.page
+}
+
+func (sdo *SukiDesuOST) Is404() (bool, error) {
+	valInterface, _ := sdo.page.Evaluate(
+		"document.querySelector('.jeg_404_content') ? true : false",
 	)
 	val, ok := valInterface.(bool)
 
@@ -65,15 +64,11 @@ func (sdo *sukidesuost) CheckDMCA(p playwright.Page) (bool, error) {
 		return false, fmt.Errorf("Could not convert value: %v", val)
 	}
 
-	if val {
-		return true, nil
-	}
-
-	return false, nil
+	return val, nil
 }
 
-func (sdo *sukidesuost) EvaluateFilename(p playwright.Page) (string, error) {
-	valInterface, err := p.Evaluate("document.querySelector('.jeg_post_title').innerText")
+func (sdo *SukiDesuOST) EvaluateFileName() (string, error) {
+	valInterface, err := sdo.page.Evaluate("document.querySelector('.jeg_post_title').innerText")
 	if err != nil {
 		return "", err
 	}
@@ -86,7 +81,7 @@ func (sdo *sukidesuost) EvaluateFilename(p playwright.Page) (string, error) {
 	filename := appUtils.SanitizePath(strings.ReplaceAll(fn, " – ", " — "))
 	filename = appUtils.SanitizePath(strings.ReplaceAll(filename, " - ", " — "))
 
-	audioFormatsInterface, err := p.Evaluate(
+	audioFormatsInterface, err := sdo.page.Evaluate(
 		"document.querySelector('.content-inner > p:nth-child(3)').childNodes[0].data.split(': ')[1]",
 	)
 	if err != nil {
@@ -104,7 +99,11 @@ func (sdo *sukidesuost) EvaluateFilename(p playwright.Page) (string, error) {
 	return filename, nil
 }
 
-func (sdo *sukidesuost) OpenDownloadPage(servicePage playwright.Page) (playwright.Page, error) {
+func (sdo *SukiDesuOST) EvaluateFileExt() (string, error) {
+	return "", fmt.Errorf(dsdl.AGGR_ERR_UNAVAILABLE_FT)
+}
+
+func (sdo *SukiDesuOST) EvaluateDownloadPage() (playwright.Page, error) {
 redoIfInvalid:
 	jsSelectors := []string{
 		"document.querySelector('.content-inner > ul > li > a').href",
@@ -123,7 +122,7 @@ redoIfInvalid:
 	dlUrl := ""
 
 	for _, selector := range jsSelectors {
-		dlUrlInterface, err := servicePage.Evaluate(selector)
+		dlUrlInterface, err := sdo.page.Evaluate(selector)
 		if err != nil {
 			continue
 		}
@@ -144,11 +143,11 @@ redoIfInvalid:
 	}
 
 	if strings.Contains(dlUrl, "cuty.io") {
-		_, _ = servicePage.Reload()
+		_, _ = sdo.page.Reload()
 		goto redoIfInvalid
 	}
 
-	dlPage, err := servicePage.Context().NewPage()
+	dlPage, err := sdo.page.Context().NewPage()
 	if err != nil {
 		return nil, err
 	}

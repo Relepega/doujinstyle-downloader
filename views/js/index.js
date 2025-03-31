@@ -11,22 +11,20 @@ document.addEventListener('DOMContentLoaded', () => {
 serviceSelect.addEventListener('change', () => {
 	localStorage.setItem('LastSelectedService', serviceSelect.value)
 })
-
+    
 /**
  *
  * @param {string} method
- * @param {string} albumID
- * @param {string} groupAction
+ * @param {string[]} ids
+ * @param {string} mode
  *
  */
-async function taskAction(method, albumID, groupAction) {
-	const res = await fetch('/api/task', {
-		method: method,
-		body: JSON.stringify({
-			AlbumID: albumID,
-			GroupAction: groupAction,
-		}),
-	})
+async function taskAction(method, ids, mode) {
+    let data = new FormData()
+    data.append("IDs", ids)
+    data.append("Mode", mode)
+
+	const res = await fetch('/api/task', { method: method, body: data })
 
 	if (!res.ok) {
 		const text = await res.text()
@@ -34,37 +32,55 @@ async function taskAction(method, albumID, groupAction) {
 	}
 }
 
+function aggregateNodeIDFromEnded() {
+    let ids = ''
+
+    const nodes = document.querySelector('#ended').childNodes
+
+    nodes.forEach((node, idx) => {
+        if (idx == 0 || idx == nodes.length - 1) return
+
+        if (ids === '') {
+            ids = node.id
+        } else {
+            ids += '|' + node.id
+        }
+    })
+
+    return ids
+}
+
 document.addEventListener('click', async function (evt) {
 	// console.log(evt)
 	switch (evt.target.id) {
 		case 'clear-queued': {
-			await taskAction('DELETE', '', 'clear-queued')
+			await taskAction('DELETE', '', 'queued')
 			break
 		}
 
 		case 'clear-all-completed': {
-			taskAction('DELETE', '', 'clear-all-completed')
+			await taskAction('DELETE', '', 'completed')
 			break
 		}
 
 		case 'clear-success-completed': {
-			await taskAction('DELETE', '', 'clear-success-completed')
+			await taskAction('DELETE', '', 'succeeded')
 			break
 		}
 
 		case 'clear-fail-completed': {
-			await taskAction('DELETE', '', 'clear-fail-completed')
+			await taskAction('DELETE', '', 'failed')
 			break
 		}
 
 		case 'retry-fail-completed': {
-			await taskAction('DELETE', '', 'retry-fail-completed')
+			await taskAction('PATCH', '', 'failed')
 			break
 		}
 
 		case 'task-ctrl-remove-task': {
-			const albumID = evt.target.attributes['data-id'].value
-			await taskAction('DELETE', albumID, '')
+			const taskID = evt.target.attributes['data-id'].value
+			await taskAction('DELETE', taskID, 'single')
 			break
 		}
 
@@ -79,10 +95,11 @@ document.addEventListener('click', async function (evt) {
 		}
 
 		case 'task-ctrl-retry': {
-			const albumID = evt.target.attributes['data-id'].value
+			const id = evt.target.attributes['data-id'].value
 
 			const formData = new FormData()
-			formData.append('AlbumID', albumID)
+			formData.append('IDs', id)
+            formData.append('Mode', 'single')
 
 			await fetch('/api/task', { method: 'PATCH', body: formData }).then(
 				async (res) => {
@@ -116,7 +133,7 @@ document
 		const formData = new FormData(form)
 		await fetch('/api/task', { method: 'POST', body: formData })
 
-		form.AlbumID.value = ''
+		form.Slugs.value = ''
 	})
 
 document
@@ -148,15 +165,15 @@ source.addEventListener('message', function (event) {
 })
 
 source.addEventListener('new-task', function (event) {
-	// console.log('new task', event)
+	//console.log('new task', event)
 	// https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML
 	document
 		.getElementById('queued')
 		.insertAdjacentHTML('beforeend', event.data)
 })
 
-source.addEventListener('remove-task', function (event) {
-	// console.log('to remove: ', event.data)
+source.addEventListener('remove-node', function (event) {
+	//console.log('to remove: ', event.data)
 	const node = document.getElementById(event.data)
 
 	if (!node) {
@@ -169,23 +186,23 @@ source.addEventListener('remove-task', function (event) {
 
 source.addEventListener('replace-node', function (event) {
 	const data = JSON.parse(event.data)
-	// console.log('replace-node parsed data: ', data)
+	//console.log('replace-node parsed data: ', data)
 
-	const node = document.getElementById(data.targetNodeID)
+	const node = document.getElementById(data.TargetNodeID)
 	if (node) {
 		node.remove()
 	}
 
 	document
-		.querySelector(data.receiverNode)
-		.insertAdjacentHTML(data.position, data.newContent)
+		.querySelector(data.ReceiverNodeSelector)
+		.insertAdjacentHTML(data.Position, data.NewContent)
 })
 
-source.addEventListener('replace-node-content', function (event) {
+source.addEventListener('update-node-content', function (event) {
 	const data = JSON.parse(event.data)
-	// console.log('replace-node-content parsed data: ', data)
+	//console.log('replace-node-content parsed data: ', data)
 
-	document.getElementById(data.receiverNode).innerHTML = data.newContent
+	document.getElementById(data.ReceiverNodeSelector).innerHTML = data.NewContent
 })
 
 source.addEventListener('error', async function (event) {

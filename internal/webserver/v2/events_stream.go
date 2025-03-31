@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (ws *webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
+func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -18,11 +18,8 @@ func (ws *webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case msg := <-ws.msgChan:
-			s := msg.String()
-
-			// fmt.Fprintf(w, s)
-			// w.(http.Flusher).Flush()
-			ws.connections.Broadcast(s)
+			// fmt.Println(s)
+			ws.connections.Broadcast(msg)
 
 		case <-r.Context().Done():
 			ws.connections.Removeclient(client)

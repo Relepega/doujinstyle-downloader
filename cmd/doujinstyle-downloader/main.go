@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -12,21 +10,21 @@ import (
 	"github.com/playwright-community/playwright-go"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
-	"github.com/relepega/doujinstyle-downloader/internal/configManager"
+	"github.com/relepega/doujinstyle-downloader/internal/initters"
 	"github.com/relepega/doujinstyle-downloader/internal/logger"
-	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
-	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
-	"github.com/relepega/doujinstyle-downloader/internal/store"
-	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
-	"github.com/relepega/doujinstyle-downloader/internal/webserver"
+	webserver "github.com/relepega/doujinstyle-downloader/internal/webserver/v2"
 )
 
 func main() {
 	defer log.Println("---------- SESSION END ----------")
 
+	// init context for graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	// init logger
 	logdir := filepath.Join(".", "Logs")
-	err := appUtils.CreateFolder(logdir)
+	err := appUtils.MkdirAll(logdir)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -43,86 +41,21 @@ func main() {
 		log.Fatalf("Couldn't install playwright dependencies: %v", err)
 	}
 
-	fmt.Print("\033[H\033[2J")
+	// clear screen
+	// fmt.Print("\033[H\033[2J")
 
-	// init config
-	cfg := configManager.NewConfig()
-
-	err = cfg.Load()
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		log.Fatal(err)
-	}
-
-	err = cfg.Save()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// set config to the store value
-	store.GetStore().Set("app-config", cfg)
-
-	// create download folder
-	err = appUtils.CreateFolder(cfg.Download.Directory)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// "clean" temp dir
-	tempdir := cfg.App.Tempdir
-	store.GetStore().Set("tempdir", tempdir)
-
-	exists, err := appUtils.DirectoryExists(tempdir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if exists {
-		err = os.RemoveAll(tempdir)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	err = appUtils.CreateAppTempDir(tempdir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Init new default event publisher
-	pub := pubsub.NewGlobalPublisher("sse")
-
-	// init context for graceful shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
-	// init playwright
-	pwc, err := playwrightWrapper.UsePlaywright("firefox", !cfg.Dev.PlaywrightDebug, 0.0)
-	defer func() {
-		_ = pwc.Close()
-	}()
-
-	// init and run queue
-	q := taskQueue.NewQueue(cfg.Download.ConcurrentJobs, pub)
+	// init modules
+	cfg := initters.InitConfig()
+	engine := initters.InitEngine(cfg, ctx)
+	server := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, ctx, engine)
 
 	go func() {
+		err := server.Start()
 		if err != nil {
-			log.Fatal(err)
-		}
-
-		q.Run(ctx, pwc)
-	}()
-
-	// init and run webserver
-	webserver := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, q)
-
-	go func() {
-		err := webserver.Start(ctx)
-		if err != nil {
-			log.Fatal(err)
+			log.Fatalln("App did not shut down correctly:", err)
 		}
 	}()
 
-	// graceful shutdown
 	<-ctx.Done()
 
 	log.Println("App shut down successfully")
