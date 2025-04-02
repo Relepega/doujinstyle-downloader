@@ -1,8 +1,8 @@
-// The package implements a Queue, a Task Tracker and a Wrapper to keep both in sync
+// The package implements a Queue, a Task Database and a Wrapper to keep both in sync
 //
-// Queue: A basic queue implementation based on a doubly linked-list.
+// Queue: A basic queue implementation based on a doubly linked-lisdb.
 //
-// Tracker: A map that keeps track of the progress of every task added in it.
+// Database: A map that keeps track of the progress of every task added in idb.
 //
 // TQWrapper: The recommended way of interacting with the package functionality if you need both queuing and tracking functionality.
 //
@@ -14,23 +14,25 @@ import (
 	"fmt"
 	"log"
 	"sync"
+
+	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 )
 
 const ERR_NO_RES_FOUND = "No results found"
 
 type (
 	// function that is responsible to automatically run the queue
-	QueueRunner func(tq *TQProxy, stop <-chan struct{}, opts interface{}) error
+	QueueRunner func(tq *TQProxy, stop <-chan struct{}, opts any) error
 )
 
-// A TQProxy is a proxy that contains both Queue and Tracker instances.
+// A TQProxy is a proxy that contains both Queue and Database instances.
 //
 // This is the recommended way of using the package with a high chance to avoid a race condition.
 type TQProxy struct {
 	sync.Mutex
 
-	q *Queue
-	t *Tracker
+	q  *Queue
+	db database.DB
 
 	// starter function
 	qRunner QueueRunner
@@ -39,7 +41,7 @@ type TQProxy struct {
 	// whether the qRunner function is running or not
 	isQueueRunning bool
 	// compares every value in the DB (item) to the targt (user value)
-	comparatorFn func(item, target interface{}) bool
+	comparatorFn func(item, target any) bool
 
 	// parent context
 	ctx context.Context
@@ -53,15 +55,17 @@ type TQProxy struct {
 //
 //     and is responsible to automagically run the queue tasks.
 //
+//   - dbType DBType: Type of database you want to use. If invalid, returns the default in-memory one.
+//
 //     To run the QueueRunner function you musk invoke the [*TQProxy.RunQueue] function
-func NewTQWrapper(fn QueueRunner, ctx context.Context) *TQProxy {
+func NewTQWrapper(dbType database.DBType, fn QueueRunner, ctx context.Context) *TQProxy {
 	proxy := &TQProxy{
 		q:              NewQueue(),
-		t:              NewTracker(),
+		db:             database.GetNewDatabase(dbType),
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
 		isQueueRunning: false,
-		comparatorFn: func(item, target interface{}) bool {
+		comparatorFn: func(item, target any) bool {
 			return item == target
 		},
 	}
@@ -72,14 +76,19 @@ func NewTQWrapper(fn QueueRunner, ctx context.Context) *TQProxy {
 }
 
 // same thing as NewTQWrapper, but this has to be called from dsdl engine
-func newTQWrapperFromEngine(fn QueueRunner, ctx context.Context, dsdl *DSDL) *TQProxy {
+func newTQWrapperFromEngine(
+	dbType database.DBType,
+	fn QueueRunner,
+	ctx context.Context,
+	dsdl *DSDL,
+) *TQProxy {
 	proxy := &TQProxy{
 		q:              NewQueue(),
-		t:              NewTracker(),
+		db:             database.GetNewDatabase(dbType),
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
 		isQueueRunning: false,
-		comparatorFn: func(item, target interface{}) bool {
+		comparatorFn: func(item, target any) bool {
 			return item == target
 		},
 	}
@@ -94,9 +103,9 @@ func (tq *TQProxy) GetQueue() *Queue {
 	return tq.q
 }
 
-// GetTracker returns the underlying pointer to the Tracker instance
-func (tq *TQProxy) GetTracker() *Tracker {
-	return tq.t
+// GetDatabase returns the underlying pointer to the Database instance
+func (tq *TQProxy) GetDatabase() database.DB {
+	return tq.db
 }
 
 // RunQueue: Function responsible to launch the qRunner function
@@ -108,8 +117,8 @@ func (tq *TQProxy) GetTracker() *Tracker {
 //     that is used to run the queue. This can be a null and has
 //
 //     to be casted into the proper type inside the runner fn.
-func (tq *TQProxy) RunQueue(opts interface{}) {
-	go func(tq *TQProxy, stop chan struct{}, opts interface{}) {
+func (tq *TQProxy) RunQueue(opts any) {
+	go func(tq *TQProxy, stop chan struct{}, opts any) {
 		err := tq.qRunner(tq, stop, opts)
 		if err != nil {
 			log.Fatalf("RunQueue: %v", err)
@@ -143,7 +152,7 @@ func (tq *TQProxy) IsQueueRunning() bool {
 // Sets a different default comparator function.
 //
 // Use it if the defualt comparator function isn't working as expected
-func (tq *TQProxy) SetComparatorFunc(newComparator func(item, target interface{}) bool) {
+func (tq *TQProxy) SetComparatorFunc(newComparator func(item, target any) bool) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -163,13 +172,16 @@ func (tq *TQProxy) Enqueue(n *Node) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	alreadyExists := tq.t.Get(n.Value())
+	alreadyExists, err := tq.db.Get(n.Value())
+	if err != nil {
+		return err
+	}
 	if alreadyExists {
 		return fmt.Errorf("A node with an equal value already exists")
 	}
 
 	tq.q.Enqueue(n)
-	tq.t.Add(n.Value())
+	tq.db.Add(n.Value())
 
 	return nil
 }
@@ -181,11 +193,15 @@ func (tq *TQProxy) Enqueue(n *Node) error {
 // Returns:
 //
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) EnqueueFromValue(value interface{}) (interface{}, error) {
+func (tq *TQProxy) EnqueueFromValue(value any) (any, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	for k := range tq.t.tasks_db {
+	tasks, err := tq.db.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for k := range tasks {
 		if tq.comparatorFn(k, value) {
 			return value, fmt.Errorf("A node with an equal value already exists")
 		}
@@ -194,7 +210,7 @@ func (tq *TQProxy) EnqueueFromValue(value interface{}) (interface{}, error) {
 	n := NewNode(value)
 
 	tq.q.Enqueue(n)
-	tq.t.Add(value)
+	tq.db.Add(value)
 
 	return value, nil
 }
@@ -207,13 +223,17 @@ func (tq *TQProxy) EnqueueFromValue(value interface{}) (interface{}, error) {
 //
 //   - error: returned when a Node with an equal value is found in the tracker
 func (tq *TQProxy) EnqueueFromValueWithComparator(
-	value interface{},
-	comp func(item, target interface{}) bool,
+	value any,
+	comp func(item, target any) bool,
 ) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	for k := range tq.t.tasks_db {
+	tasks, err := tq.db.GetAll()
+	if err != nil {
+		return err
+	}
+	for k := range tasks {
 		if comp(k, value) {
 			return fmt.Errorf("A node with an equal value already exists")
 		}
@@ -222,7 +242,7 @@ func (tq *TQProxy) EnqueueFromValueWithComparator(
 	n := NewNode(value)
 
 	tq.q.Enqueue(n)
-	tq.t.Add(value)
+	tq.db.Add(value)
 
 	return nil
 }
@@ -241,11 +261,15 @@ func (tq *TQProxy) EnqueueFromValueWithComparator(
 //   - found: if task is found in the db
 //   - task:  task corresponding to the comparator returning a truthy value
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) Find(target interface{}) (bool, interface{}, error) {
+func (tq *TQProxy) Find(target any) (bool, any, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	for k := range tq.t.tasks_db {
+	tasks, err := tq.db.GetAll()
+	if err != nil {
+		return false, nil, err
+	}
+	for k := range tasks {
 		if tq.comparatorFn(k, target) {
 			return true, k, nil
 		}
@@ -257,18 +281,22 @@ func (tq *TQProxy) Find(target interface{}) (bool, interface{}, error) {
 // Returns all the values with the matching progress state.
 //
 // Returns an error if the funciton parameter is out of bounds.
-func (tq *TQProxy) FindWithProgressState(state int) ([]interface{}, error) {
+func (tq *TQProxy) FindWithProgressState(state int) ([]any, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	var nodes []interface{}
+	var nodes []any
 
-	if state < 0 || state >= max_completion_state {
+	if state < 0 || state >= database.MaxCompletionState() {
 		return nodes, fmt.Errorf("State is not a value within constraints")
 	}
 
-	for k, v := range tq.t.tasks_db {
-		if v == state {
+	tasks, err := tq.db.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for k := range tasks {
+		if k == state {
 			nodes = append(nodes, k)
 		}
 	}
@@ -283,13 +311,17 @@ func (tq *TQProxy) FindWithProgressState(state int) ([]interface{}, error) {
 //   - task:   task corresponding to the comparator returning a truthy value
 //   - error: returned when a Node with an equal value is found in the tracker
 func (tq *TQProxy) FindWithComparator(
-	target interface{},
-	comp func(item, target interface{}) bool,
-) (interface{}, error) {
+	target any,
+	comp func(item, target any) bool,
+) (any, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	for k := range tq.t.tasks_db {
+	tasks, err := tq.db.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for k := range tasks {
 		if comp(k, target) {
 			return k, nil
 		}
@@ -299,27 +331,27 @@ func (tq *TQProxy) FindWithComparator(
 }
 
 // Removes the node at the HEAD of the queue and returns its value
-func (tq *TQProxy) Dequeue() (interface{}, error) {
+func (tq *TQProxy) Dequeue() (any, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
 	return tq.q.Dequeue()
 }
 
-// Removes a node from the Tracker by value
+// Removes a node from the Database by value
 //
 // Params:
 //
-//   - v interface{}: Value of the node that will be removed
+//   - v any: Value of the node that will be removed
 //
 // Returns:
 //
-//   - error: Tracker fails to remove the node
-func (tq *TQProxy) Remove(v interface{}) error {
+//   - error: Database fails to remove the node
+func (tq *TQProxy) Remove(v any) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	tq.q.Remove(v, func(val1, val2 interface{}) bool {
+	tq.q.Remove(v, func(val1, val2 any) bool {
 		if val1 == val2 {
 			return true
 		}
@@ -327,12 +359,12 @@ func (tq *TQProxy) Remove(v interface{}) error {
 		return false
 	})
 
-	err := tq.t.Remove(v)
+	err := tq.db.Remove(v)
 
 	return err
 }
 
-// Removes a task from the Tracker by state
+// Removes a task from the Database by state
 //
 // Returns:
 //
@@ -345,11 +377,14 @@ func (tq *TQProxy) RemoveFromState(completionState int) (int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	if completionState < 0 || completionState >= max_completion_state {
+	if completionState < 0 || completionState >= database.MaxCompletionState() {
 		return 0, fmt.Errorf("Completion state out of range")
 	}
 
-	count := tq.t.RemoveFromState(completionState)
+	count, err := tq.db.RemoveFromState(completionState)
+	if err != nil {
+		return 0, err
+	}
 	if count == -1 {
 		return 0, fmt.Errorf("Completion state out of range")
 	}
@@ -357,19 +392,19 @@ func (tq *TQProxy) RemoveFromState(completionState int) (int, error) {
 	return count, nil
 }
 
-// Removes a node from the Tracker by value
+// Removes a node from the Database by value
 //
 // Params:
 //
-//   - v interface{}: User value
-//   - comp function(v1 interface{}, v2 interface{}) bool: comparator function. The second param is the user value
+//   - v any: User value
+//   - comp function(v1 any, v2 any) bool: comparator function. The second param is the user value
 //
 // Returns:
 //
-//   - error: Tracker fails to remove the node
+//   - error: Database fails to remove the node
 func (tq *TQProxy) RemoveWithComparator(
-	v interface{},
-	comp func(item, target interface{}) bool,
+	v any,
+	comp func(item, target any) bool,
 ) error {
 	tq.Lock()
 	defer tq.Unlock()
@@ -380,9 +415,13 @@ func (tq *TQProxy) RemoveWithComparator(
 		return fmt.Errorf("Match found but couldn't remove it")
 	}
 
-	for k := range tq.GetTracker().tasks_db {
+	tasks, err := tq.db.GetAll()
+	if err != nil {
+		return err
+	}
+	for k := range tasks {
 		if comp(k, v) {
-			delete(tq.GetTracker().tasks_db, k)
+			tq.db.Remove(k)
 		}
 	}
 
@@ -392,31 +431,33 @@ func (tq *TQProxy) RemoveWithComparator(
 // Advances a task's state by finding it by value and incrementing its state.
 //
 // Returns an error when the state cannot be incremented anymore or the task cannot be found and the updated state value.
-func (tq *TQProxy) AdvanceTaskState(v interface{}) (int, error) {
+func (tq *TQProxy) AdvanceTaskState(v any) (int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	return tq.t.AdvanceState(v)
+	return tq.db.AdvanceState(v)
 }
 
 // Regresses a task's state by finding it by value and decrementing its state.
 //
 // Returns an error when the state cannot be decremented anymore or the task cannot be found or the task is in a running state.
-func (tq *TQProxy) RegressTaskState(v interface{}) error {
+func (tq *TQProxy) RegressTaskState(v any) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	return tq.t.RegressState(v)
+	_, err := tq.db.RegressState(v)
+
+	return err
 }
 
 // Resets a task's state by finding it by value, resets it and appends the task as last element of the queue.
 //
 // Returns an error when the task cannot be found or the task is in a running state.
-func (tq *TQProxy) ResetTaskState(v interface{}) error {
+func (tq *TQProxy) ResetTaskState(v any) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	err := tq.t.SetState(v, TASK_STATE_QUEUED)
+	err := tq.db.SetState(v, database.TASK_STATE_QUEUED)
 	if err != nil {
 		return err
 	}
@@ -435,21 +476,21 @@ func (tq *TQProxy) GetQueueLength() int {
 }
 
 // Returns the number of tasks in the tracker
-func (tq *TQProxy) GetTrackerCount() int {
+func (tq *TQProxy) GetDatabaseCount() (int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	return tq.t.Count()
+	return tq.db.Count()
 }
 
 // Returns the number of tasks that are in a defined completion state.
 //
 // It can also return an error when the completionState is invalid
-func (tq *TQProxy) GetTrackerCountFromState(completionState int) (int, error) {
+func (tq *TQProxy) GetDatabaseCountFromState(completionState int) (int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	return tq.t.CountFromState(completionState)
+	return tq.db.CountFromState(completionState)
 }
 
 func (tq *TQProxy) Context() *DSDL {

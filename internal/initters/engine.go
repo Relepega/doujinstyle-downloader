@@ -12,6 +12,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/aggregators"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/filehosts"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
+	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
@@ -66,9 +67,9 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 		Constructor:         filehosts.NewJottacloud,
 	})
 
-	engine.NewTQProxy(queueRunner)
+	engine.NewTQProxy(database.DB_Memory, queueRunner)
 
-	engine.GetTQProxy().SetComparatorFunc(func(item, target interface{}) bool {
+	engine.GetTQProxy().SetComparatorFunc(func(item, target any) bool {
 		t := target.(*task.Task)
 		dbTask := item.(*task.Task)
 
@@ -85,7 +86,7 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	return engine
 }
 
-func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error {
+func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts any) error {
 	options, ok := opts.(*configManager.Config)
 	if !ok {
 		log.Fatalln("Options are of wrong type")
@@ -97,7 +98,7 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts interface{}) error
 			return nil
 
 		default:
-			runningCount, err := tq.GetTrackerCountFromState(dsdl.TASK_STATE_RUNNING)
+			runningCount, err := tq.GetDatabaseCountFromState(database.TASK_STATE_RUNNING)
 			if err != nil {
 				continue
 			}

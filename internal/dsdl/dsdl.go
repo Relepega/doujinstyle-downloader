@@ -7,6 +7,8 @@ import (
 	"regexp"
 
 	"github.com/playwright-community/playwright-go"
+
+	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 )
 
 type (
@@ -77,12 +79,12 @@ func NewDSDLWithBrowser(ctx context.Context, browser playwright.Browser) *DSDL {
 	return dsdl
 }
 
-func (dsdl *DSDL) NewTQProxy(fn QueueRunner) {
+func (dsdl *DSDL) NewTQProxy(dbType database.DBType, fn QueueRunner) {
 	if dsdl.Tq != nil {
 		return
 	}
 
-	dsdl.Tq = newTQWrapperFromEngine(fn, dsdl.Ctx, dsdl)
+	dsdl.Tq = newTQWrapperFromEngine(dbType, fn, dsdl.Ctx, dsdl)
 }
 
 func (dsdl *DSDL) GetTQProxy() *TQProxy {

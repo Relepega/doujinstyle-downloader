@@ -8,6 +8,7 @@ import (
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
+	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/v2/sse"
 )
@@ -83,7 +84,7 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		// add task to engine
 		err := engine.Tq.EnqueueFromValueWithComparator(
 			newTask,
-			func(item, target interface{}) bool {
+			func(item, target any) bool {
 				toCompare := item.(*task.Task)
 
 				return toCompare.Slug == newTask.Slug
@@ -142,7 +143,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 		idList := strings.Split(taskIDs, delimiter)
 
 		for _, id := range idList {
-			node, err := engine.Tq.FindWithComparator(id, func(item, target interface{}) bool {
+			node, err := engine.Tq.FindWithComparator(id, func(item, target any) bool {
 				t := item.(*task.Task)
 				id := target.(string)
 
@@ -154,7 +155,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 			}
 
 			t := node.(*task.Task)
-			t.DownloadState = dsdl.TASK_STATE_QUEUED
+			t.DownloadState = database.TASK_STATE_QUEUED
 			t.Err = nil
 
 			err = engine.Tq.ResetTaskState(node)
@@ -190,7 +191,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 
 	switch mode {
 	case "failed":
-		nodes, err := engine.Tq.FindWithProgressState(dsdl.TASK_STATE_COMPLETED)
+		nodes, err := engine.Tq.FindWithProgressState(database.TASK_STATE_COMPLETED)
 		if err != nil {
 			ws.handleError(w, err)
 		}
@@ -202,7 +203,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 				continue
 			}
 
-			t.DownloadState = dsdl.TASK_STATE_QUEUED
+			t.DownloadState = database.TASK_STATE_QUEUED
 			t.Err = nil
 
 			err := engine.Tq.ResetTaskState(node)
@@ -252,8 +253,13 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 	engine, _ := ws.UserData.(*dsdl.DSDL)
 
+	tasks, err := engine.Tq.GetDatabase().GetAll()
+	if err != nil {
+		ws.handleInternalServerError(w, r, err.Error())
+	}
+
 	sendMultiUpdate := func(division string) {
-		t, _ := ws.templates.Execute(division+"_tasks", engine.Tq.GetTracker().GetAll())
+		t, _ := ws.templates.Execute(division+"_tasks", tasks)
 
 		uievt := sse.NewUIEventBuilder().
 			Event(sse.UIEvent_ReplaceNodeContent).
@@ -278,7 +284,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		idList := strings.Split(taskIDs, delimiter)
 
 		for _, id := range idList {
-			err := engine.Tq.RemoveWithComparator(id, func(item, target interface{}) bool {
+			err := engine.Tq.RemoveWithComparator(id, func(item, target any) bool {
 				id := target.(string)
 				t := item.(*task.Task)
 
@@ -301,7 +307,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 	switch mode {
 	case "queued":
-		_, err := engine.Tq.RemoveFromState(dsdl.TASK_STATE_QUEUED)
+		_, err := engine.Tq.RemoveFromState(database.TASK_STATE_QUEUED)
 		if err != nil {
 			ws.handleError(w, err)
 			return
@@ -310,7 +316,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		sendMultiUpdate("queued")
 
 	case "completed":
-		_, err := engine.Tq.RemoveFromState(dsdl.TASK_STATE_COMPLETED)
+		_, err := engine.Tq.RemoveFromState(database.TASK_STATE_COMPLETED)
 		if err != nil {
 			ws.handleError(w, err)
 			return
@@ -320,8 +326,8 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 	case "failed":
 		err := engine.Tq.RemoveWithComparator(
-			dsdl.TASK_STATE_COMPLETED,
-			func(item, target interface{}) bool {
+			database.TASK_STATE_COMPLETED,
+			func(item, target any) bool {
 				t := item.(*task.Task)
 				state := target.(int)
 
@@ -337,8 +343,8 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 	case "succeeded":
 		err := engine.Tq.RemoveWithComparator(
-			dsdl.TASK_STATE_COMPLETED,
-			func(item, target interface{}) bool {
+			database.TASK_STATE_COMPLETED,
+			func(item, target any) bool {
 				t := item.(*task.Task)
 				state := target.(int)
 

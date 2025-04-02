@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
+	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 	ssehub "github.com/relepega/doujinstyle-downloader/internal/webserver/SSEHub"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
 )
@@ -33,14 +33,14 @@ type Webserver struct {
 
 	ctx context.Context
 
-	UserData interface{}
+	UserData any
 }
 
 func NewWebServer(
 	address string,
 	port uint16,
 	ctx context.Context,
-	userData interface{},
+	userData any,
 ) *Webserver {
 	server := &http.Server{}
 
@@ -57,7 +57,7 @@ func NewWebServer(
 		return fmt.Sprintf("%d", time.Now().Unix())
 	})
 
-	t.AddFunction("GetStateStr", dsdl.GetStateStr)
+	t.AddFunction("GetStateStr", database.GetStateStr)
 
 	dir := filepath.Join(".", "views", "templates")
 	err = t.ParseGlob(fmt.Sprintf("%s/*.tmpl", dir))

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 )
 
 type testingDataType struct {
@@ -27,7 +29,7 @@ func newTestingRunnerOpts(t int, d time.Duration) testingRunnerOptions {
 	}
 }
 
-func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) error {
+func runQ(tq *TQProxy, stop <-chan struct{}, opts any) error {
 	options := testingRunnerOptions{
 		Threads:      1,
 		TaskDuration: time.Second,
@@ -48,7 +50,7 @@ func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) error {
 			return nil
 
 		default:
-			tcount, err := tq.GetTrackerCountFromState(TASK_STATE_RUNNING)
+			tcount, err := tq.GetDatabaseCountFromState(database.TASK_STATE_RUNNING)
 			if err != nil {
 				continue
 			}
@@ -72,7 +74,7 @@ func runQ(tq *TQProxy, stop <-chan struct{}, opts interface{}) error {
 			if !ok {
 				panic("TaskRunner: Cannot convert node value into proper type\n")
 			}
-			v.state <- TASK_STATE_RUNNING
+			v.state <- database.TASK_STATE_RUNNING
 
 			go taskRunner(tq, v, options.TaskDuration)
 		}
@@ -85,7 +87,7 @@ func taskRunner(tq *TQProxy, myData *testingDataType, duration time.Duration) {
 		if err != nil {
 			panic(err)
 		}
-		myData.state <- TASK_STATE_COMPLETED
+		myData.state <- database.TASK_STATE_COMPLETED
 	}
 
 	running := false
@@ -117,7 +119,8 @@ func taskRunner(tq *TQProxy, myData *testingDataType, duration time.Duration) {
 
 func TestAddNode(t *testing.T) {
 	tq := NewTQWrapper(
-		func(tq *TQProxy, stop <-chan struct{}, opts interface{}) error { return nil },
+		-1,
+		func(tq *TQProxy, stop <-chan struct{}, opts any) error { return nil },
 		context.Background(),
 	)
 
@@ -127,29 +130,37 @@ func TestAddNode(t *testing.T) {
 	}
 
 	qlen := tq.GetQueueLength()
-	tlen := tq.GetTrackerCount()
+	tlen, err := tq.GetDatabaseCount()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if qlen != 1 {
 		t.Errorf("Queue has wrong length: has %d, should be 1", qlen)
 	}
 
 	if tlen != 1 {
-		t.Errorf("Tracker has wrong length: has %d, should be 1", qlen)
+		t.Errorf("Database has wrong length: has %d, should be 1", qlen)
 	}
 
-	status, err := tq.GetTracker().GetState(nv)
+	status, err := tq.GetDatabase().GetState(nv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if status != TASK_STATE_QUEUED_STR {
-		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_QUEUED_STR)
+	if status != database.TASK_STATE_QUEUED_STR {
+		t.Fatalf(
+			"Wrong task status: got \"%s\", expected \"%s\"",
+			status,
+			database.TASK_STATE_QUEUED_STR,
+		)
 	}
 }
 
 func TestHasNode(t *testing.T) {
 	tq := NewTQWrapper(
-		func(tq *TQProxy, stop <-chan struct{}, opts interface{}) error { return nil },
+		-1,
+		func(tq *TQProxy, stop <-chan struct{}, opts any) error { return nil },
 		context.Background(),
 	)
 
@@ -166,7 +177,7 @@ func TestHasNode(t *testing.T) {
 }
 
 func TestRunQueue(t *testing.T) {
-	tq := NewTQWrapper(runQ, context.Background())
+	tq := NewTQWrapper(-1, runQ, context.Background())
 	tq.RunQueue(newTestingRunnerOpts(1, time.Second*2))
 
 	nv, err := tq.EnqueueFromValue(&testingDataType{
@@ -185,7 +196,7 @@ func TestRunQueue(t *testing.T) {
 		t.Fatal("TestFN: Cannot convert Node value into proper type\n")
 	}
 
-	status, err := tq.GetTracker().GetState(nv)
+	status, err := tq.GetDatabase().GetState(nv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,11 +204,15 @@ func TestRunQueue(t *testing.T) {
 	// check if status is running
 	taskState := <-v.state
 
-	if taskState != TASK_STATE_RUNNING {
-		t.Fatalf("Wrong task status: got \"%d\", expected \"%d\"", taskState, TASK_STATE_RUNNING)
+	if taskState != database.TASK_STATE_RUNNING {
+		t.Fatalf(
+			"Wrong task status: got \"%d\", expected \"%d\"",
+			taskState,
+			database.TASK_STATE_RUNNING,
+		)
 	}
 
-	tcount, err := tq.GetTrackerCountFromState(TASK_STATE_RUNNING)
+	tcount, err := tq.GetDatabaseCountFromState(database.TASK_STATE_RUNNING)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,51 +227,67 @@ func TestRunQueue(t *testing.T) {
 		t.Errorf("Queue has wrong length: has %d, should be 0", qlen)
 	}
 
-	status, err = tq.GetTracker().GetState(nv)
+	status, err = tq.GetDatabase().GetState(nv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if status != TASK_STATE_RUNNING_STR {
-		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_RUNNING_STR)
+	if status != database.TASK_STATE_RUNNING_STR {
+		t.Fatalf(
+			"Wrong task status: got \"%s\", expected \"%s\"",
+			status,
+			database.TASK_STATE_RUNNING_STR,
+		)
 	}
 
 	// queue length & tracker count after the task should be done
 	taskState = <-v.state
 
 	qlen = tq.GetQueueLength()
-	tlen := tq.GetTrackerCount()
+	tlen, err := tq.GetDatabaseCount()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if qlen != 0 {
 		t.Errorf("Queue has wrong length: has %d, should be 0", qlen)
 	}
 
 	if tlen != 1 {
-		t.Errorf("Tracker has wrong length: has %d, should be 1", tlen)
+		t.Errorf("Database has wrong length: has %d, should be 1", tlen)
 	}
 
 	// check if status is completed
-	if taskState != TASK_STATE_COMPLETED {
-		t.Fatalf("Wrong task status: got \"%d\", expected \"%d\"", taskState, TASK_STATE_COMPLETED)
+	if taskState != database.TASK_STATE_COMPLETED {
+		t.Fatalf(
+			"Wrong task status: got \"%d\", expected \"%d\"",
+			taskState,
+			database.TASK_STATE_COMPLETED,
+		)
 	}
 
-	status, err = tq.GetTracker().GetState(nv)
+	status, err = tq.GetDatabase().GetState(nv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if status != TASK_STATE_COMPLETED_STR {
-		t.Fatalf("Wrong task status: got \"%s\", expected \"%s\"", status, TASK_STATE_COMPLETED_STR)
+	if status != database.TASK_STATE_COMPLETED_STR {
+		t.Fatalf(
+			"Wrong task status: got \"%s\", expected \"%s\"",
+			status,
+			database.TASK_STATE_COMPLETED_STR,
+		)
 	}
 }
 
 func TestMultipleCoroutines(t *testing.T) {
-	tq := NewTQWrapper(runQ, context.Background())
+	tq := NewTQWrapper(-1, runQ, context.Background())
 	tq.RunQueue(newTestingRunnerOpts(4, time.Second*5))
 
 	ntasks := 1000
 
-	for i := 0; i < ntasks; i++ {
+	// for i := 0; i < ntasks; i++ {
+	for i := range ntasks {
 		_, err := tq.EnqueueFromValue(&testingDataType{
 			value: i,
 			err:   nil,
@@ -272,17 +303,20 @@ func TestMultipleCoroutines(t *testing.T) {
 	time.Sleep(time.Second * 2)
 
 	qlen := tq.GetQueueLength()
-	tlen := tq.GetTrackerCount()
+	tlen, err := tq.GetDatabaseCount()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if qlen != ntasks-4 {
 		t.Errorf("Queue has wrong length: has %d, should be %d", qlen, ntasks-4)
 	}
 
 	if tlen != ntasks {
-		t.Errorf("Tracker has wrong length: has %d, should be %d", tlen, ntasks)
+		t.Errorf("Database has wrong length: has %d, should be %d", tlen, ntasks)
 	}
 
-	count, err := tq.GetTrackerCountFromState(TASK_STATE_RUNNING)
+	count, err := tq.GetDatabaseCountFromState(database.TASK_STATE_RUNNING)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +327,7 @@ func TestMultipleCoroutines(t *testing.T) {
 }
 
 func TestAbortTask(t *testing.T) {
-	tq := NewTQWrapper(runQ, context.Background())
+	tq := NewTQWrapper(-1, runQ, context.Background())
 	tq.RunQueue(newTestingRunnerOpts(4, time.Second*5))
 
 	nv1 := &testingDataType{
@@ -333,7 +367,7 @@ func TestAbortTask(t *testing.T) {
 
 	tq.StopQueue()
 
-	countDone, err := tq.GetTrackerCountFromState(TASK_STATE_COMPLETED)
+	countDone, err := tq.GetDatabaseCountFromState(database.TASK_STATE_COMPLETED)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,12 +378,13 @@ func TestAbortTask(t *testing.T) {
 }
 
 func TestCloseRunner(t *testing.T) {
-	tq := NewTQWrapper(runQ, context.Background())
+	tq := NewTQWrapper(-1, runQ, context.Background())
 	tq.RunQueue(newTestingRunnerOpts(4, time.Second*5))
 
 	ntasks := 1000
 
-	for i := 0; i < ntasks; i++ {
+	// for i := 0; i < ntasks; i++ {
+	for i := range ntasks {
 		_, err := tq.EnqueueFromValue(&testingDataType{
 			value: i,
 			err:   nil,

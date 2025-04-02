@@ -29,6 +29,15 @@ func (ws *Webserver) handleBadRequest(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Bad request, try something else..."))
 }
 
+func (ws *Webserver) handleInternalServerError(
+	w http.ResponseWriter,
+	r *http.Request,
+	data string,
+) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte(data))
+}
+
 func (ws *Webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -36,7 +45,12 @@ func (ws *Webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dsdl, _ := ws.UserData.(*dsdl.DSDL)
-	err := ws.templates.ExecuteWithWriter(w, "index", dsdl.Tq.GetTracker().GetAll())
+	db, err := dsdl.Tq.GetDatabase().GetAll()
+	if err != nil {
+		ws.handleInternalServerError(w, r, err.Error())
+	}
+
+	err = ws.templates.ExecuteWithWriter(w, "index", db)
 	if err != nil {
 		log.Fatalln(err)
 	}
