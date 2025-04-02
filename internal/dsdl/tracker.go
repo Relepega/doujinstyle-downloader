@@ -45,13 +45,13 @@ func GetStateStr(state int) string {
 type Tracker struct {
 	sync.Mutex
 
-	tasks_db map[interface{}]int
+	tasks_db map[any]int
 }
 
 // Constructor for the Tracker data type
 func NewTracker() *Tracker {
 	return &Tracker{
-		tasks_db: make(map[interface{}]int, 15), // seems a fair, arbitrary value
+		tasks_db: make(map[any]int, 15), // seems a fair, arbitrary value
 	}
 }
 
@@ -82,7 +82,7 @@ func (t *Tracker) CountFromState(completionState int) (int, error) {
 }
 
 // Adds a task to the Tracker
-func (t *Tracker) Add(nv interface{}) {
+func (t *Tracker) Add(nv any) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -90,7 +90,7 @@ func (t *Tracker) Add(nv interface{}) {
 }
 
 // Checks whether a task with an equal value is already present in the Tracker
-func (t *Tracker) Get(nv interface{}) bool {
+func (t *Tracker) Get(nv any) bool {
 	t.Lock()
 	defer t.Unlock()
 
@@ -103,7 +103,7 @@ func (t *Tracker) Get(nv interface{}) bool {
 }
 
 // Returns all the tasks in the database
-func (t *Tracker) GetAll() map[interface{}]int {
+func (t *Tracker) GetAll() map[any]int {
 	t.Lock()
 	defer t.Unlock()
 
@@ -113,7 +113,7 @@ func (t *Tracker) GetAll() map[interface{}]int {
 // Removes a task from the Tracker
 //
 // Returns an error if trying to remove a task in a running state
-func (t *Tracker) Remove(nv interface{}) error {
+func (t *Tracker) Remove(nv any) error {
 	t.Lock()
 	defer t.Unlock()
 
@@ -188,7 +188,7 @@ func (t *Tracker) ResetFromCompletionState(completionState int) error {
 }
 
 // Returns the state of a specific task. Returns an error if the task has not been found
-func (t *Tracker) GetState(nv interface{}) (string, error) {
+func (t *Tracker) GetState(nv any) (string, error) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -202,7 +202,7 @@ func (t *Tracker) GetState(nv interface{}) (string, error) {
 }
 
 // Sets the state of a specific task. Returns an error if the task has not been found
-func (t *Tracker) SetState(nv interface{}, newState int) error {
+func (t *Tracker) SetState(nv any, newState int) error {
 	t.Lock()
 	defer t.Unlock()
 
@@ -223,7 +223,7 @@ func (t *Tracker) SetState(nv interface{}, newState int) error {
 // Advances the completion state of a specific task
 //
 // Returns an error if the task has reached a completion state and the updated state value
-func (t *Tracker) AdvanceState(nv interface{}) (int, error) {
+func (t *Tracker) AdvanceState(nv any) (int, error) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -245,7 +245,7 @@ func (t *Tracker) AdvanceState(nv interface{}) (int, error) {
 // Regresses the completion state of a specific task
 //
 // Returns an error if the task has reached a queued state
-func (t *Tracker) RegressState(nv interface{}) error {
+func (t *Tracker) RegressState(nv any) error {
 	t.Lock()
 	defer t.Unlock()
 
@@ -265,7 +265,7 @@ func (t *Tracker) RegressState(nv interface{}) error {
 // Resets the state of a specific task to a queued state
 //
 // Returns an error if trying to reset the state of a task in a running state
-func (t *Tracker) ResetState(nv interface{}) error {
+func (t *Tracker) ResetState(nv any) error {
 	t.Lock()
 	defer t.Unlock()
 
