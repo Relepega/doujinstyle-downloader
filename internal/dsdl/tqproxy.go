@@ -15,7 +15,7 @@ import (
 	"log"
 	"sync"
 
-	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 )
 
 const ERR_NO_RES_FOUND = "No results found"
@@ -32,7 +32,7 @@ type TQProxy struct {
 	sync.Mutex
 
 	q  *Queue
-	db database.DB
+	db db.DB
 
 	// starter function
 	qRunner QueueRunner
@@ -58,10 +58,10 @@ type TQProxy struct {
 //   - dbType DBType: Type of database you want to use. If invalid, returns the default in-memory one.
 //
 //     To run the QueueRunner function you musk invoke the [*TQProxy.RunQueue] function
-func NewTQWrapper(dbType database.DBType, fn QueueRunner, ctx context.Context) *TQProxy {
+func NewTQWrapper(dbType db.DBType, fn QueueRunner, ctx context.Context) *TQProxy {
 	proxy := &TQProxy{
 		q:              NewQueue(),
-		db:             database.GetNewDatabase(dbType),
+		db:             db.GetNewDatabase(dbType),
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
 		isQueueRunning: false,
@@ -77,14 +77,14 @@ func NewTQWrapper(dbType database.DBType, fn QueueRunner, ctx context.Context) *
 
 // same thing as NewTQWrapper, but this has to be called from dsdl engine
 func newTQWrapperFromEngine(
-	dbType database.DBType,
+	dbType db.DBType,
 	fn QueueRunner,
 	ctx context.Context,
 	dsdl *DSDL,
 ) *TQProxy {
 	proxy := &TQProxy{
 		q:              NewQueue(),
-		db:             database.GetNewDatabase(dbType),
+		db:             db.GetNewDatabase(dbType),
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
 		isQueueRunning: false,
@@ -104,7 +104,7 @@ func (tq *TQProxy) GetQueue() *Queue {
 }
 
 // GetDatabase returns the underlying pointer to the Database instance
-func (tq *TQProxy) GetDatabase() database.DB {
+func (tq *TQProxy) GetDatabase() db.DB {
 	return tq.db
 }
 
@@ -287,7 +287,7 @@ func (tq *TQProxy) FindWithProgressState(state int) ([]any, error) {
 
 	var nodes []any
 
-	if state < 0 || state >= database.MaxCompletionState() {
+	if state < 0 || state >= db.MaxCompletionState() {
 		return nodes, fmt.Errorf("State is not a value within constraints")
 	}
 
@@ -377,7 +377,7 @@ func (tq *TQProxy) RemoveFromState(completionState int) (int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	if completionState < 0 || completionState >= database.MaxCompletionState() {
+	if completionState < 0 || completionState >= db.MaxCompletionState() {
 		return 0, fmt.Errorf("Completion state out of range")
 	}
 
@@ -457,7 +457,7 @@ func (tq *TQProxy) ResetTaskState(v any) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	err := tq.db.SetState(v, database.TASK_STATE_QUEUED)
+	err := tq.db.SetState(v, db.TASK_STATE_QUEUED)
 	if err != nil {
 		return err
 	}

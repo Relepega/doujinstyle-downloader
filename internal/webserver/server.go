@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/sse"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
 )
@@ -57,7 +57,7 @@ func NewWebServer(
 		return fmt.Sprintf("%d", time.Now().Unix())
 	})
 
-	t.AddFunction("GetStateStr", database.GetStateStr)
+	t.AddFunction("GetStateStr", db.GetStateStr)
 
 	dir := filepath.Join(".", "views", "templates")
 	err = t.ParseGlob(fmt.Sprintf("%s/*.tmpl", dir))

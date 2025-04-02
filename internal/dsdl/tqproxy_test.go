@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 )
 
 type testingDataType struct {
@@ -50,7 +50,7 @@ func runQ(tq *TQProxy, stop <-chan struct{}, opts any) error {
 			return nil
 
 		default:
-			tcount, err := tq.GetDatabaseCountFromState(database.TASK_STATE_RUNNING)
+			tcount, err := tq.GetDatabaseCountFromState(db.TASK_STATE_RUNNING)
 			if err != nil {
 				continue
 			}
@@ -74,7 +74,7 @@ func runQ(tq *TQProxy, stop <-chan struct{}, opts any) error {
 			if !ok {
 				panic("TaskRunner: Cannot convert node value into proper type\n")
 			}
-			v.state <- database.TASK_STATE_RUNNING
+			v.state <- db.TASK_STATE_RUNNING
 
 			go taskRunner(tq, v, options.TaskDuration)
 		}
@@ -87,7 +87,7 @@ func taskRunner(tq *TQProxy, myData *testingDataType, duration time.Duration) {
 		if err != nil {
 			panic(err)
 		}
-		myData.state <- database.TASK_STATE_COMPLETED
+		myData.state <- db.TASK_STATE_COMPLETED
 	}
 
 	running := false
@@ -148,11 +148,11 @@ func TestAddNode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if status != database.TASK_STATE_QUEUED_STR {
+	if status != db.TASK_STATE_QUEUED_STR {
 		t.Fatalf(
 			"Wrong task status: got \"%s\", expected \"%s\"",
 			status,
-			database.TASK_STATE_QUEUED_STR,
+			db.TASK_STATE_QUEUED_STR,
 		)
 	}
 }
@@ -204,15 +204,15 @@ func TestRunQueue(t *testing.T) {
 	// check if status is running
 	taskState := <-v.state
 
-	if taskState != database.TASK_STATE_RUNNING {
+	if taskState != db.TASK_STATE_RUNNING {
 		t.Fatalf(
 			"Wrong task status: got \"%d\", expected \"%d\"",
 			taskState,
-			database.TASK_STATE_RUNNING,
+			db.TASK_STATE_RUNNING,
 		)
 	}
 
-	tcount, err := tq.GetDatabaseCountFromState(database.TASK_STATE_RUNNING)
+	tcount, err := tq.GetDatabaseCountFromState(db.TASK_STATE_RUNNING)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,11 +232,11 @@ func TestRunQueue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if status != database.TASK_STATE_RUNNING_STR {
+	if status != db.TASK_STATE_RUNNING_STR {
 		t.Fatalf(
 			"Wrong task status: got \"%s\", expected \"%s\"",
 			status,
-			database.TASK_STATE_RUNNING_STR,
+			db.TASK_STATE_RUNNING_STR,
 		)
 	}
 
@@ -258,11 +258,11 @@ func TestRunQueue(t *testing.T) {
 	}
 
 	// check if status is completed
-	if taskState != database.TASK_STATE_COMPLETED {
+	if taskState != db.TASK_STATE_COMPLETED {
 		t.Fatalf(
 			"Wrong task status: got \"%d\", expected \"%d\"",
 			taskState,
-			database.TASK_STATE_COMPLETED,
+			db.TASK_STATE_COMPLETED,
 		)
 	}
 
@@ -271,11 +271,11 @@ func TestRunQueue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if status != database.TASK_STATE_COMPLETED_STR {
+	if status != db.TASK_STATE_COMPLETED_STR {
 		t.Fatalf(
 			"Wrong task status: got \"%s\", expected \"%s\"",
 			status,
-			database.TASK_STATE_COMPLETED_STR,
+			db.TASK_STATE_COMPLETED_STR,
 		)
 	}
 }
@@ -316,7 +316,7 @@ func TestMultipleCoroutines(t *testing.T) {
 		t.Errorf("Database has wrong length: has %d, should be %d", tlen, ntasks)
 	}
 
-	count, err := tq.GetDatabaseCountFromState(database.TASK_STATE_RUNNING)
+	count, err := tq.GetDatabaseCountFromState(db.TASK_STATE_RUNNING)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -367,7 +367,7 @@ func TestAbortTask(t *testing.T) {
 
 	tq.StopQueue()
 
-	countDone, err := tq.GetDatabaseCountFromState(database.TASK_STATE_COMPLETED)
+	countDone, err := tq.GetDatabaseCountFromState(db.TASK_STATE_COMPLETED)
 	if err != nil {
 		t.Fatal(err)
 	}

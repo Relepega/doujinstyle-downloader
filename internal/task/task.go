@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
-	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 )
 
 type Task struct {
@@ -42,7 +42,7 @@ func NewTask(slug string) *Task {
 		),
 		Slug:          slug,
 		DisplayName:   slug,
-		DownloadState: database.TASK_STATE_QUEUED,
+		DownloadState: db.TASK_STATE_QUEUED,
 		Progress:      -1,
 		Stop:          make(chan struct{}),
 	}

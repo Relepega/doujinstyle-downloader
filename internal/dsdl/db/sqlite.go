@@ -1,3 +1,3 @@
-package database
+package db
 
 // TODO: implement sqlite

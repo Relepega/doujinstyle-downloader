@@ -8,7 +8,7 @@ import (
 
 	"github.com/playwright-community/playwright-go"
 
-	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
 )
 
 type (
@@ -79,7 +79,7 @@ func NewDSDLWithBrowser(ctx context.Context, browser playwright.Browser) *DSDL {
 	return dsdl
 }
 
-func (dsdl *DSDL) NewTQProxy(dbType database.DBType, fn QueueRunner) {
+func (dsdl *DSDL) NewTQProxy(dbType db.DBType, fn QueueRunner) {
 	if dsdl.Tq != nil {
 		return
 	}

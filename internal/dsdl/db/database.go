@@ -1,4 +1,4 @@
-package database
+package db
 
 // Emun of completion states. Used to track a task's state.
 const (
