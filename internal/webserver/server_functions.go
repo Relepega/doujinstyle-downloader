@@ -1,12 +1,15 @@
-package webserver
+package v2
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
 	"syscall"
+
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 )
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
@@ -16,26 +19,44 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	return json.NewEncoder(w).Encode(v)
 }
 
-func (ws *webserver) handleNotFound(w http.ResponseWriter, r *http.Request) {
+func (ws *Webserver) handleNotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	w.Write([]byte("Not found, try something else..."))
 }
 
-func (ws *webserver) handleBadRequest(w http.ResponseWriter, r *http.Request) {
+func (ws *Webserver) handleBadRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte("Bad request, try something else..."))
 }
 
-func (ws *webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
+func (ws *Webserver) handleInternalServerError(
+	w http.ResponseWriter,
+	r *http.Request,
+	data string,
+) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte(data))
+}
+
+func (ws *Webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
 
-	ws.templates.ExecuteWithWriter(w, "index", ws.q.GetUIData())
+	dsdl, _ := ws.UserData.(*dsdl.DSDL)
+	db, err := dsdl.Tq.GetDatabase().GetAll()
+	if err != nil {
+		ws.handleInternalServerError(w, r, err.Error())
+	}
+
+	err = ws.templates.ExecuteWithWriter(w, "index", db)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
-func (ws *webserver) handleRestartServer(w http.ResponseWriter, r *http.Request) {
+func (ws *Webserver) handleRestartServer(w http.ResponseWriter, r *http.Request) {
 	self, err := os.Executable()
 	if err != nil {
 		return

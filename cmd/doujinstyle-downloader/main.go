@@ -12,7 +12,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/initters"
 	"github.com/relepega/doujinstyle-downloader/internal/logger"
-	webserver "github.com/relepega/doujinstyle-downloader/internal/webserver/v2"
+	webserver "github.com/relepega/doujinstyle-downloader/internal/webserver"
 )
 
 func main() {

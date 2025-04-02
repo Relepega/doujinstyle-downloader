@@ -1,14 +1,21 @@
-package webserver
+package v2
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
-	"github.com/relepega/doujinstyle-downloader/internal/taskQueue"
-	"github.com/relepega/doujinstyle-downloader/internal/webserver/SSEEvents"
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
+	database "github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/task"
+	"github.com/relepega/doujinstyle-downloader/internal/webserver/sse"
+)
+
+var (
+	validRemoveModes = []string{"single", "multiple", "queued", "completed", "failed", "succeeded"}
+	validUpdateModes = []string{"single", "multiple", "failed"}
 )
 
 type TaskEvent struct {
@@ -16,256 +23,344 @@ type TaskEvent struct {
 	GroupAction string `json:"GroupAction"`
 }
 
-func (ws *webserver) handleError(w http.ResponseWriter, err error) {
+func isValidMode(m string, ms []string) bool {
+	isValid := false
+	for _, v := range ms {
+		if v == m {
+			isValid = true
+		}
+	}
+
+	return isValid
+}
+
+func (ws *Webserver) handleError(w http.ResponseWriter, err error) {
 	log.Println("error: ", err)
 
-	ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+	e := sse.NewSSEBuilder().Event("error").Data(err.Error()).Build()
+	ws.msgChan <- e
 
 	w.WriteHeader(http.StatusInternalServerError)
 	fmt.Fprintln(w, err.Error())
 }
 
-func (ws *webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
-	newAlbumsFromFormValue := strings.TrimSpace(r.FormValue("AlbumID"))
-	service := r.FormValue("ServiceNumber")
+func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
+	engine, _ := ws.UserData.(*dsdl.DSDL)
 
-	albumIdDelimiter := "|"
+	slugs := r.FormValue("Slugs")
+	service := strings.TrimSpace(r.FormValue("Service"))
 
-	if newAlbumsFromFormValue == "" || newAlbumsFromFormValue == albumIdDelimiter {
+	delimiter := "|"
+
+	if slugs == "" || slugs == delimiter {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "At least one AlbumID is required")
+		fmt.Fprintln(w, "At least one Album Slug is required")
 		return
 	}
 
-	if service == "" {
+	if service == "" || !engine.IsValidAggregator(service) {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "ServiceNumber is required")
+		fmt.Fprintln(w, "Not a valid service")
 		return
 	}
 
-	albumIDList := strings.Split(newAlbumsFromFormValue, albumIdDelimiter)
+	slugList := strings.Split(slugs, delimiter)
 
-	for _, albumID := range albumIDList {
-		if albumID == "" {
+	var happenedErrors []string
+
+	for _, slug := range slugList {
+		if slug == "" {
 			continue
 		}
 
-		newTask := taskQueue.NewTask(albumID, service)
+		// set values to struct fields
+		newTask := task.NewTask(slug)
+		newTask.Aggregator = service
 
+		if strings.HasPrefix(slug, "http") {
+			newTask.AggregatorPageURL = slug
+		}
+
+		// add task to engine
+		err := engine.Tq.EnqueueFromValueWithComparator(
+			newTask,
+			func(item, target any) bool {
+				toCompare := item.(*task.Task)
+
+				return toCompare.Slug == newTask.Slug
+			},
+		)
+		if err != nil {
+			happenedErrors = append(happenedErrors, err.Error())
+			continue
+		}
+
+		// render template
 		t, err := ws.templates.Execute("task", newTask)
 		if err != nil {
-			ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
+			ws.msgChan <- sse.NewSSEBuilder().Event("error").Data(err.Error()).Build()
 
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintln(w, err.Error())
 
 			return
 		}
-
-		err = ws.q.AddTask(newTask)
-		if err != nil {
-			ws.msgChan <- SSEEvents.NewSSEMessageWithError(err)
-
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintln(w, err.Error())
-
-			return
-		}
-
-		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("new-task", t)
+		ws.msgChan <- sse.NewSSEBuilder().Event("new-task").Data(appUtils.CleanString(t)).Build()
 	}
 
+	if len(happenedErrors) != 0 {
+		ws.msgChan <- sse.NewSSEBuilder().Event("error").Data(fmt.Errorf("%+v", happenedErrors).Error()).Build()
+	}
+
+	// :)
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, albumIDList, service)
+	fmt.Fprintln(w, slugList, service, happenedErrors)
 }
 
-func (ws *webserver) handleTaskDelete(w http.ResponseWriter, r *http.Request) {
-	var data TaskEvent
+func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Request) {
+	taskIDs := r.FormValue("IDs")
+	mode := strings.TrimSpace(r.FormValue("Mode"))
+	// fmt.Println("mode", mode)
 
-	err := json.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
+	if !isValidMode(mode, validRemoveModes) {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, err)
+		fmt.Fprintln(w, "Not a valid mode")
 		return
 	}
 
-	if data.GroupAction == "" && data.AlbumID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "GroupAction or AlbumID is required")
-		return
+	engine, _ := ws.UserData.(*dsdl.DSDL)
+
+	var happenedErrors []string
+
+	if mode == "single" || mode == "multiple" {
+		delimiter := "|"
+
+		if taskIDs == "" || taskIDs == delimiter {
+			ws.handleError(w, fmt.Errorf("At least one Album ID is required"))
+			return
+		}
+
+		idList := strings.Split(taskIDs, delimiter)
+
+		for _, id := range idList {
+			node, err := engine.Tq.FindWithComparator(id, func(item, target any) bool {
+				t := item.(*task.Task)
+				id := target.(string)
+
+				return t.Id == id
+			})
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
+
+			t := node.(*task.Task)
+			t.DownloadState = database.TASK_STATE_QUEUED
+			t.Err = nil
+
+			err = engine.Tq.ResetTaskState(node)
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
+
+			tmpl, err := ws.templates.Execute("task", node)
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
+
+			uievt := sse.NewUIEventBuilder().
+				Event(sse.UIEvent_ReplaceNode).
+				TargetNodeID(id).
+				ReceiverNodeSelector("#queued").
+				Content(tmpl).
+				Position(sse.UIRenderPos_BeforeEnd).
+				Build()
+
+			ws.msgChan <- sse.NewSSEBuilder().Event("replace-node").Data(uievt).Build()
+		}
+
+		if len(happenedErrors) != 0 {
+			ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
+			return
+		}
+
+		goto retNoErr
 	}
 
-	// fmt.Println(data.AlbumID)
-
-	switch data.GroupAction {
-	case "":
-		err := ws.q.RemoveTaskFromAlbumID(data.AlbumID)
+	switch mode {
+	case "failed":
+		nodes, err := engine.Tq.FindWithProgressState(database.TASK_STATE_COMPLETED)
 		if err != nil {
 			ws.handleError(w, err)
-			return
 		}
 
-		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("remove-task", data.AlbumID)
+		for _, node := range nodes {
+			t := node.(*task.Task)
 
-	case "clear-queued":
-		ws.q.ClearQueuedTasks()
+			if t.Err == nil {
+				continue
+			}
 
-		t, err := ws.templates.Execute("queued_tasks", ws.q.GetUIData())
-		if err != nil {
-			ws.handleError(w, err)
-			return
+			t.DownloadState = database.TASK_STATE_QUEUED
+			t.Err = nil
+
+			err := engine.Tq.ResetTaskState(node)
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
+
+			tmpl, err := ws.templates.Execute("task", t)
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+				continue
+			}
+
+			uievt := sse.NewUIEventBuilder().
+				Event(sse.UIEvent_ReplaceNode).
+				TargetNodeID(t.Id).
+				ReceiverNodeSelector("#queued").
+				Content(tmpl).
+				Position(sse.UIRenderPos_BeforeEnd).
+				Build()
+
+			ws.msgChan <- sse.NewSSEBuilder().Event("replace-node").Data(uievt).Build()
 		}
 
-		renderEvt := SSEEvents.NewUIRenderEvent(
-			SSEEvents.ReplaceNodeContent,
-			"",
-			"queued",
-			t,
-			SSEEvents.AfterBegin,
-		)
-		val, err := renderEvt.String()
-		if err != nil {
-			ws.handleError(w, err)
+		if len(happenedErrors) != 0 {
+			ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
 			return
 		}
-
-		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node-content", val)
-
-	case "clear-all-completed":
-		ws.q.ClearAllCompleted()
-
-		t, err := ws.templates.Execute("ended_tasks", ws.q.GetUIData())
-		if err != nil {
-			ws.handleError(w, err)
-			return
-		}
-
-		renderEvt := SSEEvents.NewUIRenderEvent(
-			SSEEvents.ReplaceNodeContent,
-			"",
-			"ended",
-			t,
-			SSEEvents.AfterBegin,
-		)
-		val, err := renderEvt.String()
-		if err != nil {
-			ws.handleError(w, err)
-			return
-		}
-
-		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node-content", val)
-
-	case "clear-fail-completed":
-		ws.q.ClearFailedCompleted()
-
-		t, err := ws.templates.Execute("ended_tasks", ws.q.GetUIData())
-		if err != nil {
-			ws.handleError(w, err)
-			return
-		}
-
-		renderEvt := SSEEvents.NewUIRenderEvent(
-			SSEEvents.ReplaceNodeContent,
-			"",
-			"ended",
-			t,
-			SSEEvents.AfterBegin,
-		)
-		val, err := renderEvt.String()
-		if err != nil {
-			ws.handleError(w, err)
-			return
-		}
-
-		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node-content", val)
-
-	case "clear-success-completed":
-		ws.q.ClearSuccessfullyCompleted()
-
-		t, err := ws.templates.Execute("ended_tasks", ws.q.GetUIData())
-		if err != nil {
-			ws.handleError(w, err)
-			return
-		}
-
-		renderEvt := SSEEvents.NewUIRenderEvent(
-			SSEEvents.ReplaceNodeContent,
-			"",
-			"ended",
-			t,
-			SSEEvents.AfterBegin,
-		)
-		val, err := renderEvt.String()
-		if err != nil {
-			ws.handleError(w, err)
-			return
-		}
-
-		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node-content", val)
-
-	case "retry-fail-completed":
-		ws.q.ResetFailed()
-
-		t, err := ws.templates.Execute("task_controls", ws.q.GetUIData())
-		if err != nil {
-
-			ws.handleError(w, err)
-			return
-		}
-
-		renderEvt := SSEEvents.NewUIRenderEvent(
-			SSEEvents.ReplaceNodeContent,
-			"",
-			"tasks-controls",
-			t,
-			SSEEvents.AfterBegin,
-		)
-		val, err := renderEvt.String()
-		if err != nil {
-			ws.handleError(w, err)
-			return
-		}
-
-		ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node-content", val)
-
 	}
+
+retNoErr:
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w)
 }
 
-func (ws *webserver) handleTaskRetry(w http.ResponseWriter, r *http.Request) {
-	albumID := r.FormValue("AlbumID")
+func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
+	taskIDs := r.FormValue("IDs")
+	mode := strings.TrimSpace(r.FormValue("Mode"))
+	// fmt.Println("mode", mode)
 
-	if albumID == "" {
+	if !isValidMode(mode, validRemoveModes) {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "AlbumID is required")
+		fmt.Fprintln(w, "Not a valid mode")
 		return
 	}
 
-	ws.q.ResetTask(albumID)
+	engine, _ := ws.UserData.(*dsdl.DSDL)
 
-	task, err := ws.q.GetTask(albumID)
+	tasks, err := engine.Tq.GetDatabase().GetAll()
 	if err != nil {
-		ws.handleError(w, err)
-		return
+		ws.handleInternalServerError(w, r, err.Error())
 	}
 
-	t, err := ws.templates.Execute("task", task)
-	if err != nil {
-		ws.handleError(w, err)
-		return
+	sendMultiUpdate := func(division string) {
+		t, _ := ws.templates.Execute(division+"_tasks", tasks)
+
+		uievt := sse.NewUIEventBuilder().
+			Event(sse.UIEvent_ReplaceNodeContent).
+			ReceiverNodeSelector(division).
+			Content(t).
+			Position(sse.UIRenderPos_AfterBegin).
+			Build()
+
+		ws.msgChan <- sse.NewSSEBuilder().Event("update-node-content").Data(uievt).Build()
 	}
 
-	renderEvt := SSEEvents.NewUIRenderEvent(
-		SSEEvents.ReplaceNode,
-		albumID,
-		"#queued",
-		t,
-		SSEEvents.AfterBegin,
-	)
-	val, err := renderEvt.String()
-	if err != nil {
-		ws.handleError(w, err)
-		return
+	var happenedErrors []string
+
+	if mode == "single" || mode == "multiple" {
+		delimiter := "|"
+
+		if taskIDs == "" || taskIDs == delimiter {
+			ws.handleError(w, fmt.Errorf("At least one Album ID is required"))
+			return
+		}
+
+		idList := strings.Split(taskIDs, delimiter)
+
+		for _, id := range idList {
+			err := engine.Tq.RemoveWithComparator(id, func(item, target any) bool {
+				id := target.(string)
+				t := item.(*task.Task)
+
+				return t.Id == id
+			})
+			if err != nil {
+				happenedErrors = append(happenedErrors, err.Error())
+			} else {
+				ws.msgChan <- sse.NewSSEBuilder().Event("remove-node").Data(id).Build()
+			}
+		}
+
+		if len(happenedErrors) != 0 {
+			ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
+			return
+		}
+
+		goto retNoErr
 	}
 
-	ws.msgChan <- SSEEvents.NewSSEMessageWithEvent("replace-node", val)
+	switch mode {
+	case "queued":
+		_, err := engine.Tq.RemoveFromState(database.TASK_STATE_QUEUED)
+		if err != nil {
+			ws.handleError(w, err)
+			return
+		}
+
+		sendMultiUpdate("queued")
+
+	case "completed":
+		_, err := engine.Tq.RemoveFromState(database.TASK_STATE_COMPLETED)
+		if err != nil {
+			ws.handleError(w, err)
+			return
+		}
+
+		sendMultiUpdate("ended")
+
+	case "failed":
+		err := engine.Tq.RemoveWithComparator(
+			database.TASK_STATE_COMPLETED,
+			func(item, target any) bool {
+				t := item.(*task.Task)
+				state := target.(int)
+
+				return t.DownloadState == state && t.Err != nil
+			},
+		)
+		if err != nil {
+			ws.handleError(w, err)
+			return
+		}
+
+		sendMultiUpdate("ended")
+
+	case "succeeded":
+		err := engine.Tq.RemoveWithComparator(
+			database.TASK_STATE_COMPLETED,
+			func(item, target any) bool {
+				t := item.(*task.Task)
+				state := target.(int)
+
+				return t.DownloadState == state && t.Err == nil
+			},
+		)
+		if err != nil {
+			ws.handleError(w, err)
+			return
+		}
+
+		sendMultiUpdate("ended")
+
+	}
+
+retNoErr:
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w)
 }
