@@ -67,7 +67,8 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 		Constructor:         filehosts.NewJottacloud,
 	})
 
-	engine.NewTQProxy(db.DB_Memory, queueRunner)
+	engine.NewTQProxy(db.DB_SQlite, queueRunner)
+	fmt.Println(engine.GetTQProxy().GetDatabase().Name())
 
 	engine.GetTQProxy().SetComparatorFunc(func(item, target any) bool {
 		t := target.(*task.Task)
@@ -87,6 +88,8 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 }
 
 func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts any) error {
+	defer tq.GetDatabase().Close()
+
 	options, ok := opts.(*configManager.Config)
 	if !ok {
 		log.Fatalln("Options are of wrong type")

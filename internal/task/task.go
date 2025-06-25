@@ -49,29 +49,6 @@ type Task struct {
 	Stop chan struct{}
 }
 
-type DBRecord struct {
-	// The actual Unique ID
-	Id string
-	// Aggregator formal name (e.g "doujinstyle")
-	Aggregator string
-	// Can be either the full url or the page id
-	Slug string
-	// Full URL calculated by combining name & slug
-	AggregatorPageURL string
-	// Filehost full url
-	FilehostUrl string
-	// Full name to be displayed on GUI
-	DisplayName string
-	// Downloaded filename
-	Filename string
-	// Mirror value of the one stored in the database
-	DownloadState int
-	// State progress percentage (from -1 (not yet downloading) to 100)
-	Progress int8
-	// Stores an eventual error occurred in the task lifecycle
-	Err error
-}
-
 func NewTask(slug string) *Task {
 	t := &Task{
 		Id: fmt.Sprintf(

@@ -4,7 +4,8 @@ import (
 	"database/sql"
 	"path/filepath"
 
-	_ "modernc.org/sqlite"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
@@ -19,7 +20,7 @@ type SQliteDB[T task.Insertable] struct {
 
 	fn string
 
-	db *sql.DB
+	db *sqlx.DB
 }
 
 func NewSQliteDB[T task.Insertable]() DB[T] {
@@ -35,13 +36,41 @@ func NewSQliteDB[T task.Insertable]() DB[T] {
 }
 
 func (sdb *SQliteDB[T]) Open() error {
-	db, err := sql.Open("sqlite", sdb.fn)
+	// db, err := sql.Open("sqlite", sdb.fn)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// db.SetMaxOpenConns(2)
+	//
+	// if _, err := db.Exec(`
+	// 	CREATE TABLE IF NOT EXISTS ` + TABLE_NAME + ` (
+	// 		Id STRING PRIMARY KEY,
+	// 		Aggregator STRING,
+	// 		Slug STRING,
+	// 		AggregatorPageURL STRING,
+	// 		FilehostUrl STRING,
+	// 		DisplayName STRING,
+	// 		Filename STRING,
+	// 		DownloadState INTEGER,
+	// 		Progress INTEGER,
+	// 		Err STRING
+	// 	);
+	// `); err != nil {
+	// 	return err
+	// }
+	//
+	// sdb.db = db
+	//
+	// return nil
+
+	// db, err := sqlx.Connect("sqlite3", ":memory:")
+	db, err := sqlx.Connect("sqlite3", sdb.fn)
 	if err != nil {
 		return err
 	}
 
 	db.SetMaxOpenConns(2)
-
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS ` + TABLE_NAME + ` (
 			Id STRING PRIMARY KEY,
@@ -136,32 +165,15 @@ func (sdb *SQliteDB[T]) Insert(nv T) error {
 func (sdb *SQliteDB[T]) Get(slug string) (T, error) {
 	var entry T
 
-	s, err := sdb.db.Prepare(`
-		SELECT * FROM ` + TABLE_NAME + `
-		WHERE Id = '?'
-		OR Slug LIKE '%?%';
-	`)
-	if err != nil {
-		return entry, err
-	}
-	defer s.Close()
-
-	rows, err := s.Query(slug, slug)
-	if err != nil {
-		return entry, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return entry, sql.ErrNoRows
-	}
-
-	err = rows.Scan(&entry)
-	if err != nil {
+	if err := sdb.db.Get(
+		&entry,
+		`SELECT * FROM `+TABLE_NAME+` WHERE Id = ? OR Slug LIKE ? LIMIT 1;`,
+		slug, "%"+slug+"%",
+	); err != nil {
 		return entry, err
 	}
 
-	return entry, nil
+	return entry, sql.ErrNoRows
 }
 
 func (sdb *SQliteDB[T]) GetAll() ([]T, error) {

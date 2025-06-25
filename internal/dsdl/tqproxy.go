@@ -93,6 +93,17 @@ func newTQWrapperFromEngine(
 		},
 	}
 
+	err := proxy.db.Open()
+	if err != nil {
+		info := fmt.Sprintf(
+			"Failed to open selected db: \"%s\", falling back to the in-memory db",
+			proxy.db.Name(),
+		)
+		fmt.Println(info)
+		log.Println(info)
+		proxy.db = db.GetNewDatabase(-1)
+	}
+
 	proxy.ctx = context.WithValue(ctx, "dsdl", dsdl)
 
 	return proxy
