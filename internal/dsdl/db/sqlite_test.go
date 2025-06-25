@@ -88,17 +88,38 @@ func TestGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t1 := task.NewTask("sqlite")
+	err = db.Insert(t1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	err = db.Insert(task.NewTask("sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tsk, err := db.Get("ite")
+	partialSlug := "ite"
+
+	tsk, err := db.Get(partialSlug)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains((*tsk).GetSlug(), "ite") {
+	if !strings.Contains((*tsk).GetSlug(), partialSlug) {
 		t.Fatal("Wrong task found")
+	}
+
+	tasks, err := db.GetAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(tasks) != 4 {
+		t.Fatalf("Getall size mismatch: wanted 4 entries, got %d", len(tasks))
+	}
+
+	if tasks[2].GetID() != t1.GetID() {
+		t.Fatalf("IDs mismatch: wanted: %v, got %v", tasks[2].GetID(), t1.GetID())
 	}
 
 	err = db.Drop("*")

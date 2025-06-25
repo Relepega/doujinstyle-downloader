@@ -1,13 +1,12 @@
 package db
 
 import (
-	"database/sql"
-	"path/filepath"
+	"fmt"
+	"reflect"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 )
 
@@ -18,54 +17,21 @@ type SQliteDB[T task.Insertable] struct {
 
 	name string
 
-	fn string
+	path string
 
 	db *sqlx.DB
 }
 
-func NewSQliteDB[T task.Insertable]() DB[T] {
-	fn := filepath.Join(".", "Database")
-	appUtils.MkdirAll(fn)
-
-	fn = filepath.Join(fn, "default.db")
-
+func NewSQliteDB[T task.Insertable](path string) DB[T] {
 	return &SQliteDB[T]{
 		name: "SQLite",
-		fn:   fn,
+		path: path,
 	}
 }
 
 func (sdb *SQliteDB[T]) Open() error {
-	// db, err := sql.Open("sqlite", sdb.fn)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// db.SetMaxOpenConns(2)
-	//
-	// if _, err := db.Exec(`
-	// 	CREATE TABLE IF NOT EXISTS ` + TABLE_NAME + ` (
-	// 		Id STRING PRIMARY KEY,
-	// 		Aggregator STRING,
-	// 		Slug STRING,
-	// 		AggregatorPageURL STRING,
-	// 		FilehostUrl STRING,
-	// 		DisplayName STRING,
-	// 		Filename STRING,
-	// 		DownloadState INTEGER,
-	// 		Progress INTEGER,
-	// 		Err STRING
-	// 	);
-	// `); err != nil {
-	// 	return err
-	// }
-	//
-	// sdb.db = db
-	//
-	// return nil
-
 	// db, err := sqlx.Connect("sqlite3", ":memory:")
-	db, err := sqlx.Connect("sqlite3", sdb.fn)
+	db, err := sqlx.Connect("sqlite3", sdb.path)
 	if err != nil {
 		return err
 	}
@@ -81,7 +47,6 @@ func (sdb *SQliteDB[T]) Open() error {
 			DisplayName STRING,
 			Filename STRING,
 			DownloadState INTEGER,
-			Progress INTEGER,
 			Err STRING
 		);
 	`); err != nil {
@@ -137,10 +102,9 @@ func (sdb *SQliteDB[T]) Insert(nv T) error {
 			DisplayName,
 			Filename,
 			DownloadState,
-			Progress,
 			Err
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
@@ -156,7 +120,6 @@ func (sdb *SQliteDB[T]) Insert(nv T) error {
 		nv.GetDisplayName(),
 		nv.GetFilename(),
 		nv.GetDownloadState(),
-		nv.GetProgress(),
 		nv.GetErrMsg(),
 	)
 	return err
@@ -164,20 +127,64 @@ func (sdb *SQliteDB[T]) Insert(nv T) error {
 
 func (sdb *SQliteDB[T]) Get(slug string) (T, error) {
 	var entry T
+	t := task.NewTask("")
+
+	if reflect.TypeOf(entry) != reflect.TypeOf(t) {
+		return entry, fmt.Errorf(
+			`DB: TypeError: Wanted "%v", got "%v"`,
+			reflect.TypeOf(t),
+			reflect.TypeOf(entry),
+		)
+	}
 
 	if err := sdb.db.Get(
-		&entry,
-		`SELECT * FROM `+TABLE_NAME+` WHERE Id = ? OR Slug LIKE ? LIMIT 1;`,
+		t,
+		`SELECT * FROM `+TABLE_NAME+` WHERE Id = ? OR Slug LIKE ? LIMIT 1`,
 		slug, "%"+slug+"%",
 	); err != nil {
 		return entry, err
 	}
 
-	return entry, sql.ErrNoRows
+	t.Err = fmt.Errorf("%s", t.DBErr)
+
+	entry = any(t).(T)
+
+	return entry, nil
 }
 
 func (sdb *SQliteDB[T]) GetAll() ([]T, error) {
-	return make([]T, 0), nil
+	var entry []T
+
+	rows, err := sdb.db.Query(`SELECT * FROM ` + TABLE_NAME)
+	if err != nil {
+		return entry, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		t := task.NewTask("")
+
+		err := rows.Scan(
+			&t.Id,
+			&t.Aggregator,
+			&t.Slug,
+			&t.AggregatorPageURL,
+			&t.FilehostUrl,
+			&t.DisplayName,
+			&t.Filename,
+			&t.DownloadState,
+			&t.DBErr,
+		)
+		if err != nil {
+			return entry, err
+		}
+
+		t.Err = fmt.Errorf("%s", t.DBErr)
+
+		entry = append(entry, any(t).(T))
+	}
+
+	return entry, nil
 }
 
 func (sdb *SQliteDB[T]) Remove(nv T) error {

@@ -1,6 +1,11 @@
 package db
 
-import "github.com/relepega/doujinstyle-downloader/internal/task"
+import (
+	"path/filepath"
+
+	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
+	"github.com/relepega/doujinstyle-downloader/internal/task"
+)
 
 type DBType int
 
@@ -81,12 +86,13 @@ type DB[T task.Insertable] interface {
 }
 
 func GetNewDatabase[T task.Insertable](dbType DBType) DB[T] {
-	switch dbType {
-	case DB_Memory:
-		return NewMemoryDB[T]()
-	case DB_SQlite:
-		return NewSQliteDB[T]()
-	default:
-		return NewMemoryDB[T]()
+	if dbType == DB_SQlite {
+		fn := filepath.Join(".", "Database")
+		appUtils.MkdirAll(fn)
+
+		fn = filepath.Join(fn, "default.db")
+		return NewSQliteDB[T](fn)
 	}
+
+	return NewSQliteDB[T](":memory:")
 }

@@ -19,30 +19,31 @@ type Insertable interface {
 	GetDisplayName() string
 	GetFilename() string
 	GetDownloadState() int
-	GetProgress() int
 	GetErrMsg() string
 	compare(c any) int
 }
 
 type Task struct {
 	// The actual Unique ID
-	Id string
+	Id string `db:"Id"`
 	// Aggregator formal name (e.g "doujinstyle")
-	Aggregator string
+	Aggregator string `db:"Aggregator"`
 	// Can be either the full url or the page id
-	Slug string
+	Slug string `db:"Slug"`
 	// Full URL calculated by combining name & slug
-	AggregatorPageURL string
+	AggregatorPageURL string `db:"AggregatorPageURL"`
 	// Filehost full url
-	FilehostUrl string
+	FilehostUrl string `db:"FilehostUrl"`
 	// Full name to be displayed on GUI
-	DisplayName string
+	DisplayName string `db:"DisplayName"`
 	// Downloaded filename
-	Filename string
+	Filename string `db:"Filename"`
 	// Mirror value of the one stored in the database
-	DownloadState int
+	DownloadState int `db:"DownloadState"`
 	// State progress percentage (from -1 (not yet downloading) to 100)
 	Progress int8
+	// DO NOT USE! Stores the error stored in the database as string
+	DBErr string `db:"Err"`
 	// Stores an eventual error occurred in the task lifecycle
 	Err error
 	// Aborts the task progression
@@ -81,8 +82,6 @@ func (t *Task) GetDisplayName() string { return t.DisplayName }
 func (t *Task) GetFilename() string { return t.Filename }
 
 func (t *Task) GetDownloadState() int { return t.DownloadState }
-
-func (t *Task) GetProgress() int { return int(t.Progress) }
 
 func (t *Task) GetErrMsg() string {
 	if t.Err != nil {
