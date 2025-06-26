@@ -195,6 +195,10 @@ func (sdb *SQliteDB[T]) Remove(nv T) error {
 }
 
 func (sdb *SQliteDB[T]) RemoveFromState(completionState int) (int, error) {
+	if completionState < 0 || completionState >= states.MaxCompletionState() {
+		return 0, fmt.Errorf("CompletionState is not a value within constraints")
+	}
+
 	res, err := sdb.db.Exec(`DELETE FROM `+TABLE_NAME+` WHERE DownloadState = ?`, completionState)
 	if err != nil {
 		return 0, err
@@ -212,6 +216,10 @@ func (sdb *SQliteDB[T]) RemoveAll() error {
 }
 
 func (sdb *SQliteDB[T]) ResetFromCompletionState(completionState int) (int, error) {
+	if completionState < 0 || completionState > states.MaxCompletionState() {
+		return 0, fmt.Errorf("CompletionState is not a value within constraints")
+	}
+
 	if completionState == states.TASK_STATE_RUNNING {
 		return 0, fmt.Errorf("Cannot reset running tasks")
 	}
@@ -268,6 +276,10 @@ func (sdb *SQliteDB[T]) GetState(nv T) (string, error) {
 }
 
 func (sdb *SQliteDB[T]) SetState(nv T, newState int) error {
+	if newState < 0 || newState > states.MaxCompletionState() {
+		return fmt.Errorf("newState is out of bounds")
+	}
+
 	_, err := sdb.db.Exec(
 		`UPDATE `+TABLE_NAME+` SET DownloadState = ? WHERE ID = ?`,
 		newState,
@@ -314,7 +326,16 @@ func (sdb *SQliteDB[T]) RegressState(nv T) (int, error) {
 }
 
 func (sdb *SQliteDB[T]) ResetState(nv T) (int, error) {
-	_, err := sdb.db.Exec(
+	state, err := sdb.getStateInt(nv)
+	if err != nil {
+		return 0, err
+	}
+
+	if state == states.TASK_STATE_RUNNING {
+		return -1, fmt.Errorf("Cannot reset a running task")
+	}
+
+	_, err = sdb.db.Exec(
 		`UPDATE `+TABLE_NAME+` SET DownloadState = ? WHERE ID = ?`,
 		states.TASK_STATE_QUEUED,
 		nv.GetID(),
