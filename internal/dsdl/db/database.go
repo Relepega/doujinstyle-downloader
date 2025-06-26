@@ -29,7 +29,9 @@ type DB[T task.Insertable] interface {
 	CountFromState(completionState int) (int, error)
 
 	// Adds a task to the database
-	Insert(nv T) error
+	//
+	// Returns the Task ID and an eventual error
+	Insert(nv T) (string, error)
 
 	// Checks whether a task with an equal value is already present in the database
 	Find(id string) (bool, error)
@@ -57,8 +59,8 @@ type DB[T task.Insertable] interface {
 
 	// Resets the state of EVERY task in the specified completion state
 	//
-	// Returns an error either if the completion state is invalid or if trying to reset tunning tasks
-	ResetFromCompletionState(completionState int) error
+	// Returns the affected records count and an error either if the completion state is invalid or if trying to reset tunning tasks
+	ResetFromCompletionState(completionState int) (int, error)
 
 	// Returns the state of a specific task. Returns an error if the task has not been found
 	GetState(nv T) (string, error)

@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 )
 
@@ -39,7 +40,7 @@ func (sdb *SQliteDB[T]) Open() error {
 	db.SetMaxOpenConns(2)
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS ` + TABLE_NAME + ` (
-			Id STRING PRIMARY KEY,
+			ID STRING PRIMARY KEY,
 			Aggregator STRING,
 			Slug STRING,
 			AggregatorPageURL STRING,
@@ -91,10 +92,10 @@ func (sdb *SQliteDB[T]) CountFromState(completionState int) (int, error) {
 	return 0, nil
 }
 
-func (sdb *SQliteDB[T]) Insert(nv T) error {
+func (sdb *SQliteDB[T]) Insert(nv T) (string, error) {
 	s, err := sdb.db.Prepare(`
 		INSERT INTO ` + TABLE_NAME + ` (
-			Id,
+			ID,
 			Aggregator,
 			Slug,
 			AggregatorPageURL,
@@ -107,7 +108,7 @@ func (sdb *SQliteDB[T]) Insert(nv T) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
-		return err
+		return nv.GetID(), err
 	}
 	defer s.Close()
 
@@ -122,7 +123,7 @@ func (sdb *SQliteDB[T]) Insert(nv T) error {
 		nv.GetDownloadState(),
 		nv.GetErrMsg(),
 	)
-	return err
+	return nv.GetID(), err
 }
 
 func (sdb *SQliteDB[T]) Get(slug string) (T, error) {
@@ -139,7 +140,7 @@ func (sdb *SQliteDB[T]) Get(slug string) (T, error) {
 
 	if err := sdb.db.Get(
 		t,
-		`SELECT * FROM `+TABLE_NAME+` WHERE Id = ? OR Slug LIKE ? LIMIT 1`,
+		`SELECT * FROM `+TABLE_NAME+` WHERE ID = ? OR Slug LIKE ? LIMIT 1`,
 		slug, "%"+slug+"%",
 	); err != nil {
 		return entry, err
@@ -205,33 +206,121 @@ func (sdb *SQliteDB[T]) RemoveFromState(completionState int) (int, error) {
 }
 
 func (sdb *SQliteDB[T]) RemoveAll() error {
-	_, err := sdb.db.Exec(`DELETE * FROM ` + TABLE_NAME)
+	_, err := sdb.db.Exec(`DELETE FROM ` + TABLE_NAME)
 
 	return err
 }
 
-func (sdb *SQliteDB[T]) ResetFromCompletionState(completionState int) error {
-	return nil
+func (sdb *SQliteDB[T]) ResetFromCompletionState(completionState int) (int, error) {
+	if completionState == states.TASK_STATE_RUNNING {
+		return 0, fmt.Errorf("Cannot reset running tasks")
+	}
+
+	res, err := sdb.db.Exec(
+		`UPDATE `+TABLE_NAME+` SET DownloadState = ? WHERE DownloadState = ?`,
+		states.TASK_STATE_QUEUED,
+		completionState,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	count64, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	count := int(count64)
+
+	return count, nil
+}
+
+func (sdb *SQliteDB[T]) getStateInt(nv T) (int, error) {
+	var stateID int
+
+	rows, err := sdb.db.Query(`SELECT DownloadState FROM `+TABLE_NAME+` WHERE ID = ?`, nv.GetID())
+	if err != nil {
+		return stateID, err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		err = rows.Scan(&stateID)
+		if err != nil {
+			return stateID, err
+		}
+	} else {
+		return stateID, rows.Err()
+	}
+
+	return stateID, nil
 }
 
 func (sdb *SQliteDB[T]) GetState(nv T) (string, error) {
-	return "", nil
+	stateID, err := sdb.getStateInt(nv)
+	if err != nil {
+		return "", err
+	}
+
+	state := states.GetStateStr(stateID)
+
+	return state, nil
 }
 
 func (sdb *SQliteDB[T]) SetState(nv T, newState int) error {
-	return nil
+	_, err := sdb.db.Exec(
+		`UPDATE `+TABLE_NAME+` SET DownloadState = ? WHERE ID = ?`,
+		newState,
+		nv.GetID(),
+	)
+
+	return err
 }
 
 func (sdb *SQliteDB[T]) AdvanceState(nv T) (int, error) {
-	return -1, nil
+	state, err := sdb.getStateInt(nv)
+
+	if state >= states.MaxCompletionState() {
+		return state, fmt.Errorf("Cannot advance the status of this task anymore")
+	}
+
+	state = state + 1
+
+	_, err = sdb.db.Exec(
+		`UPDATE `+TABLE_NAME+` SET DownloadState = ? WHERE ID = ?`,
+		state,
+		nv.GetID(),
+	)
+
+	return state, err
 }
 
 func (sdb *SQliteDB[T]) RegressState(nv T) (int, error) {
-	return -1, nil
+	state, err := sdb.getStateInt(nv)
+
+	if state <= 0 {
+		return state, fmt.Errorf("Cannot regress the status of this task anymore")
+	}
+
+	state = state - 1
+
+	_, err = sdb.db.Exec(
+		`UPDATE `+TABLE_NAME+` SET DownloadState = ? WHERE ID = ?`,
+		state,
+		nv.GetID(),
+	)
+
+	return state, err
 }
 
 func (sdb *SQliteDB[T]) ResetState(nv T) (int, error) {
-	return -1, nil
+	_, err := sdb.db.Exec(
+		`UPDATE `+TABLE_NAME+` SET DownloadState = ? WHERE ID = ?`,
+		states.TASK_STATE_QUEUED,
+		nv.GetID(),
+	)
+
+	return states.TASK_STATE_QUEUED, err
 }
 
 func (sdb *SQliteDB[T]) Drop(table string) error {

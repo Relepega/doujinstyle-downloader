@@ -9,7 +9,7 @@ const (
 )
 
 func MaxCompletionState() int {
-	return max_completion_state
+	return max_completion_state - 1
 }
 
 // String rappresentation & meaning for every completion state.

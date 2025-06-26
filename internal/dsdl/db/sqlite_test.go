@@ -36,7 +36,7 @@ func TestInsertAndCount(t *testing.T) {
 		}
 	}()
 
-	err = db.Insert(task.NewTask("hello"))
+	_, err = db.Insert(task.NewTask("hello"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,23 +79,23 @@ func TestGet(t *testing.T) {
 		}
 	}()
 
-	err = db.Insert(task.NewTask("hello"))
+	_, err = db.Insert(task.NewTask("hello"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = db.Insert(task.NewTask("world"))
+	_, err = db.Insert(task.NewTask("world"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	t1 := task.NewTask("sqlite")
-	err = db.Insert(t1)
+	_, err = db.Insert(t1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = db.Insert(task.NewTask("sqlite"))
+	_, err = db.Insert(task.NewTask("sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,18 +138,18 @@ func TestDelete(t *testing.T) {
 	}
 	defer db.Close()
 
-	err = db.Insert(task.NewTask("hello"))
+	_, err = db.Insert(task.NewTask("hello"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	t1 := task.NewTask("world")
-	err = db.Insert(t1)
+	_, err = db.Insert(t1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = db.Insert(task.NewTask("sqlite"))
+	_, err = db.Insert(task.NewTask("sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestDelete(t *testing.T) {
 	t2 := task.NewTask("apples")
 	t2.DownloadState = states.TASK_STATE_RUNNING
 
-	err = db.Insert(t2)
+	_, err = db.Insert(t2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,5 +192,149 @@ func TestDelete(t *testing.T) {
 
 	if count != 2 {
 		t.Fatalf("DB:Remove: Expected 2 records left, got %d", count)
+	}
+
+	err = db.RemoveAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = db.Count()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if count != 0 {
+		t.Fatalf("DB:RemoveAll: Expected 0 records left, got %d", count)
+	}
+
+	err = db.Drop("*")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStateManipulation1(t *testing.T) {
+	db := GetNewDatabase[*task.Task](DB_SQlite)
+
+	err := db.Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.Insert(task.NewTask("hello"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t1 := task.NewTask("world")
+	t1.DownloadState = states.TASK_STATE_COMPLETED
+
+	_, err = db.Insert(t1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = db.Insert(task.NewTask("sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t2 := task.NewTask("apples")
+
+	_, err = db.Insert(t2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = db.SetState(t2, states.TASK_STATE_COMPLETED)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t2.DownloadState = states.TASK_STATE_COMPLETED
+
+	state, err := db.GetState(t2)
+	if state != states.GetStateStr(t2.GetDownloadState()) {
+		t.Fatalf(
+			`DB:GetState: Expected "%v", got "%v"`,
+			states.GetStateStr(t2.GetDownloadState()),
+			state,
+		)
+	}
+
+	count, err := db.ResetFromCompletionState(states.TASK_STATE_COMPLETED)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if count != 2 {
+		t.Fatalf("DB:ResetFromCompletionState: Expected 2 rows affected, got %d", count)
+	}
+
+	err = db.Drop("*")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStateManipulation2(t *testing.T) {
+	db := GetNewDatabase[*task.Task](DB_SQlite)
+
+	err := db.Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	t1 := task.NewTask("hello")
+	_, err = db.Insert(t1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state, err := db.AdvanceState(t1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t1.DownloadState = states.TASK_STATE_RUNNING
+
+	if state != t1.DownloadState {
+		t.Fatalf("Expected state %d, got %d", t1.DownloadState, state)
+	}
+
+	state, err = db.AdvanceState(t1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t1.DownloadState = states.TASK_STATE_COMPLETED
+
+	if state != t1.DownloadState {
+		t.Fatalf("Expected state %d, got %d", t1.DownloadState, state)
+	}
+
+	state, _ = db.AdvanceState(t1)
+	if state != t1.DownloadState {
+		t.Fatalf("Expected state %d, got %d", t1.DownloadState, state)
+	}
+
+	state, err = db.ResetState(t1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t1.DownloadState = states.TASK_STATE_QUEUED
+
+	if state != t1.DownloadState {
+		t.Fatalf("Expected state %d, got %d", t1.DownloadState, state)
+	}
+
+	state, _ = db.RegressState(t1)
+	if state != t1.DownloadState {
+		t.Fatalf("Expected state %d, got %d", t1.DownloadState, state)
+	}
+
+	err = db.Drop("*")
+	if err != nil {
+		t.Fatal(err)
 	}
 }

@@ -25,7 +25,7 @@ type Insertable interface {
 
 type Task struct {
 	// The actual Unique ID
-	Id string `db:"Id"`
+	Id string `db:"ID"`
 	// Aggregator formal name (e.g "doujinstyle")
 	Aggregator string `db:"Aggregator"`
 	// Can be either the full url or the page id
