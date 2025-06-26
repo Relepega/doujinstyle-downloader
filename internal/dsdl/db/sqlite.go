@@ -188,15 +188,26 @@ func (sdb *SQliteDB[T]) GetAll() ([]T, error) {
 }
 
 func (sdb *SQliteDB[T]) Remove(nv T) error {
-	return nil
+	_, err := sdb.db.Exec(`DELETE FROM `+TABLE_NAME+` WHERE id = ?`, nv.GetID())
+
+	return err
 }
 
 func (sdb *SQliteDB[T]) RemoveFromState(completionState int) (int, error) {
-	return 0, nil
+	res, err := sdb.db.Exec(`DELETE FROM `+TABLE_NAME+` WHERE DownloadState = ?`, completionState)
+	if err != nil {
+		return 0, err
+	}
+
+	count, err := res.RowsAffected()
+
+	return int(count), err
 }
 
 func (sdb *SQliteDB[T]) RemoveAll() error {
-	return nil
+	_, err := sdb.db.Exec(`DELETE * FROM ` + TABLE_NAME)
+
+	return err
 }
 
 func (sdb *SQliteDB[T]) ResetFromCompletionState(completionState int) error {
