@@ -8,8 +8,9 @@ import (
 )
 
 type Client struct {
-	id     int64
-	writer http.ResponseWriter
+	id      int64
+	writer  http.ResponseWriter
+	request *http.Request
 }
 
 type clients []*Client
@@ -20,13 +21,14 @@ type Hub struct {
 	clients clients
 }
 
-func (h *Hub) AddClient(w http.ResponseWriter) *Client {
+func (h *Hub) AddClient(w http.ResponseWriter, r *http.Request) *Client {
 	h.Lock()
 	defer h.Unlock()
 
 	newClient := &Client{
-		id:     time.Now().UnixMicro(),
-		writer: w,
+		id:      time.Now().UnixMicro(),
+		writer:  w,
+		request: r,
 	}
 
 	h.clients = append(h.clients, newClient)
@@ -58,5 +60,14 @@ func (h *Hub) Broadcast(msg string) {
 	for _, c := range h.clients {
 		fmt.Fprintf(c.writer, "%v", msg)
 		c.writer.(http.Flusher).Flush()
+	}
+}
+
+func (h *Hub) Close() {
+	h.Lock()
+	defer h.Unlock()
+
+	for _, c := range h.clients {
+		c.request.Body.Close()
 	}
 }

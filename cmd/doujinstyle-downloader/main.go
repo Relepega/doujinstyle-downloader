@@ -49,13 +49,18 @@ func main() {
 
 	// init modules
 	cfg := initters.InitConfig()
+
 	engine := initters.InitEngine(cfg, ctx)
+	defer engine.Tq.StopQueue()
+	defer engine.GetBrowserInstance().Close()
+	defer engine.Tq.GetDatabase().Close()
+
 	server := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, ctx, engine)
 
 	go func() {
 		err := server.Start()
 		if err != nil {
-			log.Fatalln("Webserver: ", err)
+			log.Fatalln("Webserver:", err)
 		}
 	}()
 

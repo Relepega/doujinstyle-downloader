@@ -25,7 +25,7 @@ const ERR_NO_RES_FOUND = "No results found"
 
 type (
 	// function that is responsible to automatically run the queue
-	QueueRunner func(tq *TQProxy, stop <-chan struct{}, opts any) error
+	QueueRunner func(tq *TQProxy, ctx context.Context, opts any) error
 )
 
 // A TQProxy is a proxy that contains both Queue and Database instances.
@@ -153,12 +153,12 @@ func (tq *TQProxy) GetDatabase() *db.SQLiteDB {
 //
 //     to be casted into the proper type inside the runner fn.
 func (tq *TQProxy) RunQueue(opts any) {
-	go func(tq *TQProxy, stop chan struct{}, opts any) {
-		err := tq.qRunner(tq, stop, opts)
+	go func(tq *TQProxy, ctx context.Context, opts any) {
+		err := tq.qRunner(tq, ctx, opts)
 		if err != nil {
 			log.Fatalf("RunQueue: %v", err)
 		}
-	}(tq, tq.stopRunner, opts)
+	}(tq, tq.ctx, opts)
 
 	tq.isQueueRunning = true
 }
@@ -580,4 +580,8 @@ func (tq *TQProxy) GetActiveJobsCount() int {
 
 func (tq *TQProxy) Context() *DSDL {
 	return tq.ctx.Value("dsdl").(*DSDL)
+}
+
+func (tq *TQProxy) GetAppContext() context.Context {
+	return tq.ctx
 }

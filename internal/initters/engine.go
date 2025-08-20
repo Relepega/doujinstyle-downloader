@@ -32,7 +32,7 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	}
 	log.Println("playwright started without errors")
 
-	engine := dsdl.NewDSDLWithBrowser(ctx, pww.Browser)
+	engine := dsdl.NewDSDL(ctx, pww.Browser)
 
 	engine.RegisterAggregator(&dsdl.Aggregator{
 		Name:        "doujinstyle",
@@ -88,7 +88,7 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	return engine
 }
 
-func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts any) error {
+func queueRunner(tq *dsdl.TQProxy, ctx context.Context, opts any) error {
 	defer tq.GetDatabase().Close()
 
 	options, ok := opts.(*configManager.Config)
@@ -100,7 +100,7 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts any) error {
 
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return nil
 
 		default:
@@ -166,6 +166,12 @@ func taskRunner(
 		select {
 		case <-activeTask.Stop:
 			activeTask.Err = fmt.Errorf("task aborted by the user")
+			markCompleted()
+
+			return
+
+		case <-tq.GetAppContext().Done():
+			activeTask.Err = fmt.Errorf("App shut down")
 			markCompleted()
 
 			return

@@ -125,25 +125,33 @@ func (ws *Webserver) Start() error {
 	// Start the server in a goroutine
 	go func() {
 		if err := ws.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("HTTP server error: %v", err)
+			log.Fatalf("Webserver: HTTP server error: %v", err)
 		}
-		log.Println("Stopped serving new connections.")
+		log.Println("Webserver: Stopped serving new connections")
 	}()
 
 	fmt.Printf("Server is running on http://%s\n", netAddr)
 
 	// Wait for either the context to be cancelled or for the server to stop serving new connections
 	<-ws.ctx.Done()
+	fmt.Println("a")
 
 	// Context was cancelled, start the graceful shutdown
 	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownRelease()
+	fmt.Println("b")
+
+	ws.connections.Close()
+
+	fmt.Println("c")
 
 	if err := ws.httpServer.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("HTTP shutdown error: %v", err)
+		return fmt.Errorf("Webserver: HTTP shutdown error: %v", err)
 	}
 
-	log.Println("Graceful webserver shutdown complete.")
+	fmt.Println("d")
+
+	log.Println("Webserver: Graceful shutdown complete")
 	return nil
 }
 

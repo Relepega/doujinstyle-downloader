@@ -120,7 +120,12 @@ func (ws *Webserver) sseMessageBroker() {
 				e := sse.NewSSEBuilder().Event("error").Data(msg.Data.(error).Error()).Build()
 				ws.msgChan <- e
 
+			default:
+				return
 			}
+
+		default:
+			return
 		}
 	}
 }

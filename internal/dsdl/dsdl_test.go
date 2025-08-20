@@ -11,7 +11,7 @@ import (
 func TestProperFunctioning(t *testing.T) {
 	ctx := context.Background()
 
-	d := NewDSDL(ctx)
+	d := NewDSDL(ctx, nil)
 
 	aggregatorName := "test"
 

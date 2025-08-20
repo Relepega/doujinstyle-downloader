@@ -38,7 +38,7 @@ type DSDL struct {
 	Ctx context.Context
 }
 
-func NewDSDL(ctx context.Context) *DSDL {
+func NewDSDL(ctx context.Context, browser playwright.Browser) *DSDL {
 	dsdl := &DSDL{}
 
 	dsdl.Ctx = context.WithValue(ctx, "dsdl", dsdl)
@@ -51,33 +51,27 @@ func NewDSDL(ctx context.Context) *DSDL {
 	t := true
 	tout := 0.0
 
-	browser, err := pw.Chromium.Launch(
-		playwright.BrowserTypeLaunchOptions{
-			Headless:      &t,
-			Timeout:       &tout,
-			HandleSIGHUP:  &t,
-			HandleSIGINT:  &t,
-			HandleSIGTERM: &t,
-		},
-	)
-	if err != nil {
-		log.Fatalln("Couldn't start a new browser: ", err)
+	if browser != nil {
+		dsdl.browser = browser
+	} else {
+		b, err := pw.Chromium.Launch(
+			playwright.BrowserTypeLaunchOptions{
+				Headless:      &t,
+				Timeout:       &tout,
+				HandleSIGHUP:  &t,
+				HandleSIGINT:  &t,
+				HandleSIGTERM: &t,
+			},
+		)
+		if err != nil {
+			defer log.Fatalln("Couldn't start a new browser: ", err)
+			ctx.Done()
+		}
+
+		dsdl.browser = b
 	}
 
 	dsdl.browser = browser
-
-	return dsdl
-}
-
-func NewDSDLWithBrowser(
-	ctx context.Context,
-	browser playwright.Browser,
-) *DSDL {
-	dsdl := &DSDL{
-		browser: browser,
-	}
-
-	dsdl.Ctx = context.WithValue(ctx, "dsdl", dsdl)
 
 	return dsdl
 }
