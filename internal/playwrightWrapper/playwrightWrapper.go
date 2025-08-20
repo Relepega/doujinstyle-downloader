@@ -15,6 +15,13 @@ type PwContainer struct {
 	BrowserContext playwright.BrowserContext
 }
 
+type PlaywrightOpts struct {
+	BrowserType   string
+	Headless      bool
+	Timeout       float64
+	DownloadsPath string
+}
+
 func WithBrowserType(opts ...string) string {
 	o := "chromium"
 
@@ -55,12 +62,7 @@ func WithTimeout(opts ...float64) float64 {
 	return o
 }
 
-func UsePlaywright(
-	browserType string,
-	headless bool,
-	timeout float64,
-	DownloadsPath *string,
-) (*PwContainer, error) {
+func UsePlaywright(opts *PlaywrightOpts) (*PwContainer, error) {
 	HandleInterrupts := true
 
 	pw, err := playwright.Run()
@@ -70,7 +72,7 @@ func UsePlaywright(
 
 	var bw playwright.BrowserType
 
-	switch browserType {
+	switch opts.BrowserType {
 	case "chromium":
 		bw = pw.Chromium
 	case "firefox":
@@ -83,12 +85,12 @@ func UsePlaywright(
 
 	browser, err := bw.Launch(
 		playwright.BrowserTypeLaunchOptions{
-			Headless:      &headless,
-			Timeout:       &timeout,
+			Headless:      &opts.Headless,
+			Timeout:       &opts.Timeout,
 			HandleSIGHUP:  &HandleInterrupts,
 			HandleSIGINT:  &HandleInterrupts,
 			HandleSIGTERM: &HandleInterrupts,
-			DownloadsPath: DownloadsPath,
+			DownloadsPath: &opts.DownloadsPath,
 		},
 	)
 	if err != nil {
