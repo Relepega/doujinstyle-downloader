@@ -239,7 +239,7 @@ func (m *Mediafire) downloadSingleFile(
 	// file is still in upload status?
 	for {
 		res, err := m.page.Evaluate(
-			"() => document.querySelector(\".DownloadStatus.DownloadStatus--uploading\")",
+			`() => document.querySelector(".DownloadStatus.DownloadStatus--uploading")`,
 		)
 		if err != nil {
 			return err
@@ -262,7 +262,9 @@ func (m *Mediafire) downloadSingleFile(
 		return nil
 	}
 
-	href, err := m.page.Evaluate("document.querySelector('#downloadButton').href")
+	href, err := m.page.Evaluate(
+		`atob(document.querySelector('#downloadButton').getAttribute("data-scrambled-url"))`,
+	)
 	if err != nil {
 		fmt.Println("it's me, a deferred button render!")
 		return err
