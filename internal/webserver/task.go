@@ -35,7 +35,7 @@ func isValidMode(m string, ms []string) bool {
 }
 
 func (ws *Webserver) handleError(w http.ResponseWriter, err error) {
-	log.Println("error: ", err)
+	log.Println("Webserver: ", err)
 
 	e := sse.NewSSEBuilder().Event("error").Data(err.Error()).Build()
 	ws.msgChan <- e
@@ -48,7 +48,11 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 	service := strings.TrimSpace(r.FormValue("Service"))
 	slugs := r.FormValue("Slugs")
 
-	log.Printf("WebServer: HandleTaskAdd: Got new request: service: %v slugs: %v\n", service, slugs)
+	log.Printf(
+		"WebServer: New request: HandleTaskAdd: service: \"%v\" slugs: [%v]\n",
+		service,
+		slugs,
+	)
 
 	engine, _ := ws.UserData.(*dsdl.DSDL)
 

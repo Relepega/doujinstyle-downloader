@@ -12,7 +12,6 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/aggregators"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/filehosts"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
-	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
@@ -70,7 +69,7 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	})
 
 	engine.NewTQProxy(queueRunner)
-	fmt.Println(engine.GetTQProxy().GetDatabase().Name())
+	// fmt.Println(engine.GetTQProxy().GetDatabase().Name())
 
 	engine.GetTQProxy().SetComparatorFunc(func(item, target any) bool {
 		t := target.(*task.Task)
@@ -97,18 +96,15 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts any) error {
 		log.Fatalln("Options are of wrong type")
 	}
 
+	maxJobs := int(options.Download.ConcurrentJobs)
+
 	for {
 		select {
 		case <-stop:
 			return nil
 
 		default:
-			runningCount, err := tq.GetDatabaseCountFromState(states.TASK_STATE_RUNNING)
-			if err != nil {
-				continue
-			}
-
-			if tq.GetQueueLength() == 0 || runningCount == int(options.Download.ConcurrentJobs) {
+			if tq.GetQueueLength() == 0 || tq.GetActiveJobsCount() == maxJobs {
 				continue
 			}
 
@@ -144,13 +140,12 @@ func taskRunner(
 	}
 
 	markCompleted := func() {
-		newState, err := tq.AdvanceTaskState(activeTask)
+		bwContext.Close()
+
+		_, err := tq.AdvanceTaskState(activeTask)
 		if err != nil {
 			panic(err)
 		}
-		activeTask.SetState(newState)
-
-		bwContext.Close()
 
 		publisher.Publish(&pubsub.PublishEvent{
 			EvtType: "mark-task-as-done",

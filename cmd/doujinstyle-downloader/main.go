@@ -16,7 +16,10 @@ import (
 )
 
 func main() {
-	defer log.Println("---------- SESSION END ----------")
+	defer func() {
+		log.Println("App shut down successfully")
+		log.Println("---------- SESSION END ----------")
+	}()
 
 	// init context for graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -52,11 +55,9 @@ func main() {
 	go func() {
 		err := server.Start()
 		if err != nil {
-			log.Fatalln("App did not shut down correctly:", err)
+			log.Fatalln("Webserver: ", err)
 		}
 	}()
 
 	<-ctx.Done()
-
-	log.Println("App shut down successfully")
 }

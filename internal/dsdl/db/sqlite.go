@@ -268,6 +268,61 @@ func (sdb *SQLiteDB) GetAll() ([]*task.Task, error) {
 	return dest, nil
 }
 
+// Returns all the tasks in the database
+func (sdb *SQLiteDB) GetAllWithState(state int) ([]*task.Task, error) {
+	dest := make([]*task.Task, 0)
+
+	rows, err := sdb.db.Queryx(`
+        SELECT 
+            ID, 
+            COALESCE(Aggregator, ''), 
+            COALESCE(Slug, ''), 
+            COALESCE(AggregatorPageURL, ''), 
+            COALESCE(FilehostUrl, ''), 
+            COALESCE(DisplayName, ''), 
+            COALESCE(Filename, ''), 
+            DownloadState, 
+            COALESCE(Err, '')
+        FROM `+TABLE_NAME+`
+		WHERE DownloadState = ?`,
+		state,
+	)
+	if err != nil {
+		return dest, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		t := task.NewTask("")
+		var dbErr string
+
+		err := rows.Scan(
+			&t.Id,
+			&t.Aggregator,
+			&t.Slug,
+			&t.AggregatorPageURL,
+			&t.FilehostUrl,
+			&t.DisplayName,
+			&t.Filename,
+			&t.DownloadState,
+			&dbErr,
+		)
+		if err != nil {
+			return dest, err
+		}
+
+		if dbErr == "" {
+			t.Err = nil
+		} else {
+			t.Err = fmt.Errorf("%s", dbErr)
+		}
+
+		dest = append(dest, t)
+	}
+
+	return dest, nil
+}
+
 // Removes a task from the database
 //
 // Returns an error if trying to remove a task in a running state

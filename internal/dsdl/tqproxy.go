@@ -41,6 +41,8 @@ type TQProxy struct {
 	qRunner QueueRunner
 	// channel that should be used in the runner to stop itself
 	stopRunner chan struct{}
+	// cached value for running jobs
+	activeJobs int
 	// whether the qRunner function is running or not
 	isQueueRunning bool
 	// compares every value in the DB (item) to the targt (user value)
@@ -61,55 +63,72 @@ type TQProxy struct {
 //   - dbType DBType: Type of database you want to use. If invalid, returns the default in-memory one.
 //
 //     To run the QueueRunner function you musk invoke the [*TQProxy.RunQueue] function
-func NewTQWrapper(
-	fn QueueRunner,
-	ctx context.Context,
-) *TQProxy {
-	proxy := &TQProxy{
-		q:              NewQueue(),
-		db:             db.NewSQLite(true),
-		qRunner:        fn,
-		stopRunner:     make(chan struct{}),
-		isQueueRunning: false,
-		comparatorFn: func(item, target any) bool {
-			return item == target
-		},
-	}
-
-	proxy.ctx = context.WithValue(ctx, "tq", proxy)
-
-	return proxy
-}
-
-// same thing as NewTQWrapper, but this has to be called from dsdl engine
-func newTQWrapperFromEngine(
+func newTQWrapper(
 	fn QueueRunner,
 	ctx context.Context,
 	dsdl *DSDL,
 ) *TQProxy {
+	sqlite := db.NewSQLite(false)
+
 	proxy := &TQProxy{
 		q:              NewQueue(),
-		db:             db.NewSQLite(true),
+		db:             sqlite,
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
+		activeJobs:     0,
 		isQueueRunning: false,
 		comparatorFn: func(item, target any) bool {
 			return item == target
 		},
 	}
 
-	err := proxy.db.Open()
+	// check if app has perms to open a sorage-based db, fallbacks to memory db
+	err := sqlite.Open()
 	if err != nil {
 		info := fmt.Sprintf(
 			"Failed to open selected db: \"%s\", falling back to the in-memory db",
-			proxy.db.Name(),
+			sqlite.Name(),
 		)
-		fmt.Println(info)
-		log.Println(info)
-		proxy.db = db.NewSQLite(true)
+		// fmt.Println(info)
+		log.Println("DB: Using", info)
+		sqlite = db.NewSQLite(true)
 	}
 
-	proxy.ctx = context.WithValue(ctx, "dsdl", dsdl)
+	if dsdl != nil {
+		proxy.ctx = context.WithValue(ctx, "dsdl", dsdl)
+	} else {
+		proxy.ctx = context.WithValue(ctx, "tq", proxy)
+	}
+
+	// restore saved data
+	count, err := sqlite.Count()
+	if err != nil {
+		log.Panicf("TQWrapper: constructor: cannot evaluate db count: %v", err)
+	}
+
+	if count != 0 {
+		running, err := sqlite.GetAllWithState(states.TASK_STATE_RUNNING)
+		if err != nil {
+			log.Panicf("TQWrapper: DB error: %v", err)
+		}
+
+		queued, err := sqlite.GetAllWithState(states.TASK_STATE_QUEUED)
+		if err != nil {
+			log.Panicf("TQWrapper: DB error: %v", err)
+		}
+
+		for _, t := range running {
+			t.DownloadState = states.TASK_STATE_QUEUED
+			sqlite.SetState(t, states.TASK_STATE_QUEUED)
+			_, _ = proxy.EnqueueFromValue(t)
+		}
+
+		for _, t := range queued {
+			t.DownloadState = states.TASK_STATE_QUEUED
+			sqlite.SetState(t, states.TASK_STATE_QUEUED)
+			_, _ = proxy.EnqueueFromValue(t)
+		}
+	}
 
 	return proxy
 }
@@ -369,6 +388,8 @@ func (tq *TQProxy) Dequeue() (*task.Task, error) {
 		return nil, fmt.Errorf("TQProxy: Cannot parse interface to value")
 	}
 
+	tq.activeJobs++
+
 	return v, nil
 }
 
@@ -469,7 +490,18 @@ func (tq *TQProxy) AdvanceTaskState(v *task.Task) (int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	return tq.db.AdvanceState(v)
+	newState, err := tq.db.AdvanceState(v)
+	if err != nil {
+		return -1, err
+	}
+
+	v.SetState(newState)
+
+	if newState == states.TASK_STATE_COMPLETED {
+		tq.activeJobs--
+	}
+
+	return newState, nil
 }
 
 // Regresses a task's state by finding it by value and decrementing its state.
@@ -530,6 +562,20 @@ func (tq *TQProxy) GetDatabaseCountFromState(completionState int) (int, error) {
 	defer tq.Unlock()
 
 	return tq.db.CountFromState(completionState)
+}
+
+func (tq *TQProxy) SetActiveJobsCount(count int) {
+	tq.Lock()
+	defer tq.Unlock()
+
+	tq.activeJobs = count
+}
+
+func (tq *TQProxy) GetActiveJobsCount() int {
+	tq.Lock()
+	defer tq.Unlock()
+
+	return tq.activeJobs
 }
 
 func (tq *TQProxy) Context() *DSDL {

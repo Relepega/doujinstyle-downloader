@@ -87,7 +87,7 @@ func (dsdl *DSDL) NewTQProxy(fn QueueRunner) {
 		return
 	}
 
-	dsdl.Tq = newTQWrapperFromEngine(fn, dsdl.Ctx, dsdl)
+	dsdl.Tq = newTQWrapper(fn, dsdl.Ctx, dsdl)
 }
 
 func (dsdl *DSDL) GetTQProxy() *TQProxy {
