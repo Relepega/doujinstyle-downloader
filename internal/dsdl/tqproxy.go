@@ -13,9 +13,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"sync"
 
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
+	"github.com/relepega/doujinstyle-downloader/internal/task"
 )
 
 const ERR_NO_RES_FOUND = "No results found"
@@ -32,7 +35,7 @@ type TQProxy struct {
 	sync.Mutex
 
 	q  *Queue
-	db db.DB
+	db *db.SQliteDB
 
 	// starter function
 	qRunner QueueRunner
@@ -58,10 +61,13 @@ type TQProxy struct {
 //   - dbType DBType: Type of database you want to use. If invalid, returns the default in-memory one.
 //
 //     To run the QueueRunner function you musk invoke the [*TQProxy.RunQueue] function
-func NewTQWrapper(dbType db.DBType, fn QueueRunner, ctx context.Context) *TQProxy {
+func NewTQWrapper(
+	fn QueueRunner,
+	ctx context.Context,
+) *TQProxy {
 	proxy := &TQProxy{
 		q:              NewQueue(),
-		db:             db.GetNewDatabase(dbType),
+		db:             db.NewSQLite(true, ""),
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
 		isQueueRunning: false,
@@ -77,14 +83,13 @@ func NewTQWrapper(dbType db.DBType, fn QueueRunner, ctx context.Context) *TQProx
 
 // same thing as NewTQWrapper, but this has to be called from dsdl engine
 func newTQWrapperFromEngine(
-	dbType db.DBType,
 	fn QueueRunner,
 	ctx context.Context,
 	dsdl *DSDL,
 ) *TQProxy {
 	proxy := &TQProxy{
 		q:              NewQueue(),
-		db:             db.GetNewDatabase(dbType),
+		db:             db.NewSQLite(true, ""),
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
 		isQueueRunning: false,
@@ -101,7 +106,7 @@ func newTQWrapperFromEngine(
 		)
 		fmt.Println(info)
 		log.Println(info)
-		proxy.db = db.GetNewDatabase(-1)
+		proxy.db = db.NewSQLite(true, "")
 	}
 
 	proxy.ctx = context.WithValue(ctx, "dsdl", dsdl)
@@ -115,7 +120,7 @@ func (tq *TQProxy) GetQueue() *Queue {
 }
 
 // GetDatabase returns the underlying pointer to the Database instance
-func (tq *TQProxy) GetDatabase() db.DB {
+func (tq *TQProxy) GetDatabase() *db.SQliteDB {
 	return tq.db
 }
 
@@ -183,18 +188,26 @@ func (tq *TQProxy) Enqueue(n *Node) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	alreadyExists, err := tq.db.Get(n.Value())
+	val, ok := n.Value().(*task.Task)
+	if !ok {
+		return fmt.Errorf(
+			"TQProxy:Enqueue: TypeError: Expected *task.Task, got: %v",
+			reflect.TypeOf(n.Value()),
+		)
+	}
+
+	found, _, err := tq.db.Find(val.Id)
 	if err != nil {
 		return err
 	}
-	if alreadyExists {
+	if !found {
 		return fmt.Errorf("A node with an equal value already exists")
 	}
 
 	tq.q.Enqueue(n)
-	tq.db.Add(n.Value())
+	_, err = tq.db.Insert(val)
 
-	return nil
+	return err
 }
 
 // Checks if the tracker already holds an equal node value.
@@ -204,7 +217,7 @@ func (tq *TQProxy) Enqueue(n *Node) error {
 // Returns:
 //
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) EnqueueFromValue(value any) (any, error) {
+func (tq *TQProxy) EnqueueFromValue(value *task.Task) (any, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -221,7 +234,7 @@ func (tq *TQProxy) EnqueueFromValue(value any) (any, error) {
 	n := NewNode(value)
 
 	tq.q.Enqueue(n)
-	tq.db.Add(value)
+	_, err = tq.db.Insert(value)
 
 	return value, nil
 }
@@ -234,7 +247,7 @@ func (tq *TQProxy) EnqueueFromValue(value any) (any, error) {
 //
 //   - error: returned when a Node with an equal value is found in the tracker
 func (tq *TQProxy) EnqueueFromValueWithComparator(
-	value any,
+	value *task.Task,
 	comp func(item, target any) bool,
 ) error {
 	tq.Lock()
@@ -253,7 +266,7 @@ func (tq *TQProxy) EnqueueFromValueWithComparator(
 	n := NewNode(value)
 
 	tq.q.Enqueue(n)
-	tq.db.Add(value)
+	_, err = tq.db.Insert(value)
 
 	return nil
 }
@@ -272,7 +285,7 @@ func (tq *TQProxy) EnqueueFromValueWithComparator(
 //   - found: if task is found in the db
 //   - task:  task corresponding to the comparator returning a truthy value
 //   - error: returned when a Node with an equal value is found in the tracker
-func (tq *TQProxy) Find(target any) (bool, any, error) {
+func (tq *TQProxy) Find(target *task.Task) (bool, any, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -298,7 +311,7 @@ func (tq *TQProxy) FindWithProgressState(state int) ([]any, error) {
 
 	var nodes []any
 
-	if state < 0 || state >= db.MaxCompletionState() {
+	if state < 0 || state >= states.MaxCompletionState() {
 		return nodes, fmt.Errorf("State is not a value within constraints")
 	}
 
@@ -342,11 +355,21 @@ func (tq *TQProxy) FindWithComparator(
 }
 
 // Removes the node at the HEAD of the queue and returns its value
-func (tq *TQProxy) Dequeue() (any, error) {
+func (tq *TQProxy) Dequeue() (*task.Task, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	return tq.q.Dequeue()
+	iface, err := tq.q.Dequeue()
+	if err != nil {
+		return nil, err
+	}
+
+	v, ok := iface.(*task.Task)
+	if !ok {
+		return nil, fmt.Errorf("TQProxy: Cannot parse interface to value")
+	}
+
+	return v, nil
 }
 
 // Removes a node from the Database by value
@@ -358,7 +381,7 @@ func (tq *TQProxy) Dequeue() (any, error) {
 // Returns:
 //
 //   - error: Database fails to remove the node
-func (tq *TQProxy) Remove(v any) error {
+func (tq *TQProxy) Remove(v *task.Task) error {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -388,7 +411,7 @@ func (tq *TQProxy) RemoveFromState(completionState int) (int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	if completionState < 0 || completionState >= db.MaxCompletionState() {
+	if completionState < 0 || completionState >= states.MaxCompletionState() {
 		return 0, fmt.Errorf("Completion state out of range")
 	}
 
@@ -430,9 +453,9 @@ func (tq *TQProxy) RemoveWithComparator(
 	if err != nil {
 		return err
 	}
-	for k := range tasks {
-		if comp(k, v) {
-			tq.db.Remove(k)
+	for _, t := range tasks {
+		if comp(t, v) {
+			tq.db.Remove(t)
 		}
 	}
 
@@ -442,7 +465,7 @@ func (tq *TQProxy) RemoveWithComparator(
 // Advances a task's state by finding it by value and incrementing its state.
 //
 // Returns an error when the state cannot be incremented anymore or the task cannot be found and the updated state value.
-func (tq *TQProxy) AdvanceTaskState(v any) (int, error) {
+func (tq *TQProxy) AdvanceTaskState(v *task.Task) (int, error) {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -452,7 +475,7 @@ func (tq *TQProxy) AdvanceTaskState(v any) (int, error) {
 // Regresses a task's state by finding it by value and decrementing its state.
 //
 // Returns an error when the state cannot be decremented anymore or the task cannot be found or the task is in a running state.
-func (tq *TQProxy) RegressTaskState(v any) error {
+func (tq *TQProxy) RegressTaskState(v *task.Task) error {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -468,12 +491,17 @@ func (tq *TQProxy) ResetTaskState(v any) error {
 	tq.Lock()
 	defer tq.Unlock()
 
-	err := tq.db.SetState(v, db.TASK_STATE_QUEUED)
+	t, ok := v.(*task.Task)
+	if !ok {
+		return fmt.Errorf("TQProxy: Cannot parse value to *task.Task")
+	}
+
+	err := tq.db.SetState(t, states.TASK_STATE_QUEUED)
 	if err != nil {
 		return err
 	}
 
-	tq.q.Enqueue(NewNode(v))
+	tq.q.Enqueue(NewNode(t))
 
 	return nil
 }

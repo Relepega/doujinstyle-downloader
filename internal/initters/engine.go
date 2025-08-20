@@ -12,7 +12,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/aggregators"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/filehosts"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
-	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
@@ -67,14 +67,14 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 		Constructor:         filehosts.NewJottacloud,
 	})
 
-	engine.NewTQProxy(db.DB_SQlite, queueRunner)
+	engine.NewTQProxy(queueRunner)
 	fmt.Println(engine.GetTQProxy().GetDatabase().Name())
 
 	engine.GetTQProxy().SetComparatorFunc(func(item, target any) bool {
 		t := target.(*task.Task)
 		dbTask := item.(*task.Task)
 
-		if dbTask.ID() == t.ID() {
+		if dbTask.Id == t.Id {
 			return false
 		}
 
@@ -101,7 +101,7 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts any) error {
 			return nil
 
 		default:
-			runningCount, err := tq.GetDatabaseCountFromState(db.TASK_STATE_RUNNING)
+			runningCount, err := tq.GetDatabaseCountFromState(states.TASK_STATE_RUNNING)
 			if err != nil {
 				continue
 			}
@@ -120,7 +120,7 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts any) error {
 				continue
 			}
 
-			taskData, ok := taskVal.(*task.Task)
+			taskData, ok := any(taskVal).(*task.Task)
 			if !ok {
 				panic("TaskRunner: Cannot convert node value into proper type\n")
 			}
@@ -131,7 +131,12 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts any) error {
 	}
 }
 
-func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempDir string) {
+func taskRunner(
+	tq *dsdl.TQProxy,
+	taskData *task.Task,
+	downloadDir string,
+	tempDir string,
+) {
 	var bwContext playwright.BrowserContext
 	var publisher *pubsub.Publisher
 
@@ -145,7 +150,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 		if err != nil {
 			panic(err)
 		}
-		taskData.DownloadState = newState
+		taskData.SetState(newState)
 
 		bwContext.Close()
 
@@ -286,7 +291,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			// re-check if task is already done by other means
 			found, _, _ := tq.Find(taskData)
 			if found {
-				taskData.Err = fmt.Errorf("This task is already present in the database")
+				taskData.SetErrMsg("This task is already present in the database")
 				markCompleted()
 				return
 			}
@@ -310,7 +315,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 			fullFilename := fmt.Sprintf("%s.%s", fname, fext)
 
 			updateHandler := func(prog int8) {
-				taskData.Progress = prog
+				taskData.SetProgress(prog)
 
 				publisher.Publish(&pubsub.PublishEvent{
 					EvtType: "update-node-content",
@@ -320,7 +325,7 @@ func taskRunner(tq *dsdl.TQProxy, taskData *task.Task, downloadDir string, tempD
 
 			err = filehost.Download(tempDir, downloadDir, fullFilename, updateHandler)
 			if err != nil {
-				taskData.Err = err
+				taskData.SetErr(err)
 				markCompleted()
 				return
 			}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
-	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/sse"
 )
@@ -140,9 +140,9 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		idList := strings.Split(taskIDs, delimiter)
+		idList := strings.SplitSeq(taskIDs, delimiter)
 
-		for _, id := range idList {
+		for id := range idList {
 			node, err := engine.Tq.FindWithComparator(id, func(item, target any) bool {
 				t := item.(*task.Task)
 				id := target.(string)
@@ -155,7 +155,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 			}
 
 			t := node.(*task.Task)
-			t.DownloadState = db.TASK_STATE_QUEUED
+			t.DownloadState = states.TASK_STATE_QUEUED
 			t.Err = nil
 
 			err = engine.Tq.ResetTaskState(node)
@@ -191,7 +191,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 
 	switch mode {
 	case "failed":
-		nodes, err := engine.Tq.FindWithProgressState(db.TASK_STATE_COMPLETED)
+		nodes, err := engine.Tq.FindWithProgressState(states.TASK_STATE_COMPLETED)
 		if err != nil {
 			ws.handleError(w, err)
 		}
@@ -203,7 +203,7 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 				continue
 			}
 
-			t.DownloadState = db.TASK_STATE_QUEUED
+			t.DownloadState = states.TASK_STATE_QUEUED
 			t.Err = nil
 
 			err := engine.Tq.ResetTaskState(node)
@@ -281,9 +281,9 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		idList := strings.Split(taskIDs, delimiter)
+		idList := strings.SplitSeq(taskIDs, delimiter)
 
-		for _, id := range idList {
+		for id := range idList {
 			err := engine.Tq.RemoveWithComparator(id, func(item, target any) bool {
 				id := target.(string)
 				t := item.(*task.Task)
@@ -307,7 +307,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 	switch mode {
 	case "queued":
-		_, err := engine.Tq.RemoveFromState(db.TASK_STATE_QUEUED)
+		_, err := engine.Tq.RemoveFromState(states.TASK_STATE_QUEUED)
 		if err != nil {
 			ws.handleError(w, err)
 			return
@@ -316,7 +316,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		sendMultiUpdate("queued")
 
 	case "completed":
-		_, err := engine.Tq.RemoveFromState(db.TASK_STATE_COMPLETED)
+		_, err := engine.Tq.RemoveFromState(states.TASK_STATE_COMPLETED)
 		if err != nil {
 			ws.handleError(w, err)
 			return
@@ -326,7 +326,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 	case "failed":
 		err := engine.Tq.RemoveWithComparator(
-			db.TASK_STATE_COMPLETED,
+			states.TASK_STATE_COMPLETED,
 			func(item, target any) bool {
 				t := item.(*task.Task)
 				state := target.(int)
@@ -343,7 +343,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 	case "succeeded":
 		err := engine.Tq.RemoveWithComparator(
-			db.TASK_STATE_COMPLETED,
+			states.TASK_STATE_COMPLETED,
 			func(item, target any) bool {
 				t := item.(*task.Task)
 				state := target.(int)

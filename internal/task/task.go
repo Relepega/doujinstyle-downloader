@@ -8,21 +8,6 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
 )
 
-type Insertable interface {
-	comparable
-
-	GetID() string
-	GetAggregator() string
-	GetSlug() string
-	GetAggregatorPageURL() string
-	GetFilehostUrl() string
-	GetDisplayName() string
-	GetFilename() string
-	GetDownloadState() int
-	GetErrMsg() string
-	compare(c any) int
-}
-
 type Task struct {
 	// The actual Unique ID
 	Id string `db:"ID"`
@@ -67,39 +52,16 @@ func NewTask(slug string) *Task {
 	return t
 }
 
-func (t *Task) GetID() string { return t.Id }
+func (t *Task) ID() string { return t.Id }
 
-func (t *Task) GetAggregator() string { return t.Aggregator }
+func (t *Task) SetState(state int) { t.DownloadState = state }
 
-func (t *Task) GetSlug() string { return t.Slug }
+func (t *Task) SetProgress(p int8) { t.Progress = p }
 
-func (t *Task) GetAggregatorPageURL() string { return t.AggregatorPageURL }
+func (t *Task) SetErrMsg(m string) { t.Err = fmt.Errorf("%s", m) }
 
-func (t *Task) GetFilehostUrl() string { return t.FilehostUrl }
+func (t *Task) SetErr(err error) { t.Err = err }
 
-func (t *Task) GetDisplayName() string { return t.DisplayName }
-
-func (t *Task) GetFilename() string { return t.Filename }
-
-func (t *Task) GetDownloadState() int { return t.DownloadState }
-
-func (t *Task) GetErrMsg() string {
-	if t.Err != nil {
-		return t.Err.Error()
-	}
-
-	return ""
-}
-
-func (t *Task) compare(c any) int {
-	cv, ok := c.(*Task) //  getting  the instance of T via type assertion.
-	if !ok {
-		return -1
-	}
-
-	if cv != t {
-		return 0
-	}
-
-	return 1
+func (t *Task) Abort() {
+	t.Stop <- struct{}{}
 }

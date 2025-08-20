@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/sse"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
 )
@@ -57,7 +57,7 @@ func NewWebServer(
 		return fmt.Sprintf("%d", time.Now().Unix())
 	})
 
-	t.AddFunction("GetStateStr", db.GetStateStr)
+	t.AddFunction("GetStateStr", states.GetStateStr)
 
 	dir := filepath.Join(".", "views", "templates")
 	err = t.ParseGlob(fmt.Sprintf("%s/*.tmpl", dir))
@@ -133,19 +133,18 @@ func (ws *Webserver) Start() error {
 	fmt.Printf("Server is running on http://%s\n", netAddr)
 
 	// Wait for either the context to be cancelled or for the server to stop serving new connections
-	select {
-	case <-ws.ctx.Done():
-		// Context was cancelled, start the graceful shutdown
-		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
-		defer shutdownRelease()
+	<-ws.ctx.Done()
 
-		if err := ws.httpServer.Shutdown(shutdownCtx); err != nil {
-			return fmt.Errorf("HTTP shutdown error: %v", err)
-		}
+	// Context was cancelled, start the graceful shutdown
+	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownRelease()
 
-		log.Println("Graceful webserver shutdown complete.")
-		return nil
+	if err := ws.httpServer.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("HTTP shutdown error: %v", err)
 	}
+
+	log.Println("Graceful webserver shutdown complete.")
+	return nil
 }
 
 func (ws *Webserver) GetSSEMessageChan() *chan string {

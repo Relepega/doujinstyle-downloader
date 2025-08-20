@@ -9,8 +9,7 @@ import (
 )
 
 func TestCreateDB(t *testing.T) {
-	db := GetNewDatabase[*task.Task](DB_SQlite)
-
+	db := NewSQLite(true, "")
 	err := db.Open()
 	if err != nil {
 		t.Fatal(err)
@@ -23,7 +22,7 @@ func TestCreateDB(t *testing.T) {
 }
 
 func TestInsertAndCount(t *testing.T) {
-	db := GetNewDatabase[*task.Task](DB_SQlite)
+	db := NewSQLite(true, "")
 
 	err := db.Open()
 	if err != nil {
@@ -66,7 +65,7 @@ func TestInsertAndCount(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	db := GetNewDatabase[*task.Task](DB_SQlite)
+	db := NewSQLite(true, "")
 
 	err := db.Open()
 	if err != nil {
@@ -106,7 +105,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains((*tsk).GetSlug(), partialSlug) {
+	if !strings.Contains(tsk.Slug, partialSlug) {
 		t.Fatal("Wrong task found")
 	}
 
@@ -119,8 +118,8 @@ func TestGet(t *testing.T) {
 		t.Fatalf("Getall size mismatch: wanted 4 entries, got %d", len(tasks))
 	}
 
-	if tasks[2].GetID() != t1.GetID() {
-		t.Fatalf("IDs mismatch: wanted: %v, got %v", tasks[2].GetID(), t1.GetID())
+	if tasks[2].Id != t1.Id {
+		t.Fatalf("IDs mismatch: wanted: %v, got %v", tasks[2].Id, t1.Id)
 	}
 
 	err = db.Drop("*")
@@ -130,7 +129,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	db := GetNewDatabase[*task.Task](DB_SQlite)
+	db := NewSQLite(true, "")
 
 	err := db.Open()
 	if err != nil {
@@ -215,7 +214,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestStateManipulation1(t *testing.T) {
-	db := GetNewDatabase[*task.Task](DB_SQlite)
+	db := NewSQLite(true, "")
 
 	err := db.Open()
 	if err != nil {
@@ -255,10 +254,10 @@ func TestStateManipulation1(t *testing.T) {
 	t2.DownloadState = states.TASK_STATE_COMPLETED
 
 	state, err := db.GetState(t2)
-	if state != states.GetStateStr(t2.GetDownloadState()) {
+	if state != states.GetStateStr(t2.DownloadState) {
 		t.Fatalf(
 			`DB:GetState: Expected "%v", got "%v"`,
-			states.GetStateStr(t2.GetDownloadState()),
+			states.GetStateStr(t2.DownloadState),
 			state,
 		)
 	}
@@ -279,7 +278,7 @@ func TestStateManipulation1(t *testing.T) {
 }
 
 func TestStateManipulation2(t *testing.T) {
-	db := GetNewDatabase[*task.Task](DB_SQlite)
+	db := NewSQLite(true, "")
 
 	err := db.Open()
 	if err != nil {

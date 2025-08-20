@@ -26,7 +26,7 @@ const (
 )
 
 type DSDL struct {
-	// queue & tracker proxy
+	db db.SQliteDB
 	Tq *TQProxy
 
 	aggregators Aggregators
@@ -69,7 +69,10 @@ func NewDSDL(ctx context.Context) *DSDL {
 	return dsdl
 }
 
-func NewDSDLWithBrowser(ctx context.Context, browser playwright.Browser) *DSDL {
+func NewDSDLWithBrowser(
+	ctx context.Context,
+	browser playwright.Browser,
+) *DSDL {
 	dsdl := &DSDL{
 		browser: browser,
 	}
@@ -79,12 +82,12 @@ func NewDSDLWithBrowser(ctx context.Context, browser playwright.Browser) *DSDL {
 	return dsdl
 }
 
-func (dsdl *DSDL) NewTQProxy(dbType db.DBType, fn QueueRunner) {
+func (dsdl *DSDL) NewTQProxy(fn QueueRunner) {
 	if dsdl.Tq != nil {
 		return
 	}
 
-	dsdl.Tq = newTQWrapperFromEngine(dbType, fn, dsdl.Ctx, dsdl)
+	dsdl.Tq = newTQWrapperFromEngine(fn, dsdl.Ctx, dsdl)
 }
 
 func (dsdl *DSDL) GetTQProxy() *TQProxy {

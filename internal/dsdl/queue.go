@@ -84,7 +84,7 @@ func (q *Queue) Enqueue(node *Node) {
 }
 
 // Removes the first Node of the queue
-func (q *Queue) Dequeue() (interface{}, error) {
+func (q *Queue) Dequeue() (any, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
