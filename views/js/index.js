@@ -159,7 +159,29 @@ document
 	})
 
 // SSE things
+//  0=CONNECTING, 1=OPEN, 2=CLOSED
 const source = new EventSource(window.location.origin + '/events-stream')
+
+let sseHadError = false
+
+source.onopen = () => {
+    if (sseHadError) {
+        console.log('Reconnected to the server')
+
+        // refresh the page to not glitch it with previous data
+        window.location.reload()
+    }
+
+    sseHadError = false
+}
+
+source.onerror = () => {
+    if (!sseHadError) {
+        console.log('Connection lost, attempting to reconnect...')
+
+        sseHadError = true
+    }
+}
 
 source.addEventListener('message', function (event) {
 	console.log('new message from server: ', event.data)
