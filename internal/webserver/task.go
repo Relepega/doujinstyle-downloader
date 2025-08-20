@@ -45,10 +45,12 @@ func (ws *Webserver) handleError(w http.ResponseWriter, err error) {
 }
 
 func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
-	engine, _ := ws.UserData.(*dsdl.DSDL)
-
-	slugs := r.FormValue("Slugs")
 	service := strings.TrimSpace(r.FormValue("Service"))
+	slugs := r.FormValue("Slugs")
+
+	log.Printf("WebServer: HandleTaskAdd: Got new request: service: %v slugs: %v\n", service, slugs)
+
+	engine, _ := ws.UserData.(*dsdl.DSDL)
 
 	delimiter := "|"
 

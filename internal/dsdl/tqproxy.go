@@ -35,7 +35,7 @@ type TQProxy struct {
 	sync.Mutex
 
 	q  *Queue
-	db *db.SQliteDB
+	db *db.SQLiteDB
 
 	// starter function
 	qRunner QueueRunner
@@ -67,7 +67,7 @@ func NewTQWrapper(
 ) *TQProxy {
 	proxy := &TQProxy{
 		q:              NewQueue(),
-		db:             db.NewSQLite(true, ""),
+		db:             db.NewSQLite(true),
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
 		isQueueRunning: false,
@@ -89,7 +89,7 @@ func newTQWrapperFromEngine(
 ) *TQProxy {
 	proxy := &TQProxy{
 		q:              NewQueue(),
-		db:             db.NewSQLite(true, ""),
+		db:             db.NewSQLite(true),
 		qRunner:        fn,
 		stopRunner:     make(chan struct{}),
 		isQueueRunning: false,
@@ -106,7 +106,7 @@ func newTQWrapperFromEngine(
 		)
 		fmt.Println(info)
 		log.Println(info)
-		proxy.db = db.NewSQLite(true, "")
+		proxy.db = db.NewSQLite(true)
 	}
 
 	proxy.ctx = context.WithValue(ctx, "dsdl", dsdl)
@@ -120,7 +120,7 @@ func (tq *TQProxy) GetQueue() *Queue {
 }
 
 // GetDatabase returns the underlying pointer to the Database instance
-func (tq *TQProxy) GetDatabase() *db.SQliteDB {
+func (tq *TQProxy) GetDatabase() *db.SQLiteDB {
 	return tq.db
 }
 
@@ -200,7 +200,7 @@ func (tq *TQProxy) Enqueue(n *Node) error {
 	if err != nil {
 		return err
 	}
-	if !found {
+	if found {
 		return fmt.Errorf("A node with an equal value already exists")
 	}
 
@@ -225,7 +225,7 @@ func (tq *TQProxy) EnqueueFromValue(value *task.Task) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	for k := range tasks {
+	for _, k := range tasks {
 		if tq.comparatorFn(k, value) {
 			return value, fmt.Errorf("A node with an equal value already exists")
 		}
@@ -247,7 +247,7 @@ func (tq *TQProxy) EnqueueFromValue(value *task.Task) (any, error) {
 //
 //   - error: returned when a Node with an equal value is found in the tracker
 func (tq *TQProxy) EnqueueFromValueWithComparator(
-	value *task.Task,
+	target *task.Task,
 	comp func(item, target any) bool,
 ) error {
 	tq.Lock()
@@ -257,16 +257,16 @@ func (tq *TQProxy) EnqueueFromValueWithComparator(
 	if err != nil {
 		return err
 	}
-	for k := range tasks {
-		if comp(k, value) {
+	for _, k := range tasks {
+		if comp(k, target) {
 			return fmt.Errorf("A node with an equal value already exists")
 		}
 	}
 
-	n := NewNode(value)
+	n := NewNode(target)
 
 	tq.q.Enqueue(n)
-	_, err = tq.db.Insert(value)
+	_, err = tq.db.Insert(target)
 
 	return nil
 }
@@ -293,7 +293,7 @@ func (tq *TQProxy) Find(target *task.Task) (bool, any, error) {
 	if err != nil {
 		return false, nil, err
 	}
-	for k := range tasks {
+	for _, k := range tasks {
 		if tq.comparatorFn(k, target) {
 			return true, k, nil
 		}
@@ -319,8 +319,8 @@ func (tq *TQProxy) FindWithProgressState(state int) ([]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	for k := range tasks {
-		if k == state {
+	for _, k := range tasks {
+		if k.DownloadState == state {
 			nodes = append(nodes, k)
 		}
 	}
@@ -345,7 +345,7 @@ func (tq *TQProxy) FindWithComparator(
 	if err != nil {
 		return nil, err
 	}
-	for k := range tasks {
+	for _, k := range tasks {
 		if comp(k, target) {
 			return k, nil
 		}

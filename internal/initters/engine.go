@@ -21,10 +21,12 @@ import (
 func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	log.Println("starting playwright")
 	pww, err := playwrightWrapper.UsePlaywright(
-		"firefox",
-		!cfg.Dev.PlaywrightDebug,
-		0.0,
-		&cfg.Download.Tempdir,
+		&playwrightWrapper.PlaywrightOpts{
+			BrowserType:   "firefox",
+			Headless:      !cfg.Dev.PlaywrightDebug,
+			Timeout:       0.0,
+			DownloadsPath: cfg.Download.Tempdir,
+		},
 	)
 	if err != nil {
 		log.Fatalln(err)
@@ -110,30 +112,26 @@ func queueRunner(tq *dsdl.TQProxy, stop <-chan struct{}, opts any) error {
 				continue
 			}
 
-			taskVal, err := tq.Dequeue()
+			t, err := tq.Dequeue()
 			if err != nil {
 				continue
 			}
 
-			newState, err := tq.AdvanceTaskState(taskVal)
+			newState, err := tq.AdvanceTaskState(t)
 			if err != nil {
 				continue
 			}
 
-			taskData, ok := any(taskVal).(*task.Task)
-			if !ok {
-				panic("TaskRunner: Cannot convert node value into proper type\n")
-			}
-			taskData.DownloadState = newState
+			t.DownloadState = newState
 
-			go taskRunner(tq, taskData, options.Download.Directory, options.Download.Tempdir)
+			go taskRunner(tq, t, options.Download.Directory, options.Download.Tempdir)
 		}
 	}
 }
 
 func taskRunner(
 	tq *dsdl.TQProxy,
-	taskData *task.Task,
+	activeTask *task.Task,
 	downloadDir string,
 	tempDir string,
 ) {
@@ -146,17 +144,17 @@ func taskRunner(
 	}
 
 	markCompleted := func() {
-		newState, err := tq.AdvanceTaskState(taskData)
+		newState, err := tq.AdvanceTaskState(activeTask)
 		if err != nil {
 			panic(err)
 		}
-		taskData.SetState(newState)
+		activeTask.SetState(newState)
 
 		bwContext.Close()
 
 		publisher.Publish(&pubsub.PublishEvent{
 			EvtType: "mark-task-as-done",
-			Data:    taskData,
+			Data:    activeTask,
 		})
 	}
 
@@ -164,15 +162,15 @@ func taskRunner(
 
 	publisher.Publish(&pubsub.PublishEvent{
 		EvtType: "activate-task",
-		Data:    taskData,
+		Data:    activeTask,
 	})
 
 	running := false
 
 	for {
 		select {
-		case <-taskData.Stop:
-			taskData.Err = fmt.Errorf("task aborted by the user")
+		case <-activeTask.Stop:
+			activeTask.Err = fmt.Errorf("task aborted by the user")
 			markCompleted()
 
 			return
@@ -186,16 +184,16 @@ func taskRunner(
 			running = true
 
 			// process the task
-			aggConstFn, err := engine.EvaluateAggregator(taskData.Aggregator)
+			aggConstFn, err := engine.EvaluateAggregator(activeTask.Aggregator)
 			if err != nil {
-				taskData.Err = err
+				activeTask.Err = err
 				markCompleted()
 				return
 			}
 
 			bwContext, err = engine.GetBrowserInstance().NewContext()
 			if err != nil {
-				taskData.Err = fmt.Errorf("Playwright: Cannot open new browser context")
+				activeTask.Err = fmt.Errorf("Playwright: Cannot open new browser context")
 				markCompleted()
 				return
 			}
@@ -203,35 +201,35 @@ func taskRunner(
 
 			p, err := bwContext.NewPage()
 			if err != nil {
-				taskData.Err = fmt.Errorf("Playwright: Cannot open new browser context page")
+				activeTask.Err = fmt.Errorf("Playwright: Cannot open new browser context page")
 				markCompleted()
 				return
 			}
 			defer p.Close()
 
-			aggregator := aggConstFn(taskData.Slug, p)
+			aggregator := aggConstFn(activeTask.Slug, p)
 
-			taskData.AggregatorPageURL = aggregator.Url()
+			activeTask.AggregatorPageURL = aggregator.Url()
 
 			_, err = p.Goto(aggregator.Url())
 			// check internet connection
 			if err != nil {
-				taskData.Err = err
+				activeTask.Err = err
 				markCompleted()
 				return
 			}
 
-			taskData.Slug = aggregator.Slug()
+			activeTask.Slug = aggregator.Slug()
 
 			// check if page is actually not deleted
 			is404, err := aggregator.Is404()
 			if err != nil {
-				taskData.Err = err
+				activeTask.Err = err
 				markCompleted()
 				return
 			}
 			if is404 {
-				taskData.Err = fmt.Errorf(
+				activeTask.Err = fmt.Errorf(
 					"Aggregator: The requested page has been taken down or is invalid",
 				)
 				markCompleted()
@@ -241,13 +239,13 @@ func taskRunner(
 			// evaluate displayName filename
 			fname, err := aggregator.EvaluateFileName()
 			if fname != "" {
-				taskData.DisplayName = fname
+				activeTask.DisplayName = fname
 			}
 
 			// get download page
 			dlPage, err := aggregator.EvaluateDownloadPage()
 			if err != nil {
-				taskData.Err = err
+				activeTask.Err = err
 				markCompleted()
 				return
 			}
@@ -256,25 +254,25 @@ func taskRunner(
 			// parse a filehost downloader
 			filehostConstructor, err := engine.EvaluateFilehost(dlPage.URL())
 			if err != nil {
-				taskData.Err = err
+				activeTask.Err = err
 				markCompleted()
 				return
 			}
 			filehost := filehostConstructor(dlPage)
 
-			taskData.FilehostUrl = filehost.Page().URL()
+			activeTask.FilehostUrl = filehost.Page().URL()
 
 			// evaluate final filename
 			if fname == "" {
 				fname, err = filehost.EvaluateFileName()
 				if err != nil {
-					taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the filename")
+					activeTask.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the filename")
 					markCompleted()
 					return
 				}
 
 				// setting the filename only if it is stil not set
-				taskData.DisplayName = fname
+				activeTask.DisplayName = fname
 			}
 
 			fext, err := aggregator.EvaluateFileExt()
@@ -282,16 +280,16 @@ func taskRunner(
 				fext, err = filehost.EvaluateFileExt()
 				if err != nil {
 
-					taskData.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the file extension")
+					activeTask.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the file extension")
 					markCompleted()
 					return
 				}
 			}
 
 			// re-check if task is already done by other means
-			found, _, _ := tq.Find(taskData)
+			found, _, _ := tq.Find(activeTask)
 			if found {
-				taskData.SetErrMsg("This task is already present in the database")
+				activeTask.SetErrMsg("This task is already present in the database")
 				markCompleted()
 				return
 			}
@@ -315,17 +313,17 @@ func taskRunner(
 			fullFilename := fmt.Sprintf("%s.%s", fname, fext)
 
 			updateHandler := func(prog int8) {
-				taskData.SetProgress(prog)
+				activeTask.SetProgress(prog)
 
 				publisher.Publish(&pubsub.PublishEvent{
 					EvtType: "update-node-content",
-					Data:    taskData,
+					Data:    activeTask,
 				})
 			}
 
 			err = filehost.Download(tempDir, downloadDir, fullFilename, updateHandler)
 			if err != nil {
-				taskData.SetErr(err)
+				activeTask.SetErr(err)
 				markCompleted()
 				return
 			}

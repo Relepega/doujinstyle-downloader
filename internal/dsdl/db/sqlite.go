@@ -16,7 +16,7 @@ const (
 	TABLE_NAME string = "dsdl"
 )
 
-type SQliteDB struct {
+type SQLiteDB struct {
 	name string
 
 	path string
@@ -24,31 +24,33 @@ type SQliteDB struct {
 	db *sqlx.DB
 }
 
-func NewSQLite(inMemory bool, dbPath string) *SQliteDB {
-	path := filepath.Join(".", "Database")
-	name := "File-Based SQLite DB"
+func NewSQLite(inMemory bool) *SQLiteDB {
+	path := ":memory:"
+	name := "In-Memory SQLite DB"
 
 	if inMemory {
-		path = ":memory:"
-		name = "In-Memory SQLite DB"
 		goto ret
 	}
 
+	name = "File-Based SQLite DB"
+
+	path = filepath.Join(".", "Database")
 	appUtils.MkdirAll(path)
+
 	path = filepath.Join(path, "default.db")
 
 ret:
-	return &SQliteDB{
+	return &SQLiteDB{
 		name: name,
 		path: path,
 	}
 }
 
-func (db *SQliteDB) GetDB() *sqlx.DB {
+func (db *SQLiteDB) GetDB() *sqlx.DB {
 	return db.db
 }
 
-func (sdb *SQliteDB) Open() error {
+func (sdb *SQLiteDB) Open() error {
 	// db, err := sqlx.Connect("sqlite3", ":memory:")
 	db, err := sqlx.Connect("sqlite3", sdb.path)
 	if err != nil {
@@ -77,31 +79,21 @@ func (sdb *SQliteDB) Open() error {
 	return nil
 }
 
-func (sdb *SQliteDB) Close() error {
+func (sdb *SQLiteDB) Close() error {
 	return sdb.db.Close()
 }
 
-func (sdb *SQliteDB) Name() string {
+func (sdb *SQLiteDB) Name() string {
 	return sdb.name
 }
 
 // Returns the total number of stored tasks
-func (sdb *SQliteDB) Count() (int, error) {
+func (sdb *SQLiteDB) Count() (int, error) {
 	var count int
 
-	rows, err := sdb.db.Query(`SELECT COUNT(*) FROM ` + TABLE_NAME)
+	err := sdb.db.Get(&count, "SELECT COUNT(*) FROM "+TABLE_NAME)
 	if err != nil {
-		return -1, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return -1, rows.Err()
-	}
-
-	err = rows.Scan(&count)
-	if err != nil {
-		return -1, err
+		return 0, fmt.Errorf("SQLite: count query failed: %v", err)
 	}
 
 	return count, nil
@@ -110,14 +102,14 @@ func (sdb *SQliteDB) Count() (int, error) {
 // Returns the total count of tasks in a specific completion state.
 //
 // Also returns an error if the specified completion state is invalid
-func (sdb *SQliteDB) CountFromState(completionState int) (int, error) {
+func (sdb *SQLiteDB) CountFromState(completionState int) (int, error) {
 	return 0, nil
 }
 
 // Adds a task to the database
 //
 // Returns the Task ID and an eventual error
-func (sdb *SQliteDB) Insert(nv *task.Task) (string, error) {
+func (sdb *SQLiteDB) Insert(nv *task.Task) (string, error) {
 	s, err := sdb.db.Prepare(`
 		INSERT INTO ` + TABLE_NAME + ` (
 			ID,
@@ -137,6 +129,11 @@ func (sdb *SQliteDB) Insert(nv *task.Task) (string, error) {
 	}
 	defer s.Close()
 
+	dbErr := ""
+	if nv.Err != nil {
+		dbErr = nv.Err.Error()
+	}
+
 	_, err = s.Exec(
 		nv.Id,
 		nv.Aggregator,
@@ -146,13 +143,14 @@ func (sdb *SQliteDB) Insert(nv *task.Task) (string, error) {
 		nv.DisplayName,
 		nv.Filename,
 		nv.DownloadState,
-		nv.Err,
+		dbErr,
 	)
+
 	return nv.Id, err
 }
 
 // Checks whether a task with an equal value is already present in the database
-func (sdb *SQliteDB) Find(slug string) (bool, int, error) {
+func (sdb *SQLiteDB) Find(slug string) (bool, int, error) {
 	count := -1
 
 	if err := sdb.db.Get(
@@ -167,25 +165,73 @@ func (sdb *SQliteDB) Find(slug string) (bool, int, error) {
 }
 
 // Checks whether a task with an equal value is already present in the database
-func (sdb *SQliteDB) Get(slug string) (*task.Task, error) {
-	var dest *task.Task
+func (sdb *SQLiteDB) Get(slug string) (*task.Task, error) {
+	var dest *task.Task = new(task.Task)
 
-	if err := sdb.db.Get(
-		dest,
-		`SELECT * FROM `+TABLE_NAME+` WHERE ID = ? OR Slug LIKE ? LIMIT 1`,
+	row := sdb.db.QueryRowx(
+		`SELECT 
+			ID, 
+            COALESCE(Aggregator, '') AS Aggregator, 
+            COALESCE(Slug, '') AS Slug, 
+            COALESCE(AggregatorPageURL, '') AS AggregatorPageURL, 
+            COALESCE(FilehostUrl, '') AS FilehostUrl, 
+            COALESCE(DisplayName, '') AS DisplayName, 
+            COALESCE(Filename, '') AS Filename, 
+            DownloadState, 
+            COALESCE(Err, '') AS Err
+		FROM `+TABLE_NAME+`
+		WHERE ID = ? OR Slug LIKE ?
+		LIMIT 1`,
 		slug, "%"+slug+"%",
-	); err != nil {
+	)
+
+	if row.Err() != nil {
+		return nil, fmt.Errorf("SQLite: query error: %v", row.Err())
+	}
+
+	var dbErr string
+
+	err := row.Scan(
+		&dest.Id,
+		&dest.Aggregator,
+		&dest.Slug,
+		&dest.AggregatorPageURL,
+		&dest.FilehostUrl,
+		&dest.DisplayName,
+		&dest.Filename,
+		&dest.DownloadState,
+		&dbErr,
+	)
+	if err != nil {
 		return dest, err
+	}
+
+	if dbErr == "" {
+		dest.Err = nil
+	} else {
+		dest.Err = fmt.Errorf("%s", dbErr)
 	}
 
 	return dest, nil
 }
 
 // Returns all the tasks in the database
-func (sdb *SQliteDB) GetAll() ([]*task.Task, error) {
+func (sdb *SQLiteDB) GetAll() ([]*task.Task, error) {
 	dest := make([]*task.Task, 0)
 
-	rows, err := sdb.db.Query(`SELECT * FROM ` + TABLE_NAME)
+	rows, err := sdb.db.Query(`
+        SELECT 
+            ID, 
+            COALESCE(Aggregator, ''), 
+            COALESCE(Slug, ''), 
+            COALESCE(AggregatorPageURL, ''), 
+            COALESCE(FilehostUrl, ''), 
+            COALESCE(DisplayName, ''), 
+            COALESCE(Filename, ''), 
+            DownloadState, 
+            COALESCE(Err, '')
+        FROM ` + TABLE_NAME,
+	)
 	if err != nil {
 		return dest, err
 	}
@@ -193,6 +239,7 @@ func (sdb *SQliteDB) GetAll() ([]*task.Task, error) {
 
 	for rows.Next() {
 		t := task.NewTask("")
+		var dbErr string
 
 		err := rows.Scan(
 			&t.Id,
@@ -203,13 +250,17 @@ func (sdb *SQliteDB) GetAll() ([]*task.Task, error) {
 			&t.DisplayName,
 			&t.Filename,
 			&t.DownloadState,
-			&t.DBErr,
+			&dbErr,
 		)
 		if err != nil {
 			return dest, err
 		}
 
-		t.Err = fmt.Errorf("%s", t.DBErr)
+		if dbErr == "" {
+			t.Err = nil
+		} else {
+			t.Err = fmt.Errorf("%s", dbErr)
+		}
 
 		dest = append(dest, t)
 	}
@@ -220,7 +271,7 @@ func (sdb *SQliteDB) GetAll() ([]*task.Task, error) {
 // Removes a task from the database
 //
 // Returns an error if trying to remove a task in a running state
-func (sdb *SQliteDB) Remove(nv *task.Task) error {
+func (sdb *SQLiteDB) Remove(nv *task.Task) error {
 	_, err := sdb.db.Exec(`DELETE FROM `+TABLE_NAME+` WHERE id = ?`, nv.Id)
 
 	return err
@@ -231,7 +282,7 @@ func (sdb *SQliteDB) Remove(nv *task.Task) error {
 // Returns the number of affected tasks and. If -1, then the state is out of range
 //
 // Also returns an error if something goes wrong while handling the database
-func (sdb *SQliteDB) RemoveFromState(completionState int) (int, error) {
+func (sdb *SQLiteDB) RemoveFromState(completionState int) (int, error) {
 	if completionState < 0 || completionState >= states.MaxCompletionState() {
 		return 0, fmt.Errorf("CompletionState is not a value within constraints")
 	}
@@ -247,7 +298,7 @@ func (sdb *SQliteDB) RemoveFromState(completionState int) (int, error) {
 }
 
 // Empties the database
-func (sdb *SQliteDB) RemoveAll() error {
+func (sdb *SQLiteDB) RemoveAll() error {
 	_, err := sdb.db.Exec(`DELETE FROM ` + TABLE_NAME)
 
 	return err
@@ -256,7 +307,7 @@ func (sdb *SQliteDB) RemoveAll() error {
 // Resets the state of EVERY task in the specified completion state
 //
 // Returns the affected records count and an error either if the completion state is invalid or if trying to reset tunning tasks
-func (sdb *SQliteDB) ResetFromCompletionState(completionState int) (int, error) {
+func (sdb *SQLiteDB) ResetFromCompletionState(completionState int) (int, error) {
 	if completionState < 0 || completionState > states.MaxCompletionState() {
 		return 0, fmt.Errorf("CompletionState is not a value within constraints")
 	}
@@ -285,7 +336,7 @@ func (sdb *SQliteDB) ResetFromCompletionState(completionState int) (int, error) 
 }
 
 // Returns the state of a specific task. Returns an error if the task has not been found
-func (sdb *SQliteDB) getStateInt(t *task.Task) (int, error) {
+func (sdb *SQLiteDB) getStateInt(t *task.Task) (int, error) {
 	var stateID int
 
 	rows, err := sdb.db.Query(`SELECT DownloadState FROM `+TABLE_NAME+` WHERE ID = ?`, t.Id)
@@ -307,7 +358,7 @@ func (sdb *SQliteDB) getStateInt(t *task.Task) (int, error) {
 }
 
 // Returns the stringified state of a specific task. Returns an error if the task has not been found
-func (sdb *SQliteDB) GetState(t *task.Task) (string, error) {
+func (sdb *SQLiteDB) GetState(t *task.Task) (string, error) {
 	stateID, err := sdb.getStateInt(t)
 	if err != nil {
 		return "", err
@@ -319,7 +370,7 @@ func (sdb *SQliteDB) GetState(t *task.Task) (string, error) {
 }
 
 // Sets the state of a specific task. Returns an error if the task has not been found
-func (sdb *SQliteDB) SetState(t *task.Task, newState int) error {
+func (sdb *SQLiteDB) SetState(t *task.Task, newState int) error {
 	if newState < 0 || newState > states.MaxCompletionState() {
 		return fmt.Errorf("newState is out of bounds")
 	}
@@ -336,7 +387,7 @@ func (sdb *SQliteDB) SetState(t *task.Task, newState int) error {
 // Advances the completion state of a specific task
 //
 // Returns an error if the task has reached a completion state and the updated state value
-func (sdb *SQliteDB) AdvanceState(t *task.Task) (int, error) {
+func (sdb *SQLiteDB) AdvanceState(t *task.Task) (int, error) {
 	state, err := sdb.getStateInt(t)
 
 	if state >= states.MaxCompletionState() {
@@ -357,7 +408,7 @@ func (sdb *SQliteDB) AdvanceState(t *task.Task) (int, error) {
 // Regresses the completion state of a specific task
 //
 // Returns an error if the task has reached a queued state and the updated state value
-func (sdb *SQliteDB) RegressState(t *task.Task) (int, error) {
+func (sdb *SQLiteDB) RegressState(t *task.Task) (int, error) {
 	state, err := sdb.getStateInt(t)
 
 	if state <= 0 {
@@ -378,7 +429,7 @@ func (sdb *SQliteDB) RegressState(t *task.Task) (int, error) {
 // Resets the state of a specific task to a queued state
 //
 // Returns an error if trying to reset the state of a task in a running state and the updated state value
-func (sdb *SQliteDB) ResetState(t *task.Task) (int, error) {
+func (sdb *SQLiteDB) ResetState(t *task.Task) (int, error) {
 	state, err := sdb.getStateInt(t)
 	if err != nil {
 		return 0, err
@@ -398,7 +449,7 @@ func (sdb *SQliteDB) ResetState(t *task.Task) (int, error) {
 }
 
 // Drops specified table name
-func (sdb *SQliteDB) Drop(table string) error {
+func (sdb *SQLiteDB) Drop(table string) error {
 	_, err := sdb.db.Exec(`DROP TABLE ` + TABLE_NAME)
 
 	return err

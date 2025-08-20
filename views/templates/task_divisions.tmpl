@@ -1,23 +1,23 @@
 {{ block "queued_tasks" . }}
-    {{ range $key, $val := . }}
-        {{ if eq (GetStateStr $val) "Queued" }}
-            {{ template "task" $key }}
+    {{ range $idx, $task := . }}
+        {{ if eq (GetStateStr $task.DownloadState) "Queued" }}
+            {{ template "task" $task }}
         {{ end }}
     {{ end }}
 {{ end }}
 
 {{ block "active_tasks" . }}
-    {{ range $key, $val := . }}
-        {{ if eq (GetStateStr $val) "Running" }}
-            {{ template "task" $key }}
+    {{ range $idx, $task := . }}
+        {{ if eq (GetStateStr $task.DownloadState) "Running" }}
+            {{ template "task" $task }}
         {{ end }}
     {{ end }}
 {{ end }}
 
 {{ block "ended_tasks" . }}
-    {{ range $key, $val := . }}
-        {{ if eq (GetStateStr $val) "Completed" }}
-            {{ template "task" $key }}
+    {{ range $idx, $task := . }}
+        {{ if eq (GetStateStr $task.DownloadState) "Completed" }}
+            {{ template "task" $task }}
         {{ end }}
     {{ end }}
 {{ end }}

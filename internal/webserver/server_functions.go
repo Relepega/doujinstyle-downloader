@@ -12,6 +12,11 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 )
 
+type IndexData struct {
+	Data any
+	Size int
+}
+
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
@@ -20,11 +25,15 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 }
 
 func (ws *Webserver) handleNotFound(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	w.WriteHeader(http.StatusNotFound)
 	w.Write([]byte("Not found, try something else..."))
 }
 
 func (ws *Webserver) handleBadRequest(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte("Bad request, try something else..."))
 }
@@ -34,29 +43,40 @@ func (ws *Webserver) handleInternalServerError(
 	r *http.Request,
 	data string,
 ) {
+	defer r.Body.Close()
+
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte(data))
 }
 
 func (ws *Webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
 
 	dsdl, _ := ws.UserData.(*dsdl.DSDL)
-	db, err := dsdl.Tq.GetDatabase().GetAll()
+	taskEntries, err := dsdl.Tq.GetDatabase().GetAll()
 	if err != nil {
 		ws.handleInternalServerError(w, r, err.Error())
 	}
 
-	err = ws.templates.ExecuteWithWriter(w, "index", db)
+	data := &IndexData{
+		Data: taskEntries,
+		Size: len(taskEntries),
+	}
+
+	err = ws.templates.ExecuteWithWriter(w, "index", data)
 	if err != nil {
 		log.Fatalln(err)
 	}
 }
 
 func (ws *Webserver) handleRestartServer(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	self, err := os.Executable()
 	if err != nil {
 		return

@@ -26,7 +26,7 @@ const (
 )
 
 type DSDL struct {
-	db db.SQliteDB
+	db db.SQLiteDB
 	Tq *TQProxy
 
 	aggregators Aggregators

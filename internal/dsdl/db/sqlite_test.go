@@ -9,7 +9,7 @@ import (
 )
 
 func TestCreateDB(t *testing.T) {
-	db := NewSQLite(true, "")
+	db := NewSQLite(true)
 	err := db.Open()
 	if err != nil {
 		t.Fatal(err)
@@ -22,7 +22,7 @@ func TestCreateDB(t *testing.T) {
 }
 
 func TestInsertAndCount(t *testing.T) {
-	db := NewSQLite(true, "")
+	db := NewSQLite(true)
 
 	err := db.Open()
 	if err != nil {
@@ -65,7 +65,7 @@ func TestInsertAndCount(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	db := NewSQLite(true, "")
+	db := NewSQLite(true)
 
 	err := db.Open()
 	if err != nil {
@@ -129,7 +129,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	db := NewSQLite(true, "")
+	db := NewSQLite(true)
 
 	err := db.Open()
 	if err != nil {
@@ -214,7 +214,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestStateManipulation1(t *testing.T) {
-	db := NewSQLite(true, "")
+	db := NewSQLite(true)
 
 	err := db.Open()
 	if err != nil {
@@ -278,7 +278,7 @@ func TestStateManipulation1(t *testing.T) {
 }
 
 func TestStateManipulation2(t *testing.T) {
-	db := NewSQLite(true, "")
+	db := NewSQLite(true)
 
 	err := db.Open()
 	if err != nil {

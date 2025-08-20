@@ -5,10 +5,11 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Doujinstyle Downloader</title>
-        <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script>
+        <!-- <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script> -->
         <link href="/css/style.css" rel="stylesheet">
     </head>
     <body>
+        <p>Database size: {{ .Size }} </p>
         <form>
             <input name="Slugs" value="" placeholder="Insert the albumID(s) here separated by '|'" required>
 
@@ -25,7 +26,7 @@
         </form>
 
         <div id="tasks-controls-control">
-            {{ template "task_controls" . }}
+            {{ template "task_controls" .Data }}
         </div>
 
         {{ template "restart-btn" .}}

@@ -12,7 +12,7 @@ type Templates struct {
 	functions template.FuncMap
 }
 
-func (t *Templates) AddFunction(name string, fn interface{}) {
+func (t *Templates) AddFunction(name string, fn any) {
 	// t.templates.Funcs(template.FuncMap{name: fn})
 	t.functions[name] = fn
 }
@@ -52,7 +52,6 @@ func (t *Templates) Execute(name string, data any) (string, error) {
 
 func (t *Templates) ExecuteWithWriter(w io.Writer, name string, data any) error {
 	err := t.templates.ExecuteTemplate(w, name, data)
-
 	if err != nil {
 		w.Write([]byte(err.Error()))
 		return err

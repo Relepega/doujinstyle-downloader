@@ -131,7 +131,11 @@ document
 		const form = document.querySelector('form')
 
 		const formData = new FormData(form)
-		await fetch('/api/task', { method: 'POST', body: formData })
+        try {
+		    await fetch(window.location.origin+'/api/task', { method: 'POST', body: formData })
+        } catch (exc) {
+            console.error(exc)
+        }
 
 		form.Slugs.value = ''
 	})
@@ -145,7 +149,7 @@ document
 
 		if (res) {
 			try {
-				await fetch('/api/internal/restart', {
+				await fetch(window.location.origin+'/api/internal/restart', {
 					method: 'POST',
 				})
 			} catch (error) {}
@@ -213,3 +217,7 @@ source.addEventListener('error', async function (event) {
 	console.error(event.data)
 	window.alert(event.data)
 })
+
+window.addEventListener('beforeunload', function (e) {
+    source.close()
+});

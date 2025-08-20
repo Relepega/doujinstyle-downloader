@@ -27,8 +27,6 @@ type Task struct {
 	DownloadState int `db:"DownloadState"`
 	// State progress percentage (from -1 (not yet downloading) to 100)
 	Progress int8
-	// DO NOT USE! Stores the error stored in the database as string
-	DBErr string `db:"Err"`
 	// Stores an eventual error occurred in the task lifecycle
 	Err error
 	// Aborts the task progression
