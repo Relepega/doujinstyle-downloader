@@ -25,13 +25,11 @@ type Webserver struct {
 	port    uint16
 
 	httpServer  *http.Server
-	connections sse.Hub
+	connections *sse.Hub
 
 	templates *templates.Templates
 
 	msgChan chan string
-
-	ctx context.Context
 
 	UserData any
 }
@@ -39,7 +37,6 @@ type Webserver struct {
 func NewWebServer(
 	address string,
 	port uint16,
-	ctx context.Context,
 	userData any,
 ) *Webserver {
 	server := &http.Server{}
@@ -66,19 +63,14 @@ func NewWebServer(
 	}
 
 	webServer := &Webserver{
-		address: address,
-		port:    port,
-
-		httpServer: server,
-
-		templates: t,
-
-		ctx: ctx,
-
-		UserData: userData,
+		address:     address,
+		port:        port,
+		httpServer:  server,
+		templates:   t,
+		connections: sse.NewHub(),
+		msgChan:     make(chan string),
+		UserData:    userData,
 	}
-
-	webServer.msgChan = make(chan string)
 
 	return webServer
 }
@@ -111,8 +103,6 @@ func (ws *Webserver) buildRoutes() *http.ServeMux {
 }
 
 func (ws *Webserver) Start() error {
-	defer close(ws.msgChan)
-
 	mux := ws.buildRoutes()
 
 	netAddr := fmt.Sprintf("%s:%d", ws.address, ws.port)
@@ -132,32 +122,27 @@ func (ws *Webserver) Start() error {
 
 	fmt.Printf("Server is running on http://%s\n", netAddr)
 
-	// Wait for either the context to be cancelled or for the server to stop serving new connections
-	<-ws.ctx.Done()
-	fmt.Println("a")
-
-	// Context was cancelled, start the graceful shutdown
-	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownRelease()
-	fmt.Println("b")
-
-	ws.connections.Close()
-
-	fmt.Println("c")
-
-	if err := ws.httpServer.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("Webserver: HTTP shutdown error: %v", err)
-	}
-
-	fmt.Println("d")
-
-	log.Println("Webserver: Graceful shutdown complete")
 	return nil
 }
 
-func (ws *Webserver) GetSSEMessageChan() *chan string {
-	return &ws.msgChan
+func (ws *Webserver) Shutdown(ctx context.Context) {
+	log.Println("Webserver: Started shutdown procedure")
+
+	ws.connections.Shutdown()
+
+	ws.msgChan <- "shutdown"
+	close(ws.msgChan)
+
+	if err := ws.httpServer.Shutdown(ctx); err != nil {
+		log.Fatalf("Webserver: forced shutdown: %v", err)
+	}
+
+	log.Println("Webserver: exited gracefully")
 }
+
+// func (ws *Webserver) GetSSEMessageChan() *chan string {
+// 	return &ws.msgChan
+// }
 
 func (ws *Webserver) GetTemplates() templates.Templates {
 	return *ws.templates

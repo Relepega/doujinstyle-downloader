@@ -1,7 +1,6 @@
 package dsdl
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"regexp"
@@ -33,15 +32,10 @@ type DSDL struct {
 	filehosts   Filehosts
 
 	browser playwright.Browser
-
-	// whole application's context
-	Ctx context.Context
 }
 
-func NewDSDL(ctx context.Context, browser playwright.Browser) *DSDL {
+func NewDSDL(browser playwright.Browser) *DSDL {
 	dsdl := &DSDL{}
-
-	dsdl.Ctx = context.WithValue(ctx, "dsdl", dsdl)
 
 	pw, err := playwright.Run()
 	if err != nil {
@@ -65,7 +59,6 @@ func NewDSDL(ctx context.Context, browser playwright.Browser) *DSDL {
 		)
 		if err != nil {
 			defer log.Fatalln("Couldn't start a new browser: ", err)
-			ctx.Done()
 		}
 
 		dsdl.browser = b
@@ -76,12 +69,32 @@ func NewDSDL(ctx context.Context, browser playwright.Browser) *DSDL {
 	return dsdl
 }
 
+func (dsdl *DSDL) Shutdown() error {
+	log.Println("DSDL: Started shutdown procedure")
+
+	dsdl.Tq.Stop()
+
+	err := dsdl.GetBrowserInstance().Close()
+	if err != nil {
+		return fmt.Errorf("DSDL: An error occurred while shutting down playwright: %v", err)
+	}
+
+	err = dsdl.Tq.GetDatabase().Close()
+	if err != nil {
+		return fmt.Errorf("DSDL: An error occurred while shutting down database: %v", err)
+	}
+
+	log.Println("DSDL: Shutdown successful")
+
+	return nil
+}
+
 func (dsdl *DSDL) NewTQProxy(fn QueueRunner) {
 	if dsdl.Tq != nil {
 		return
 	}
 
-	dsdl.Tq = newTQWrapper(fn, dsdl.Ctx, dsdl)
+	dsdl.Tq = newTQWrapper(fn, dsdl)
 }
 
 func (dsdl *DSDL) GetTQProxy() *TQProxy {

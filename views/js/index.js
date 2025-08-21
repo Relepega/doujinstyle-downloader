@@ -183,6 +183,26 @@ source.onerror = () => {
     }
 }
 
+source.addEventListener('close', async function (event) {
+    source.close()
+
+	if (event.data == undefined) {
+		return
+	}
+
+	console.log(event.data)
+})
+
+source.addEventListener('welcome', async function (event) {
+    source.close()
+
+	if (event.data == undefined) {
+		return
+	}
+
+	console.log(event.data)
+})
+
 source.addEventListener('message', function (event) {
 	console.log('new message from server: ', event.data)
 	// let node = document.createElement("p")

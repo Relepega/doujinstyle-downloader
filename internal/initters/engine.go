@@ -1,7 +1,6 @@
 package initters
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -17,7 +16,7 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 )
 
-func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
+func InitEngine(cfg *configManager.Config) *dsdl.DSDL {
 	log.Println("starting playwright")
 	pww, err := playwrightWrapper.UsePlaywright(
 		&playwrightWrapper.PlaywrightOpts{
@@ -32,7 +31,7 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	}
 	log.Println("playwright started without errors")
 
-	engine := dsdl.NewDSDL(ctx, pww.Browser)
+	engine := dsdl.NewDSDL(pww.Browser)
 
 	engine.RegisterAggregator(&dsdl.Aggregator{
 		Name:        "doujinstyle",
@@ -88,7 +87,7 @@ func InitEngine(cfg *configManager.Config, ctx context.Context) *dsdl.DSDL {
 	return engine
 }
 
-func queueRunner(tq *dsdl.TQProxy, ctx context.Context, opts any) error {
+func queueRunner(tq *dsdl.TQProxy, opts any) error {
 	defer tq.GetDatabase().Close()
 
 	options, ok := opts.(*configManager.Config)
@@ -99,29 +98,27 @@ func queueRunner(tq *dsdl.TQProxy, ctx context.Context, opts any) error {
 	maxJobs := int(options.Download.ConcurrentJobs)
 
 	for {
-		select {
-		case <-ctx.Done():
+		if !tq.Running() {
 			return nil
-
-		default:
-			if tq.GetQueueLength() == 0 || tq.GetActiveJobsCount() == maxJobs {
-				continue
-			}
-
-			t, err := tq.Dequeue()
-			if err != nil {
-				continue
-			}
-
-			newState, err := tq.AdvanceTaskState(t)
-			if err != nil {
-				continue
-			}
-
-			t.DownloadState = newState
-
-			go taskRunner(tq, t, options.Download.Directory, options.Download.Tempdir)
 		}
+
+		if tq.GetQueueLength() == 0 || tq.GetActiveJobsCount() == maxJobs {
+			continue
+		}
+
+		t, err := tq.Dequeue()
+		if err != nil {
+			continue
+		}
+
+		newState, err := tq.AdvanceTaskState(t)
+		if err != nil {
+			continue
+		}
+
+		t.DownloadState = newState
+
+		go taskRunner(tq, t, options.Download.Directory, options.Download.Tempdir)
 	}
 }
 
@@ -153,7 +150,7 @@ func taskRunner(
 		})
 	}
 
-	engine := tq.Context()
+	engine := tq.Engine()
 
 	publisher.Publish(&pubsub.PublishEvent{
 		EvtType: "activate-task",
@@ -163,15 +160,16 @@ func taskRunner(
 	running := false
 
 	for {
-		select {
-		case <-activeTask.Stop:
-			activeTask.Err = fmt.Errorf("task aborted by the user")
+		if !tq.Running() {
+			activeTask.Err = fmt.Errorf("App shut down")
 			markCompleted()
 
 			return
+		}
 
-		case <-tq.GetAppContext().Done():
-			activeTask.Err = fmt.Errorf("App shut down")
+		select {
+		case <-activeTask.Stop:
+			activeTask.Err = fmt.Errorf("task aborted by the user")
 			markCompleted()
 
 			return

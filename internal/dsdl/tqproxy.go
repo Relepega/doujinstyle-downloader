@@ -10,7 +10,6 @@
 package dsdl
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"reflect"
@@ -25,7 +24,7 @@ const ERR_NO_RES_FOUND = "No results found"
 
 type (
 	// function that is responsible to automatically run the queue
-	QueueRunner func(tq *TQProxy, ctx context.Context, opts any) error
+	QueueRunner func(tq *TQProxy, opts any) error
 )
 
 // A TQProxy is a proxy that contains both Queue and Database instances.
@@ -44,12 +43,11 @@ type TQProxy struct {
 	// cached value for running jobs
 	activeJobs int
 	// whether the qRunner function is running or not
-	isQueueRunning bool
+	running bool
 	// compares every value in the DB (item) to the targt (user value)
 	comparatorFn func(item, target any) bool
 
-	// parent context
-	ctx context.Context
+	dsdl *DSDL
 }
 
 // NewTQWrapper: Returns a new pointer to TQWrapper
@@ -63,23 +61,20 @@ type TQProxy struct {
 //   - dbType DBType: Type of database you want to use. If invalid, returns the default in-memory one.
 //
 //     To run the QueueRunner function you musk invoke the [*TQProxy.RunQueue] function
-func newTQWrapper(
-	fn QueueRunner,
-	ctx context.Context,
-	dsdl *DSDL,
-) *TQProxy {
+func newTQWrapper(fn QueueRunner, dsdl *DSDL) *TQProxy {
 	sqlite := db.NewSQLite(false)
 
 	proxy := &TQProxy{
-		q:              NewQueue(),
-		db:             sqlite,
-		qRunner:        fn,
-		stopRunner:     make(chan struct{}),
-		activeJobs:     0,
-		isQueueRunning: false,
+		q:          NewQueue(),
+		db:         sqlite,
+		qRunner:    fn,
+		stopRunner: make(chan struct{}),
+		activeJobs: 0,
+		running:    false,
 		comparatorFn: func(item, target any) bool {
 			return item == target
 		},
+		dsdl: dsdl,
 	}
 
 	// check if app has perms to open a sorage-based db, fallbacks to memory db
@@ -92,12 +87,6 @@ func newTQWrapper(
 		// fmt.Println(info)
 		log.Println("DB: Using", info)
 		sqlite = db.NewSQLite(true)
-	}
-
-	if dsdl != nil {
-		proxy.ctx = context.WithValue(ctx, "dsdl", dsdl)
-	} else {
-		proxy.ctx = context.WithValue(ctx, "tq", proxy)
 	}
 
 	// restore saved data
@@ -153,14 +142,14 @@ func (tq *TQProxy) GetDatabase() *db.SQLiteDB {
 //
 //     to be casted into the proper type inside the runner fn.
 func (tq *TQProxy) RunQueue(opts any) {
-	go func(tq *TQProxy, ctx context.Context, opts any) {
-		err := tq.qRunner(tq, ctx, opts)
+	go func(tq *TQProxy, opts any) {
+		err := tq.qRunner(tq, opts)
 		if err != nil {
 			log.Fatalf("RunQueue: %v", err)
 		}
-	}(tq, tq.ctx, opts)
+	}(tq, opts)
 
-	tq.isQueueRunning = true
+	tq.running = true
 }
 
 // Sends a message at the qRunner function.
@@ -168,20 +157,20 @@ func (tq *TQProxy) RunQueue(opts any) {
 // # The logic to stop the runner should be
 //
 // implemented in the function itself
-func (tq *TQProxy) StopQueue() {
+func (tq *TQProxy) Stop() {
 	tq.Lock()
 	defer tq.Unlock()
 
 	tq.stopRunner <- struct{}{}
-	tq.isQueueRunning = false
+	tq.running = false
 }
 
 // Returns the running status of the qRunner function
-func (tq *TQProxy) IsQueueRunning() bool {
+func (tq *TQProxy) Running() bool {
 	tq.Lock()
 	defer tq.Unlock()
 
-	return tq.isQueueRunning
+	return tq.running
 }
 
 // Sets a different default comparator function.
@@ -578,10 +567,6 @@ func (tq *TQProxy) GetActiveJobsCount() int {
 	return tq.activeJobs
 }
 
-func (tq *TQProxy) Context() *DSDL {
-	return tq.ctx.Value("dsdl").(*DSDL)
-}
-
-func (tq *TQProxy) GetAppContext() context.Context {
-	return tq.ctx
+func (tq *TQProxy) Engine() *DSDL {
+	return tq.dsdl
 }

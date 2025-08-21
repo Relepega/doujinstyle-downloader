@@ -1,7 +1,6 @@
 package dsdl
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"path/filepath"
@@ -9,9 +8,7 @@ import (
 )
 
 func TestProperFunctioning(t *testing.T) {
-	ctx := context.Background()
-
-	d := NewDSDL(ctx, nil)
+	d := NewDSDL(nil)
 
 	aggregatorName := "test"
 

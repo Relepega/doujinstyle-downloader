@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"time"
 
 	"github.com/playwright-community/playwright-go"
 
@@ -16,15 +17,6 @@ import (
 )
 
 func main() {
-	defer func() {
-		log.Println("App shut down successfully")
-		log.Println("---------- SESSION END ----------")
-	}()
-
-	// init context for graceful shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
 	// init logger
 	logdir := filepath.Join(".", "Logs")
 	err := appUtils.MkdirAll(logdir)
@@ -34,7 +26,8 @@ func main() {
 
 	logger.InitLogger(logdir)
 
-	log.Println("---------- SESSION START ----------")
+	log.Println("--------- SESSION START ---------")
+	defer log.Println("---------- SESSION END ----------")
 
 	// install playwright browsers
 	err = playwright.Install(&playwright.RunOptions{
@@ -50,19 +43,25 @@ func main() {
 	// init modules
 	cfg := initters.InitConfig()
 
-	engine := initters.InitEngine(cfg, ctx)
-	defer engine.Tq.StopQueue()
-	defer engine.GetBrowserInstance().Close()
-	defer engine.Tq.GetDatabase().Close()
-
-	server := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, ctx, engine)
-
-	go func() {
-		err := server.Start()
+	engine := initters.InitEngine(cfg)
+	defer func() {
+		err := engine.Shutdown()
 		if err != nil {
-			log.Fatalln("Webserver:", err)
+			log.Fatalln(err)
 		}
 	}()
 
-	<-ctx.Done()
+	server := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, engine)
+	server.Start()
+
+	// create channel that waits for a SIGTERM event
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+
+	<-stop
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	defer server.Shutdown(ctx)
 }

@@ -1,6 +1,8 @@
 package v2
 
 import (
+	"log"
+
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
 	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
@@ -17,7 +19,15 @@ func (ws *Webserver) sseMessageBroker() {
 
 	for {
 		select {
-		case <-ws.ctx.Done():
+		case msg := <-ws.msgChan:
+			if msg != "shutdown" {
+				continue
+			}
+
+			log.Println("Webserver: SSEMsgBroker: closing brokers and connections")
+			publisher.Close()
+			log.Println("Webserver: SSEMsgBroker: Shutdown successful")
+
 			return
 
 		case msg := <-subscriber:
