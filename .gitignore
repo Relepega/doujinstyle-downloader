@@ -4,4 +4,5 @@ Downloads/
 Logs/
 tmp/
 internal/dsdl/db/Database/
+Database/
 config.toml
