@@ -88,7 +88,7 @@ func QueueRunner(engine *dsdl.DSDL, cfg *configManager.Config, stop chan struct{
 		case <-stop:
 			log.Println("QueueRunner: Stopping runner and active tasks")
 			for _, t := range activeTasks {
-				t.Stop <- struct{}{}
+				t.Shutdown()
 			}
 
 			// make main wait for tasks to stop so that when closing the database we won't lose any data
@@ -151,9 +151,11 @@ func taskRunner(
 		log.Printf("TaskRunner: Marking task %v as complete\n", t.Id)
 		bwContext.Close()
 
-		_, err := engine.DB().AdvanceState(t)
+		t.DownloadState = states.TASK_STATE_COMPLETED
+
+		err := engine.DB().Update(t)
 		if err != nil {
-			panic(err)
+			log.Fatalf("TaskRunner: Error while updating task in DB: %v", err)
 		}
 
 		publisher.Publish(&pubsub.PublishEvent{
@@ -171,15 +173,24 @@ func taskRunner(
 
 	for {
 		select {
-		case <-t.Stop:
-			log.Printf("TaskRunner: Marking task as aborted (ID: %v)\n", t.Id)
+		case msg := <-t.Stop:
+			if msg == "user-abort" {
+				t.Err = fmt.Errorf("Task aborted by user")
+				markCompleted()
 
-			err := bwContext.Close()
-			log.Printf("TaskRunner: An error occurred while stopping task ID %v: %v", t.Id, err)
+				return
+			}
 
-			engine.DB().Update(t)
+			if msg == "shutdown" {
+				log.Printf("TaskRunner: Marking task as aborted (server shutdown) (ID: %v)\n", t.Id)
 
-			return
+				err := bwContext.Close()
+				log.Printf("TaskRunner: An error occurred while stopping task ID %v: %v", t.Id, err)
+
+				engine.DB().Update(t)
+
+				return
+			}
 
 		default:
 			if running {
@@ -252,6 +263,7 @@ func taskRunner(
 				EvtType: "update-node-content",
 				Data:    t,
 			})
+			engine.DB().Update(t)
 
 			// get download page
 			dlPage, err := aggregator.EvaluateDownloadPage()
@@ -298,12 +310,14 @@ func taskRunner(
 			}
 
 			// re-check if task is already done by other means
-			found, _, _ := engine.DB().Find(t.Id)
+			found, _, _ := engine.DB().Find(t.DisplayName)
 			if found {
 				t.SetErrMsg("This task is already present in the database")
 				markCompleted()
 				return
 			}
+
+			engine.DB().Update(t)
 
 			// check if out dirs exist
 			if !appUtils.DirectoryExists(downloadDir) {

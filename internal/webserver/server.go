@@ -97,7 +97,7 @@ func (ws *Webserver) buildRoutes() *http.ServeMux {
 	// POST   /task { ids: []string }
 	mux.HandleFunc(fmt.Sprintf("POST %s/task", APIGroup), ws.handleTaskAdd)
 	// PATCH  /task { mode: "single|multiple|failed", ids: []string }
-	mux.HandleFunc(fmt.Sprintf("PATCH %s/task", APIGroup), ws.handleTaskUpdateState)
+	mux.HandleFunc(fmt.Sprintf("PATCH %s/task", APIGroup), ws.handleTaskUpdate)
 	// DELETE /task { mode: "single|multiple|queued|failed|succeeded", ids: []string }
 	mux.HandleFunc(fmt.Sprintf("DELETE %s/task", APIGroup), ws.handleTaskRemove)
 

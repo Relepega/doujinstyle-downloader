@@ -113,20 +113,41 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, slugList, service, happenedErrors)
 }
 
-func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Request) {
+func (ws *Webserver) handleTaskUpdate(w http.ResponseWriter, r *http.Request) {
 	taskIDs := r.FormValue("IDs")
 	mode := strings.TrimSpace(r.FormValue("Mode"))
 	// fmt.Println("mode", mode)
 
-	if !isValidMode(mode, validRemoveModes) {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "Not a valid mode")
-		return
-	}
-
 	var happenedErrors []string
 
-	if mode == "single" || mode == "multiple" {
+	proc := func(t *task.Task) {
+		newState, err := ws.engine.DB().ResetState(t)
+		if err != nil {
+			happenedErrors = append(happenedErrors, err.Error())
+			return
+		}
+
+		t.DownloadState = newState
+
+		tmpl, err := ws.templates.Execute("task", t)
+		if err != nil {
+			happenedErrors = append(happenedErrors, err.Error())
+			return
+		}
+
+		uievt := sse.NewUIEventBuilder().
+			Event(sse.UIEvent_ReplaceNode).
+			TargetNodeID(t.Id).
+			ReceiverNodeSelector("#queued").
+			Content(tmpl).
+			Position(sse.UIRenderPos_BeforeEnd).
+			Build()
+
+		ws.msgChan <- sse.NewSSEBuilder().Event("replace-node").Data(uievt).Build()
+	}
+
+	switch mode {
+	case "single", "multiple":
 		delimiter := "|"
 
 		if taskIDs == "" || taskIDs == delimiter {
@@ -143,38 +164,9 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 				continue
 			}
 
-			_, err = ws.engine.DB().ResetState(t)
-			if err != nil {
-				happenedErrors = append(happenedErrors, err.Error())
-				continue
-			}
-
-			tmpl, err := ws.templates.Execute("task", t)
-			if err != nil {
-				happenedErrors = append(happenedErrors, err.Error())
-				continue
-			}
-
-			uievt := sse.NewUIEventBuilder().
-				Event(sse.UIEvent_ReplaceNode).
-				TargetNodeID(id).
-				ReceiverNodeSelector("#queued").
-				Content(tmpl).
-				Position(sse.UIRenderPos_BeforeEnd).
-				Build()
-
-			ws.msgChan <- sse.NewSSEBuilder().Event("replace-node").Data(uievt).Build()
+			proc(t)
 		}
 
-		if len(happenedErrors) != 0 {
-			ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
-			return
-		}
-
-		goto retNoErr
-	}
-
-	switch mode {
 	case "failed":
 		nodes, err := ws.engine.DB().GetAllWithState(states.TASK_STATE_COMPLETED)
 		if err != nil {
@@ -186,36 +178,21 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 				continue
 			}
 
-			_, err := ws.engine.DB().ResetState(t)
-			if err != nil {
-				happenedErrors = append(happenedErrors, err.Error())
-				continue
-			}
-
-			tmpl, err := ws.templates.Execute("task", t)
-			if err != nil {
-				happenedErrors = append(happenedErrors, err.Error())
-				continue
-			}
-
-			uievt := sse.NewUIEventBuilder().
-				Event(sse.UIEvent_ReplaceNode).
-				TargetNodeID(t.Id).
-				ReceiverNodeSelector("#queued").
-				Content(tmpl).
-				Position(sse.UIRenderPos_BeforeEnd).
-				Build()
-
-			ws.msgChan <- sse.NewSSEBuilder().Event("replace-node").Data(uievt).Build()
+			proc(t)
 		}
 
-		if len(happenedErrors) != 0 {
-			ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
-			return
-		}
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "Not a valid mode")
+		return
+
 	}
 
-retNoErr:
+	if len(happenedErrors) != 0 {
+		ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w)
 }
@@ -223,20 +200,16 @@ retNoErr:
 func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 	taskIDs := r.FormValue("IDs")
 	mode := strings.TrimSpace(r.FormValue("Mode"))
-	// fmt.Println("mode", mode)
 
-	if !isValidMode(mode, validRemoveModes) {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "Not a valid mode")
-		return
-	}
+	var happenedErrors []string
 
-	tasks, err := ws.engine.DB().GetAll()
-	if err != nil {
-		ws.handleInternalServerError(w, r, err.Error())
-	}
+	proc := func(division string, state int) {
+		tasks, err := ws.engine.DB().GetAllWithState(state)
+		if err != nil {
+			ws.handleInternalServerError(w, r, err.Error())
+			return
+		}
 
-	sendMultiUpdate := func(division string) {
 		t, _ := ws.templates.Execute(division+"_tasks", tasks)
 
 		uievt := sse.NewUIEventBuilder().
@@ -249,9 +222,8 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		ws.msgChan <- sse.NewSSEBuilder().Event("update-node-content").Data(uievt).Build()
 	}
 
-	var happenedErrors []string
-
-	if mode == "single" || mode == "multiple" {
+	switch mode {
+	case "single", "multiple":
 		delimiter := "|"
 
 		if taskIDs == "" || taskIDs == delimiter {
@@ -262,23 +234,15 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		idList := strings.SplitSeq(taskIDs, delimiter)
 
 		for id := range idList {
-			err := ws.engine.DB().RemoveFromString(id)
+			err := ws.engine.DB().RemoveFromID(id)
 			if err != nil {
 				happenedErrors = append(happenedErrors, err.Error())
-			} else {
-				ws.msgChan <- sse.NewSSEBuilder().Event("remove-node").Data(id).Build()
+				continue
 			}
+
+			ws.msgChan <- sse.NewSSEBuilder().Event("remove-node").Data(id).Build()
 		}
 
-		if len(happenedErrors) != 0 {
-			ws.handleError(w, fmt.Errorf("%+v", happenedErrors))
-			return
-		}
-
-		goto retNoErr
-	}
-
-	switch mode {
 	case "queued":
 		_, err := ws.engine.DB().RemoveFromState(states.TASK_STATE_QUEUED)
 		if err != nil {
@@ -286,7 +250,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sendMultiUpdate("queued")
+		proc("queued", states.TASK_STATE_QUEUED)
 
 	case "completed":
 		_, err := ws.engine.DB().RemoveFromState(states.TASK_STATE_COMPLETED)
@@ -295,7 +259,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sendMultiUpdate("ended")
+		proc("ended", states.TASK_STATE_COMPLETED)
 
 	case "failed":
 		_, err := ws.engine.DB().RemoveCompletedWithErr()
@@ -304,7 +268,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sendMultiUpdate("ended")
+		proc("ended", states.TASK_STATE_COMPLETED)
 
 	case "succeeded":
 		_, err := ws.engine.DB().RemoveCompletedNoErr()
@@ -313,11 +277,14 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sendMultiUpdate("ended")
+		proc("ended", states.TASK_STATE_COMPLETED)
 
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "Not a valid mode")
+		return
 	}
 
-retNoErr:
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w)
 }

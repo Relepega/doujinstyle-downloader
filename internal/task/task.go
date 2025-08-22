@@ -30,7 +30,7 @@ type Task struct {
 	// Stores an eventual error occurred in the task lifecycle
 	Err error
 	// Aborts the task progression
-	Stop chan struct{}
+	Stop chan string
 }
 
 func NewTask(slug string) *Task {
@@ -44,7 +44,7 @@ func NewTask(slug string) *Task {
 		DisplayName:   slug,
 		DownloadState: states.TASK_STATE_QUEUED,
 		Progress:      -1,
-		Stop:          make(chan struct{}),
+		Stop:          make(chan string),
 	}
 
 	return t
@@ -61,5 +61,9 @@ func (t *Task) SetErrMsg(m string) { t.Err = fmt.Errorf("%s", m) }
 func (t *Task) SetErr(err error) { t.Err = err }
 
 func (t *Task) Abort() {
-	t.Stop <- struct{}{}
+	t.Stop <- "user-abort"
+}
+
+func (t *Task) Shutdown() {
+	t.Stop <- "shutdown"
 }

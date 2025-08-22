@@ -107,7 +107,7 @@ func (sdb *SQLiteDB) Count() (int, error) {
 func (sdb *SQLiteDB) CountFromState(completionState int) (int, error) {
 	var count int = 0
 
-	if completionState < 0 || completionState >= states.MaxCompletionState() {
+	if completionState < 0 || completionState > states.MaxCompletionState() {
 		return count, fmt.Errorf(ERR_STATE_OUTSIDE_CONSTRAINTS)
 	}
 
@@ -130,7 +130,7 @@ func (sdb *SQLiteDB) CountFromState(completionState int) (int, error) {
 func (sdb *SQLiteDB) CountFromStateNoErr(state int) int {
 	var count int = 0
 
-	if state < 0 || state >= states.MaxCompletionState() {
+	if state < 0 || state > states.MaxCompletionState() {
 		return -1
 	}
 
@@ -210,7 +210,7 @@ func (sdb *SQLiteDB) Find(slugOrID string) (bool, int, error) {
 
 	if err := sdb.db.Get(
 		&count,
-		`SELECT COUNT(ID) * FROM `+TABLE_NAME+` WHERE ID = ? OR Slug LIKE ?`,
+		`SELECT COUNT(ID) * FROM `+TABLE_NAME+` WHERE ID = ? OR Slug LIKE ? OR DisplayName = ?`,
 		slugOrID, "%"+slugOrID+"%",
 	); err != nil {
 		return false, count, err
@@ -220,7 +220,7 @@ func (sdb *SQLiteDB) Find(slugOrID string) (bool, int, error) {
 }
 
 // Checks whether a task with an equal value is already present in the database
-func (sdb *SQLiteDB) Get(slug string) (*task.Task, error) {
+func (sdb *SQLiteDB) Get(id string) (*task.Task, error) {
 	var dest *task.Task = new(task.Task)
 
 	row := sdb.db.QueryRowx(
@@ -235,9 +235,9 @@ func (sdb *SQLiteDB) Get(slug string) (*task.Task, error) {
             DownloadState, 
             COALESCE(Err, '') AS Err
 		FROM `+TABLE_NAME+`
-		WHERE ID = ? OR Slug LIKE ?
+		WHERE ID = ?
 		LIMIT 1`,
-		slug, "%"+slug+"%",
+		id,
 	)
 
 	if row.Err() != nil {
@@ -378,7 +378,7 @@ func (sdb *SQLiteDB) GetAll() ([]*task.Task, error) {
 func (sdb *SQLiteDB) GetAllWithState(state int) ([]*task.Task, error) {
 	dest := make([]*task.Task, 0)
 
-	if state < 0 || state >= states.MaxCompletionState() {
+	if state < 0 || state > states.MaxCompletionState() {
 		return dest, fmt.Errorf(ERR_STATE_OUTSIDE_CONSTRAINTS)
 	}
 
@@ -483,12 +483,8 @@ func (sdb *SQLiteDB) Remove(t *task.Task) error {
 // Removes a task from the database
 //
 // Returns an error if trying to remove a task in a running state
-func (sdb *SQLiteDB) RemoveFromString(slugOrID string) error {
-	_, err := sdb.db.Exec(
-		`SELECT COUNT(ID) * FROM `+TABLE_NAME+` WHERE ID = ? OR Slug LIKE ?`,
-		slugOrID,
-		"%"+slugOrID+"%",
-	)
+func (sdb *SQLiteDB) RemoveFromID(id string) error {
+	_, err := sdb.db.Exec(`DELETE FROM `+TABLE_NAME+` WHERE ID = ?`, id)
 
 	return err
 }
@@ -499,7 +495,7 @@ func (sdb *SQLiteDB) RemoveFromString(slugOrID string) error {
 //
 // Also returns an error if something goes wrong while handling the database
 func (sdb *SQLiteDB) RemoveFromState(state int) (int, error) {
-	if state < 0 || state >= states.MaxCompletionState() {
+	if state < 0 || state > states.MaxCompletionState() {
 		return 0, fmt.Errorf(ERR_STATE_OUTSIDE_CONSTRAINTS)
 	}
 
