@@ -74,7 +74,18 @@ func InitEngine(cfg *configManager.Config) *dsdl.DSDL {
 	return engine
 }
 
-func QueueRunner(engine *dsdl.DSDL, cfg *configManager.Config, stop chan struct{}) error {
+func sendTaskUpdates(pub chan *pubsub.PublishEvent, t *task.Task) {
+	pub <- &pubsub.PublishEvent{
+		EvtType: "update-node-content",
+		Data:    t,
+	}
+}
+
+func QueueRunner(
+	engine *dsdl.DSDL,
+	cfg *configManager.Config,
+	stop chan struct{},
+) error {
 	log.Println("QueueRunner: Starting running tasks")
 
 	maxJobs := int(cfg.Download.ConcurrentJobs)
@@ -188,6 +199,11 @@ func taskRunner(
 				log.Printf("TaskRunner: An error occurred while stopping task ID %v: %v", t.Id, err)
 
 				engine.DB().Update(t)
+
+				publisher.Publish(&pubsub.PublishEvent{
+					EvtType: "mark-task-as-done",
+					Data:    t,
+				})
 
 				return
 			}
@@ -318,6 +334,10 @@ func taskRunner(
 			}
 
 			engine.DB().Update(t)
+			publisher.Publish(&pubsub.PublishEvent{
+				EvtType: "update-node-content",
+				Data:    t,
+			})
 
 			// check if out dirs exist
 			if !appUtils.DirectoryExists(downloadDir) {
@@ -339,6 +359,8 @@ func taskRunner(
 
 			updateHandler := func(prog int8) {
 				t.SetProgress(prog)
+
+				// fmt.Println("downloading (", prog, "%)", t.DisplayName)
 
 				publisher.Publish(&pubsub.PublishEvent{
 					EvtType: "update-node-content",

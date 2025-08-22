@@ -183,15 +183,15 @@ source.onerror = () => {
     }
 }
 
-source.addEventListener('close', async function (event) {
-    source.close()
-
-	if (event.data == undefined) {
-		return
-	}
-
-	console.log(event.data)
-})
+// source.addEventListener('close', async function (event) {
+//     source.close()
+// 
+// 	if (event.data == undefined) {
+// 		return
+// 	}
+// 
+// 	console.log(event.data)
+// })
 
 source.addEventListener('welcome', async function (event) {
     source.close()
@@ -246,7 +246,7 @@ source.addEventListener('replace-node', function (event) {
 
 source.addEventListener('update-node-content', function (event) {
 	const data = JSON.parse(event.data)
-	//console.log('replace-node-content parsed data: ', data)
+	console.log('replace-node-content parsed data: ', data)
 
 	document.getElementById(data.ReceiverNodeSelector).innerHTML = data.NewContent
 })

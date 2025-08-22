@@ -46,6 +46,21 @@ func NewWebServer(
 
 	server := &http.Server{}
 
+	webServer := &Webserver{
+		address:      address,
+		port:         port,
+		httpServer:   server,
+		connections:  sse.NewHub(),
+		msgChan:      make(chan string),
+		closeUpdater: make(chan struct{}, 1),
+		closeStream:  make(chan struct{}, 1),
+		engine:       dsdl,
+	}
+
+	return webServer
+}
+
+func (ws *Webserver) buildTemplates() *templates.Templates {
 	t, err := templates.NewTemplates()
 	if err != nil {
 		log.Fatalln(err)
@@ -67,23 +82,13 @@ func NewWebServer(
 		log.Fatalln("Templates parsing error:", err)
 	}
 
-	webServer := &Webserver{
-		address:      address,
-		port:         port,
-		httpServer:   server,
-		templates:    t,
-		connections:  sse.NewHub(),
-		msgChan:      make(chan string),
-		closeUpdater: make(chan struct{}, 1),
-		closeStream:  make(chan struct{}, 1),
-		engine:       dsdl,
-	}
-
-	return webServer
+	return t
 }
 
 func (ws *Webserver) buildRoutes() *http.ServeMux {
 	log.Println("Webserver: Building router")
+
+	ws.templates = ws.buildTemplates()
 
 	mux := http.NewServeMux()
 
@@ -112,9 +117,9 @@ func (ws *Webserver) buildRoutes() *http.ServeMux {
 }
 
 func (ws *Webserver) Start() error {
-	mux := ws.buildRoutes()
-
 	log.Println("Webserver: Starting HTTP server")
+
+	mux := ws.buildRoutes()
 
 	netAddr := fmt.Sprintf("%s:%d", ws.address, ws.port)
 

@@ -18,10 +18,6 @@ func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 	client := ws.connections.AddClient(w, r)
 	log.Printf("Webserver: EventStream: New client connected (ID: %v)", client.ID())
 
-	welcomeEvent := sse.NewSSEBuilder().Event("welcome").Data("Welcome!").Build()
-	fmt.Fprintf(w, welcomeEvent)
-	w.(http.Flusher).Flush()
-
 	for {
 		select {
 		case <-ws.closeStream:
