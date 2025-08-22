@@ -1,4 +1,103 @@
 
+<a name="v0.4.0-a1"></a>
+## [v0.4.0-a1](https://github.com/Relepega/doujinstyle-downloader/compare/v0.3.2...v0.4.0-a1)
+
+> 2025-01-01
+
+### Chore
+
+* removed debugging strings
+* updated app version
+* updated deps
+* Removed old leftovers
+* Fixed tests and empty file errors
+* **taskRunner:** error messages now point to correct pkg and not to taskRunner
+
+### Docs
+
+* Added contacts on QnA section in the readme
+
+### Feat
+
+* getting places
+* added proper debug commands and config
+* Implemented all the remaining modes for task DELETE method
+* Restructured crud api
+* Make use of SSE to send live updates to all connected clients
+* re-added data-agnostic observer module
+* added a service validator function
+* re-added Mega
+* embed filehost url to task
+* Incomplete impl for UI messaging
+* added the find method
+* added a unique IDentifier private field with relative getter method
+* added the Slug getter method
+* Added a proper Unique ID
+* update taskData with new intelligible data
+* Filehost constructor function now accepts a page as a parameter
+* deferring playwright context close on task completion
+* check internet connection availability
+* moving logic to a single module to mimic a package
+* Implemented all remaining modes for task PATCH method
+* added task already present in DB checks
+* Readded a non-race condition checking run script
+* fixed task progression impl
+* added tests & functionalities
+* Added a GetAll method to Tracker and fixed some compiler errors
+* handleTaskUpdateState route is finished
+* new function that returns node selectively
+* added partial impl to task state update endpoint
+* Added queue runner logic
+* introduced main application logic
+* Almost completed mediafire core logic
+* added guard clause for empty registration lists
+* renamed "aggregator" dir to plural & added sukidesuost
+* Added Doujinstyle aggregator
+* **engine:** added function that returns all nodes with same progress state
+* **engine:** Added method to get all tasks with the same download state
+* **initters.engine:** Completed implementation of taskRunner function
+* **playwrightWrapper:** Added support for custom downloadPath
+
+### Fix
+
+* full url being built even if slug is already a full url
+* removed unused import
+* removed end task on error when only first getfilename has been processed
+* fixed comparator function filters
+* changed queryselector for file format evaluation
+* changed some old refs to new ones
+* fixed erroneous task render & event send on bad request
+* **engine:** Fixed logic errors in half-implemented functions and fixed nullptr dereference
+* **engine:** fixed local error where task wasn't resetted correctly
+* **sse:** Fixed edge case in UIEventBuilder on replaceNode event
+* **taskRunner:** fixed logical error that sets the page as not found when it's not
+* **taskRunner:** now detecting file name & extension through both aggregator and filehost
+* **webserver:** fixed logic errors while comparing completed failed and succeeded tasks
+* **webserver:** fixed logic issues on task PATCH method
+
+### Refactor
+
+* removed old or unused code
+* changed data type for aggregator and filehost
+* setting taskdata.displayname at different points if one fails
+* changed utils' download function signature to add flexibility
+* changed helper function name to MkdirAll to reflect the std package naming
+* Filehost constructor function now accepts a page as a parameter (follows #c17fd0b)
+* General interface and method updates
+* changed parameter from *int8 to func(int 8)
+* Removed webserver initter because of its uselessness
+* updated AggregatorConstrFn parameters
+* Changed interface names & interface function names
+* removed unused return value
+* Moved init functions to a separate module
+* **dsdl:** made error message constants
+
+### Tests
+
+* fixed tests to reflect changes in filehost impl
+* Fixed implementation due to signature changes
+
+
 <a name="v0.3.2"></a>
 ## [v0.3.2](https://github.com/Relepega/doujinstyle-downloader/compare/v0.3.1...v0.3.2)
 
@@ -168,15 +267,15 @@
 ### Feat
 
 * setting custom download folder inside host
-* Readded all hosts
+* publish dl update to queue evt subscriber
 * impl host service
 * removed unused static file
-* Added batch albumID processing via delimiter ([#6](https://github.com/Relepega/doujinstyle-downloader/issues/6))
+* Reset input value on form submit
 * Readded sukidesuost service handler
 * added .prettierrc
+* Readded all hosts
+* Added batch albumID processing via delimiter ([#6](https://github.com/Relepega/doujinstyle-downloader/issues/6))
 * added "Downloads" and subdirs into exclusions
-* Reset input value on form submit
-* publish dl update to queue evt subscriber
 * Added queue subscriber support
 * Added global publishers
 * Added host download logic
@@ -211,11 +310,6 @@
 
 * removed leftover comments
 
-### Pull Requests
-
-* Merge pull request [#7](https://github.com/Relepega/doujinstyle-downloader/issues/7) from Relepega/event-driven-rewrite
-* Merge pull request [#5](https://github.com/Relepega/doujinstyle-downloader/issues/5) from Relepega/dependabot/go_modules/golang.org/x/net-0.23.0
-
 ### BREAKING CHANGE
 
 
@@ -239,10 +333,6 @@ ensures more flexibility in the app structure.
 
 * removed unused variable
 * Added checks for edge cases
-
-### Pull Requests
-
-* Merge pull request [#4](https://github.com/Relepega/doujinstyle-downloader/issues/4) from Relepega/mediafire-folder
 
 
 <a name="v0.2.0-b1"></a>
@@ -335,11 +425,6 @@ ensures more flexibility in the app structure.
 
 * **deps:** Bump github.com/go-jose/go-jose/v3 in /internal/downloader
 * **deps:** Bump github.com/go-jose/go-jose/v3
-
-### Pull Requests
-
-* Merge pull request [#1](https://github.com/Relepega/doujinstyle-downloader/issues/1) from Relepega/dependabot/go_modules/internal/playwrightWrapper/github.com/go-jose/go-jose/v3-3.0.1
-* Merge pull request [#2](https://github.com/Relepega/doujinstyle-downloader/issues/2) from Relepega/dependabot/go_modules/internal/downloader/github.com/go-jose/go-jose/v3-3.0.1
 
 ### BREAKING CHANGE
 

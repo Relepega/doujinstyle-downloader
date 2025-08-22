@@ -9,7 +9,7 @@ import (
 
 const (
 	config_fp     = "./config.toml"
-	latestVersion = "0.4.0"
+	latestVersion = "0.4.0-b1"
 )
 
 type Config struct {
