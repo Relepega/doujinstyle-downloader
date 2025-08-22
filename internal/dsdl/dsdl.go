@@ -25,8 +25,7 @@ const (
 )
 
 type DSDL struct {
-	db db.SQLiteDB
-	Tq *TQProxy
+	db *db.SQLiteDB
 
 	aggregators Aggregators
 	filehosts   Filehosts
@@ -37,6 +36,7 @@ type DSDL struct {
 func NewDSDL(browser playwright.Browser) *DSDL {
 	dsdl := &DSDL{}
 
+	// start browser
 	pw, err := playwright.Run()
 	if err != nil {
 		log.Fatalln("could not start playwright: ", err)
@@ -66,20 +66,22 @@ func NewDSDL(browser playwright.Browser) *DSDL {
 
 	dsdl.browser = browser
 
+	// start database
+	sqlite := db.NewSQLite(false)
+	dsdl.db = restoreDB(sqlite)
+
 	return dsdl
 }
 
 func (dsdl *DSDL) Shutdown() error {
 	log.Println("DSDL: Started shutdown procedure")
 
-	dsdl.Tq.Stop()
+	_ = dsdl.Browser().Close()
+	// if err != nil && err.Error() != "Connection closed" {
+	// 	return fmt.Errorf("DSDL: An error occurred while shutting down playwright: %v", err)
+	// }
 
-	err := dsdl.GetBrowserInstance().Close()
-	if err != nil {
-		return fmt.Errorf("DSDL: An error occurred while shutting down playwright: %v", err)
-	}
-
-	err = dsdl.Tq.GetDatabase().Close()
+	err := dsdl.db.Close()
 	if err != nil {
 		return fmt.Errorf("DSDL: An error occurred while shutting down database: %v", err)
 	}
@@ -89,21 +91,9 @@ func (dsdl *DSDL) Shutdown() error {
 	return nil
 }
 
-func (dsdl *DSDL) NewTQProxy(fn QueueRunner) {
-	if dsdl.Tq != nil {
-		return
-	}
+func (dsdl *DSDL) Browser() playwright.Browser { return dsdl.browser }
 
-	dsdl.Tq = newTQWrapper(fn, dsdl)
-}
-
-func (dsdl *DSDL) GetTQProxy() *TQProxy {
-	return dsdl.Tq
-}
-
-func (dsdl *DSDL) GetBrowserInstance() playwright.Browser {
-	return dsdl.browser
-}
+func (dsdl *DSDL) DB() *db.SQLiteDB { return dsdl.db }
 
 func (dsdl *DSDL) RegisterAggregator(f *Aggregator) error {
 	unique := true

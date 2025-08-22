@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/relepega/doujinstyle-downloader/internal/appUtils"
-	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/sse"
@@ -54,8 +53,6 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		slugs,
 	)
 
-	engine, _ := ws.UserData.(*dsdl.DSDL)
-
 	delimiter := "|"
 
 	if slugs == "" || slugs == delimiter {
@@ -64,7 +61,7 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if service == "" || !engine.IsValidAggregator(service) {
+	if service == "" || !ws.engine.IsValidAggregator(service) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintln(w, "Not a valid service")
 		return
@@ -87,15 +84,8 @@ func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
 			newTask.AggregatorPageURL = slug
 		}
 
-		// add task to engine
-		err := engine.Tq.EnqueueFromValueWithComparator(
-			newTask,
-			func(item, target any) bool {
-				toCompare := item.(*task.Task)
-
-				return toCompare.Slug == newTask.Slug
-			},
-		)
+		// add task to ws.engine
+		_, err := ws.engine.DB().Insert(newTask)
 		if err != nil {
 			happenedErrors = append(happenedErrors, err.Error())
 			continue
@@ -134,8 +124,6 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	engine, _ := ws.UserData.(*dsdl.DSDL)
-
 	var happenedErrors []string
 
 	if mode == "single" || mode == "multiple" {
@@ -149,28 +137,19 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 		idList := strings.SplitSeq(taskIDs, delimiter)
 
 		for id := range idList {
-			node, err := engine.Tq.FindWithComparator(id, func(item, target any) bool {
-				t := item.(*task.Task)
-				id := target.(string)
-
-				return t.Id == id
-			})
+			t, err := ws.engine.DB().Get(id)
 			if err != nil {
 				happenedErrors = append(happenedErrors, err.Error())
 				continue
 			}
 
-			t := node.(*task.Task)
-			t.DownloadState = states.TASK_STATE_QUEUED
-			t.Err = nil
-
-			err = engine.Tq.ResetTaskState(node)
+			_, err = ws.engine.DB().ResetState(t)
 			if err != nil {
 				happenedErrors = append(happenedErrors, err.Error())
 				continue
 			}
 
-			tmpl, err := ws.templates.Execute("task", node)
+			tmpl, err := ws.templates.Execute("task", t)
 			if err != nil {
 				happenedErrors = append(happenedErrors, err.Error())
 				continue
@@ -197,22 +176,17 @@ func (ws *Webserver) handleTaskUpdateState(w http.ResponseWriter, r *http.Reques
 
 	switch mode {
 	case "failed":
-		nodes, err := engine.Tq.FindWithProgressState(states.TASK_STATE_COMPLETED)
+		nodes, err := ws.engine.DB().GetAllWithState(states.TASK_STATE_COMPLETED)
 		if err != nil {
 			ws.handleError(w, err)
 		}
 
-		for _, node := range nodes {
-			t := node.(*task.Task)
-
+		for _, t := range nodes {
 			if t.Err == nil {
 				continue
 			}
 
-			t.DownloadState = states.TASK_STATE_QUEUED
-			t.Err = nil
-
-			err := engine.Tq.ResetTaskState(node)
+			_, err := ws.engine.DB().ResetState(t)
 			if err != nil {
 				happenedErrors = append(happenedErrors, err.Error())
 				continue
@@ -257,9 +231,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	engine, _ := ws.UserData.(*dsdl.DSDL)
-
-	tasks, err := engine.Tq.GetDatabase().GetAll()
+	tasks, err := ws.engine.DB().GetAll()
 	if err != nil {
 		ws.handleInternalServerError(w, r, err.Error())
 	}
@@ -290,12 +262,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		idList := strings.SplitSeq(taskIDs, delimiter)
 
 		for id := range idList {
-			err := engine.Tq.RemoveWithComparator(id, func(item, target any) bool {
-				id := target.(string)
-				t := item.(*task.Task)
-
-				return t.Id == id
-			})
+			err := ws.engine.DB().RemoveFromString(id)
 			if err != nil {
 				happenedErrors = append(happenedErrors, err.Error())
 			} else {
@@ -313,7 +280,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 
 	switch mode {
 	case "queued":
-		_, err := engine.Tq.RemoveFromState(states.TASK_STATE_QUEUED)
+		_, err := ws.engine.DB().RemoveFromState(states.TASK_STATE_QUEUED)
 		if err != nil {
 			ws.handleError(w, err)
 			return
@@ -322,7 +289,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		sendMultiUpdate("queued")
 
 	case "completed":
-		_, err := engine.Tq.RemoveFromState(states.TASK_STATE_COMPLETED)
+		_, err := ws.engine.DB().RemoveFromState(states.TASK_STATE_COMPLETED)
 		if err != nil {
 			ws.handleError(w, err)
 			return
@@ -331,15 +298,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		sendMultiUpdate("ended")
 
 	case "failed":
-		err := engine.Tq.RemoveWithComparator(
-			states.TASK_STATE_COMPLETED,
-			func(item, target any) bool {
-				t := item.(*task.Task)
-				state := target.(int)
-
-				return t.DownloadState == state && t.Err != nil
-			},
-		)
+		_, err := ws.engine.DB().RemoveCompletedWithErr()
 		if err != nil {
 			ws.handleError(w, err)
 			return
@@ -348,15 +307,7 @@ func (ws *Webserver) handleTaskRemove(w http.ResponseWriter, r *http.Request) {
 		sendMultiUpdate("ended")
 
 	case "succeeded":
-		err := engine.Tq.RemoveWithComparator(
-			states.TASK_STATE_COMPLETED,
-			func(item, target any) bool {
-				t := item.(*task.Task)
-				state := target.(int)
-
-				return t.DownloadState == state && t.Err == nil
-			},
-		)
+		_, err := ws.engine.DB().RemoveCompletedNoErr()
 		if err != nil {
 			ws.handleError(w, err)
 			return

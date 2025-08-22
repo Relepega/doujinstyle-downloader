@@ -16,7 +16,7 @@ func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 
 	client := ws.connections.AddClient(w, r)
-	log.Printf("Webserver: EventStream: New client (ID: %v) connected", client.ID())
+	log.Printf("Webserver: EventStream: New client connected (ID: %v)", client.ID())
 
 	welcomeEvent := sse.NewSSEBuilder().Event("welcome").Data("Welcome!").Build()
 	fmt.Fprintf(w, welcomeEvent)
@@ -24,6 +24,13 @@ func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		select {
+		case <-ws.closeStream:
+			log.Println("Webserver: SSEMsgBroker: closing brokers and connections")
+			// close(ws.msgChan)
+			// log.Println("Webserver: SSEMsgBroker: Shutdown successful")
+
+			return
+
 		case <-client.Close():
 			event := sse.NewSSEBuilder().Event("close").Data("Server closed").Build()
 
@@ -33,7 +40,7 @@ func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 
 			ws.connections.Removeclient(client)
 
-			log.Printf("Webserver: EventStream: Client (ID: %v) disconnected", client.ID())
+			log.Printf("Webserver: EventStream: Client disconnected (ID: %v)", client.ID())
 			return
 
 		// case <-r.Context().Done():
@@ -41,8 +48,8 @@ func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 		// 	log.Printf("Webserver: EventStream: Client (ID: %v) disconnected", client.ID())
 		// 	return
 
-		case msg, _ := <-ws.msgChan:
-			fmt.Println(msg)
+		case msg := <-ws.msgChan:
+			// fmt.Println(msg)
 			ws.connections.Broadcast(msg)
 
 		default:

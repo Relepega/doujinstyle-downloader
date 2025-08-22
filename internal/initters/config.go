@@ -9,6 +9,7 @@ import (
 )
 
 func InitConfig() *configManager.Config {
+	log.Println("ConfigManager: Loading config")
 	cfg := configManager.NewConfig()
 
 	err := cfg.Load()
@@ -20,6 +21,8 @@ func InitConfig() *configManager.Config {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Println("ConfigManager: Done!")
 
 	return cfg
 }

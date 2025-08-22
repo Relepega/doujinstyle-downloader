@@ -11,13 +11,14 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/aggregators"
 	"github.com/relepega/doujinstyle-downloader/internal/downloader/filehosts"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
 	"github.com/relepega/doujinstyle-downloader/internal/playwrightWrapper"
 	pubsub "github.com/relepega/doujinstyle-downloader/internal/pubSub"
 	"github.com/relepega/doujinstyle-downloader/internal/task"
 )
 
 func InitEngine(cfg *configManager.Config) *dsdl.DSDL {
-	log.Println("starting playwright")
+	log.Println("Engine: Starting playwright")
 	pww, err := playwrightWrapper.UsePlaywright(
 		&playwrightWrapper.PlaywrightOpts{
 			BrowserType:   "firefox",
@@ -29,8 +30,9 @@ func InitEngine(cfg *configManager.Config) *dsdl.DSDL {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println("playwright started without errors")
+	log.Println("Engine: Playwright started without errors")
 
+	log.Println("Engine: Initializing DSDL instance")
 	engine := dsdl.NewDSDL(pww.Browser)
 
 	engine.RegisterAggregator(&dsdl.Aggregator{
@@ -67,64 +69,73 @@ func InitEngine(cfg *configManager.Config) *dsdl.DSDL {
 		Constructor:         filehosts.NewJottacloud,
 	})
 
-	engine.NewTQProxy(queueRunner)
-	// fmt.Println(engine.GetTQProxy().GetDatabase().Name())
-
-	engine.GetTQProxy().SetComparatorFunc(func(item, target any) bool {
-		t := target.(*task.Task)
-		dbTask := item.(*task.Task)
-
-		if dbTask.Id == t.Id {
-			return false
-		}
-
-		return dbTask.Slug == t.Slug ||
-			dbTask.AggregatorPageURL == t.AggregatorPageURL
-	})
-
-	engine.Tq.RunQueue(cfg)
+	log.Println("Engine: DSDL initialized")
 
 	return engine
 }
 
-func queueRunner(tq *dsdl.TQProxy, opts any) error {
-	defer tq.GetDatabase().Close()
+func QueueRunner(engine *dsdl.DSDL, cfg *configManager.Config, stop chan struct{}) error {
+	log.Println("QueueRunner: Starting running tasks")
 
-	options, ok := opts.(*configManager.Config)
-	if !ok {
-		log.Fatalln("Options are of wrong type")
-	}
+	maxJobs := int(cfg.Download.ConcurrentJobs)
 
-	maxJobs := int(options.Download.ConcurrentJobs)
+	db := engine.DB()
+
+	var activeTasks []*task.Task
 
 	for {
-		if !tq.Running() {
+		select {
+		case <-stop:
+			log.Println("QueueRunner: Stopping runner and active tasks")
+			for _, t := range activeTasks {
+				t.Stop <- struct{}{}
+			}
+
+			// make main wait for tasks to stop so that when closing the database we won't lose any data
+			log.Println("QueueRunner: All tasks stopped")
+
 			return nil
+
+		default:
+			if db.CountFromStateNoErr(states.TASK_STATE_QUEUED) <= 0 ||
+				db.CountFromStateNoErr(states.TASK_STATE_RUNNING) == maxJobs {
+				continue
+			}
+
+			log.Println("QueueRunner: Dequeuing task")
+
+			t, err := db.GetFromState(states.TASK_STATE_QUEUED)
+			if err != nil {
+				continue
+			}
+
+			log.Printf("QueueRunner: Activating task with ID %v\n", t.Id)
+
+			_, err = db.AdvanceState(t)
+			if err != nil {
+				continue
+			}
+
+			// swap any completed task if array is full
+			if len(activeTasks) < maxJobs {
+				activeTasks = append(activeTasks, t)
+			} else {
+				for i, v := range activeTasks {
+					if v.DownloadState == states.TASK_STATE_COMPLETED {
+						activeTasks[i] = t
+						break
+					}
+				}
+			}
+
+			go taskRunner(engine, t, cfg.Download.Directory, cfg.Download.Tempdir)
 		}
-
-		if tq.GetQueueLength() == 0 || tq.GetActiveJobsCount() == maxJobs {
-			continue
-		}
-
-		t, err := tq.Dequeue()
-		if err != nil {
-			continue
-		}
-
-		newState, err := tq.AdvanceTaskState(t)
-		if err != nil {
-			continue
-		}
-
-		t.DownloadState = newState
-
-		go taskRunner(tq, t, options.Download.Directory, options.Download.Tempdir)
 	}
 }
 
 func taskRunner(
-	tq *dsdl.TQProxy,
-	activeTask *task.Task,
+	engine *dsdl.DSDL,
+	t *task.Task,
 	downloadDir string,
 	tempDir string,
 ) {
@@ -137,40 +148,36 @@ func taskRunner(
 	}
 
 	markCompleted := func() {
+		log.Printf("TaskRunner: Marking task %v as complete\n", t.Id)
 		bwContext.Close()
 
-		_, err := tq.AdvanceTaskState(activeTask)
+		_, err := engine.DB().AdvanceState(t)
 		if err != nil {
 			panic(err)
 		}
 
 		publisher.Publish(&pubsub.PublishEvent{
 			EvtType: "mark-task-as-done",
-			Data:    activeTask,
+			Data:    t,
 		})
 	}
 
-	engine := tq.Engine()
-
 	publisher.Publish(&pubsub.PublishEvent{
 		EvtType: "activate-task",
-		Data:    activeTask,
+		Data:    t,
 	})
 
 	running := false
 
 	for {
-		if !tq.Running() {
-			activeTask.Err = fmt.Errorf("App shut down")
-			markCompleted()
-
-			return
-		}
-
 		select {
-		case <-activeTask.Stop:
-			activeTask.Err = fmt.Errorf("task aborted by the user")
-			markCompleted()
+		case <-t.Stop:
+			log.Printf("TaskRunner: Marking task as aborted (ID: %v)\n", t.Id)
+
+			err := bwContext.Close()
+			log.Printf("TaskRunner: An error occurred while stopping task ID %v: %v", t.Id, err)
+
+			engine.DB().Update(t)
 
 			return
 
@@ -183,16 +190,16 @@ func taskRunner(
 			running = true
 
 			// process the task
-			aggConstFn, err := engine.EvaluateAggregator(activeTask.Aggregator)
+			aggConstFn, err := engine.EvaluateAggregator(t.Aggregator)
 			if err != nil {
-				activeTask.Err = err
+				t.Err = err
 				markCompleted()
 				return
 			}
 
-			bwContext, err = engine.GetBrowserInstance().NewContext()
+			bwContext, err = engine.Browser().NewContext()
 			if err != nil {
-				activeTask.Err = fmt.Errorf("Playwright: Cannot open new browser context")
+				t.Err = fmt.Errorf("Playwright: Cannot open new browser context")
 				markCompleted()
 				return
 			}
@@ -200,35 +207,35 @@ func taskRunner(
 
 			p, err := bwContext.NewPage()
 			if err != nil {
-				activeTask.Err = fmt.Errorf("Playwright: Cannot open new browser context page")
+				t.Err = fmt.Errorf("Playwright: Cannot open new browser context page")
 				markCompleted()
 				return
 			}
 			defer p.Close()
 
-			aggregator := aggConstFn(activeTask.Slug, p)
+			aggregator := aggConstFn(t.Slug, p)
 
-			activeTask.AggregatorPageURL = aggregator.Url()
+			t.AggregatorPageURL = aggregator.Url()
 
 			_, err = p.Goto(aggregator.Url())
 			// check internet connection
 			if err != nil {
-				activeTask.Err = err
+				t.Err = err
 				markCompleted()
 				return
 			}
 
-			activeTask.Slug = aggregator.Slug()
+			t.Slug = aggregator.Slug()
 
 			// check if page is actually not deleted
 			is404, err := aggregator.Is404()
 			if err != nil {
-				activeTask.Err = err
+				t.Err = err
 				markCompleted()
 				return
 			}
 			if is404 {
-				activeTask.Err = fmt.Errorf(
+				t.Err = fmt.Errorf(
 					"Aggregator: The requested page has been taken down or is invalid",
 				)
 				markCompleted()
@@ -238,13 +245,18 @@ func taskRunner(
 			// evaluate displayName filename
 			fname, err := aggregator.EvaluateFileName()
 			if fname != "" {
-				activeTask.DisplayName = fname
+				t.DisplayName = fname
 			}
+
+			publisher.Publish(&pubsub.PublishEvent{
+				EvtType: "update-node-content",
+				Data:    t,
+			})
 
 			// get download page
 			dlPage, err := aggregator.EvaluateDownloadPage()
 			if err != nil {
-				activeTask.Err = err
+				t.Err = err
 				markCompleted()
 				return
 			}
@@ -253,25 +265,25 @@ func taskRunner(
 			// parse a filehost downloader
 			filehostConstructor, err := engine.EvaluateFilehost(dlPage.URL())
 			if err != nil {
-				activeTask.Err = err
+				t.Err = err
 				markCompleted()
 				return
 			}
 			filehost := filehostConstructor(dlPage)
 
-			activeTask.FilehostUrl = filehost.Page().URL()
+			t.FilehostUrl = filehost.Page().URL()
 
 			// evaluate final filename
 			if fname == "" {
 				fname, err = filehost.EvaluateFileName()
 				if err != nil {
-					activeTask.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the filename")
+					t.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the filename")
 					markCompleted()
 					return
 				}
 
 				// setting the filename only if it is stil not set
-				activeTask.DisplayName = fname
+				t.DisplayName = fname
 			}
 
 			fext, err := aggregator.EvaluateFileExt()
@@ -279,16 +291,16 @@ func taskRunner(
 				fext, err = filehost.EvaluateFileExt()
 				if err != nil {
 
-					activeTask.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the file extension")
+					t.Err = fmt.Errorf("TaskRunner: Couldn't evaluate the file extension")
 					markCompleted()
 					return
 				}
 			}
 
 			// re-check if task is already done by other means
-			found, _, _ := tq.Find(activeTask)
+			found, _, _ := engine.DB().Find(t.Id)
 			if found {
-				activeTask.SetErrMsg("This task is already present in the database")
+				t.SetErrMsg("This task is already present in the database")
 				markCompleted()
 				return
 			}
@@ -312,17 +324,17 @@ func taskRunner(
 			fullFilename := fmt.Sprintf("%s.%s", fname, fext)
 
 			updateHandler := func(prog int8) {
-				activeTask.SetProgress(prog)
+				t.SetProgress(prog)
 
 				publisher.Publish(&pubsub.PublishEvent{
 					EvtType: "update-node-content",
-					Data:    activeTask,
+					Data:    t,
 				})
 			}
 
 			err = filehost.Download(tempDir, downloadDir, fullFilename, updateHandler)
 			if err != nil {
-				activeTask.SetErr(err)
+				t.SetErr(err)
 				markCompleted()
 				return
 			}

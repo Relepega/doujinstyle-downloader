@@ -10,6 +10,8 @@ import (
 )
 
 func (ws *Webserver) sseMessageBroker() {
+	log.Println("Webserver: Starting UI update message broker")
+
 	publisher, err := pubsub.GetGlobalPublisher("task-updater")
 	if err != nil {
 		publisher = pubsub.NewGlobalPublisher("task-updater")
@@ -17,20 +19,22 @@ func (ws *Webserver) sseMessageBroker() {
 
 	subscriber := publisher.Subscribe()
 
+	log.Println("Webserver: Broker started")
+
 	for {
 		select {
-		case msg := <-ws.msgChan:
-			if msg != "shutdown" {
-				continue
-			}
-
+		case <-ws.closeUpdater:
 			log.Println("Webserver: SSEMsgBroker: closing brokers and connections")
 			publisher.Close()
 			log.Println("Webserver: SSEMsgBroker: Shutdown successful")
 
 			return
 
-		case msg := <-subscriber:
+		case msg, ok := <-subscriber:
+			if !ok {
+				continue
+			}
+
 			switch msg.EvtType {
 			case "new-task":
 				t, err := ws.templates.Execute("task", msg.Data)
@@ -131,11 +135,9 @@ func (ws *Webserver) sseMessageBroker() {
 				ws.msgChan <- e
 
 			default:
-				return
 			}
 
 		default:
-			return
 		}
 	}
 }

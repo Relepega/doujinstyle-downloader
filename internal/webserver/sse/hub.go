@@ -13,7 +13,6 @@ type Client struct {
 	writer  http.ResponseWriter
 	request *http.Request
 	close   chan struct{}
-	open    bool
 }
 
 func (c *Client) Close() <-chan struct{} { return c.close }
@@ -44,7 +43,6 @@ func (h *Hub) AddClient(w http.ResponseWriter, r *http.Request) *Client {
 		writer:  w,
 		request: r,
 		close:   make(chan struct{}),
-		open:    true,
 	}
 
 	h.clients = append(h.clients, newClient)
@@ -56,15 +54,17 @@ func (h *Hub) Removeclient(c *Client) {
 	h.Lock()
 	defer h.Unlock()
 
+	if !h.open {
+		return
+	}
+
 	var filtered clients
 
 	for _, client := range h.clients {
 		if client.id == c.id {
-			if client.open {
-				close(client.close)
-				client.request.Body.Close()
-				client.open = false
-			}
+			close(client.close)
+			client.request.Body.Close()
+
 			continue
 		}
 
@@ -77,6 +77,10 @@ func (h *Hub) Removeclient(c *Client) {
 func (h *Hub) Broadcast(msg string) {
 	h.Lock()
 	defer h.Unlock()
+
+	if !h.open {
+		return
+	}
 
 	for _, c := range h.clients {
 		fmt.Fprintf(c.writer, "%v", msg)
@@ -94,13 +98,12 @@ func (h *Hub) Shutdown() {
 
 	log.Println("Webserver: ConnectionsHub: shutting down connected clients")
 
-	for _, c := range h.clients {
-		c.close <- struct{}{}
-		close(c.close)
-		c.open = false
-
-		c.request.Body.Close()
-	}
+	// for _, c := range h.clients {
+	// 	c.close <- struct{}{}
+	// 	close(c.close)
+	//
+	// 	c.request.Body.Close()
+	// }
 
 	h.open = false
 

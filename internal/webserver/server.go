@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 	"github.com/relepega/doujinstyle-downloader/internal/dsdl/db/states"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/sse"
 	"github.com/relepega/doujinstyle-downloader/internal/webserver/templates"
@@ -29,16 +30,20 @@ type Webserver struct {
 
 	templates *templates.Templates
 
-	msgChan chan string
+	msgChan      chan string
+	closeUpdater chan struct{}
+	closeStream  chan struct{}
 
-	UserData any
+	engine *dsdl.DSDL
 }
 
 func NewWebServer(
 	address string,
 	port uint16,
-	userData any,
+	dsdl *dsdl.DSDL,
 ) *Webserver {
+	log.Println("Webserver: Initializing webserver")
+
 	server := &http.Server{}
 
 	t, err := templates.NewTemplates()
@@ -63,19 +68,23 @@ func NewWebServer(
 	}
 
 	webServer := &Webserver{
-		address:     address,
-		port:        port,
-		httpServer:  server,
-		templates:   t,
-		connections: sse.NewHub(),
-		msgChan:     make(chan string),
-		UserData:    userData,
+		address:      address,
+		port:         port,
+		httpServer:   server,
+		templates:    t,
+		connections:  sse.NewHub(),
+		msgChan:      make(chan string),
+		closeUpdater: make(chan struct{}, 1),
+		closeStream:  make(chan struct{}, 1),
+		engine:       dsdl,
 	}
 
 	return webServer
 }
 
 func (ws *Webserver) buildRoutes() *http.ServeMux {
+	log.Println("Webserver: Building router")
+
 	mux := http.NewServeMux()
 
 	cssDir := http.Dir(filepath.Join(".", "views", "css"))
@@ -105,12 +114,22 @@ func (ws *Webserver) buildRoutes() *http.ServeMux {
 func (ws *Webserver) Start() error {
 	mux := ws.buildRoutes()
 
+	log.Println("Webserver: Starting HTTP server")
+
 	netAddr := fmt.Sprintf("%s:%d", ws.address, ws.port)
 
 	ws.httpServer.Addr = netAddr
 	ws.httpServer.Handler = mux
 
-	go ws.sseMessageBroker()
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Println("Webserver: Recovered from panic in sseMessageBroker:", r)
+			}
+		}()
+
+		ws.sseMessageBroker()
+	}()
 
 	// Start the server in a goroutine
 	go func() {
@@ -121,6 +140,7 @@ func (ws *Webserver) Start() error {
 	}()
 
 	fmt.Printf("Server is running on http://%s\n", netAddr)
+	log.Printf("Server is running on http://%s\n", netAddr)
 
 	return nil
 }
@@ -130,19 +150,20 @@ func (ws *Webserver) Shutdown(ctx context.Context) {
 
 	ws.connections.Shutdown()
 
-	ws.msgChan <- "shutdown"
+	ws.closeUpdater <- struct{}{}
+	close(ws.closeUpdater)
+
+	ws.closeStream <- struct{}{}
+	close(ws.closeStream)
+
 	close(ws.msgChan)
 
 	if err := ws.httpServer.Shutdown(ctx); err != nil {
-		log.Fatalf("Webserver: forced shutdown: %v", err)
+		log.Println("Webserver: forced shutdown: %v", err)
 	}
 
 	log.Println("Webserver: exited gracefully")
 }
-
-// func (ws *Webserver) GetSSEMessageChan() *chan string {
-// 	return &ws.msgChan
-// }
 
 func (ws *Webserver) GetTemplates() templates.Templates {
 	return *ws.templates

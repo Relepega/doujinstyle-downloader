@@ -7,7 +7,7 @@ import (
 
 type PublishEvent struct {
 	EvtType string
-	Data    interface{}
+	Data    any
 }
 
 type Publisher struct {
@@ -39,11 +39,7 @@ func NewGlobalPublisher(id string) *Publisher {
 	global_pubs.mu.Lock()
 	defer global_pubs.mu.Unlock()
 
-	pub := &Publisher{
-		subscribers: make([]chan *PublishEvent, 0),
-		closed:      false,
-	}
-
+	pub := NewPublisher()
 	global_pubs.publishers[id] = pub
 
 	return pub
@@ -98,4 +94,11 @@ func (p *Publisher) Close() {
 	}
 
 	p.closed = true
+}
+
+func (p *Publisher) IsClosed() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.closed
 }

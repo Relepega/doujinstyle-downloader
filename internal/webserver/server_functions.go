@@ -8,8 +8,6 @@ import (
 	"os/exec"
 	"runtime"
 	"syscall"
-
-	"github.com/relepega/doujinstyle-downloader/internal/dsdl"
 )
 
 type IndexData struct {
@@ -57,8 +55,7 @@ func (ws *Webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dsdl, _ := ws.UserData.(*dsdl.DSDL)
-	taskEntries, err := dsdl.Tq.GetDatabase().GetAll()
+	taskEntries, err := ws.engine.DB().GetAll()
 	if err != nil {
 		ws.handleInternalServerError(w, r, err.Error())
 	}
