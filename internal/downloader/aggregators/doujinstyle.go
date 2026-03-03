@@ -131,7 +131,7 @@ func (d *Doujinstyle) getExhibitions(tags string) string {
 	re := regexp.MustCompile("^(C[0-9]+)|(M[0-9]-[0-9]+)|(AC[0-9])$")
 	matches := []string{}
 
-	for _, substr := range strings.Split(tags, ", ") {
+	for substr := range strings.SplitSeq(tags, ", ") {
 		if re.MatchString(substr) {
 			matches = append(matches, substr)
 		}
