@@ -3,6 +3,7 @@ package initters
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 
 	"github.com/playwright-community/playwright-go"
 
@@ -74,12 +75,12 @@ func InitEngine(cfg *configManager.Config) *dsdl.DSDL {
 	return engine
 }
 
-func sendTaskUpdates(pub chan *pubsub.PublishEvent, t *task.Task) {
-	pub <- &pubsub.PublishEvent{
-		EvtType: "update-node-content",
-		Data:    t,
-	}
-}
+// func sendTaskUpdates(pub chan *pubsub.PublishEvent, t *task.Task) {
+// 	pub <- &pubsub.PublishEvent{
+// 		EvtType: "update-node-content",
+// 		Data:    t,
+// 	}
+// }
 
 func QueueRunner(
 	engine *dsdl.DSDL,
@@ -139,7 +140,10 @@ func QueueRunner(
 				}
 			}
 
-			go taskRunner(engine, t, cfg.Download.Directory, cfg.Download.Tempdir)
+			abs_downloadDir, _ := filepath.Abs(cfg.Download.Directory)
+			abs_tempDir, _ := filepath.Abs(cfg.Download.Tempdir)
+
+			go taskRunner(engine, t, abs_downloadDir, abs_tempDir)
 		}
 	}
 }
