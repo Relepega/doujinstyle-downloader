@@ -17,15 +17,6 @@ type MediafireFolderInfoResponse struct {
 	} `json:"response"`
 }
 
-type MediafireFileInfoResponse struct {
-	Response struct {
-		Action            string            `json:"action"`
-		FileInfo          MediafireFileInfo `json:"file_info"`
-		Result            string            `json:"result"`
-		CurrentAPIVersion string            `json:"current_api_version"`
-	} `json:"response"`
-}
-
 type MediafireFolderContent struct {
 	ChunkSize   string                `json:"chunk_size"`
 	ContentType string                `json:"content_type"`
@@ -34,7 +25,7 @@ type MediafireFolderContent struct {
 	Files       []MediafireFileInfo   `json:"files,omitempty"`
 	Folders     []MediafireFolderInfo `json:"folders,omitempty"`
 	MoreChunks  string                `json:"more_chunks"`
-	Revision    string                `json:"revision"`
+	ApiVersion  string                `json:"current_api_version"`
 }
 
 type MediafireFileInfo struct {
