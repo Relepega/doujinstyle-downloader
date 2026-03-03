@@ -263,7 +263,8 @@ func (m *Mediafire) downloadSingleFile(
 	}
 
 	href, err := m.page.Evaluate(
-		`atob(document.querySelector('#downloadButton').getAttribute("data-scrambled-url"))`,
+		// `atob(document.querySelector('#downloadButton').getAttribute("data-scrambled-url"))`,
+		`document.querySelector('#downloadButton').href`,
 	)
 	if err != nil {
 		fmt.Println("it's me, a deferred button render!")
