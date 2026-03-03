@@ -25,21 +25,21 @@ build-all:
 	cp -r ./views ./build/views
 
 	@echo "building windows-x64"
-	GOOS=windows GOARCH=amd64 go build -o ./build/$(APP_NAME).exe $(APP_ENTRYPOINT)
+	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o ./build/$(APP_NAME).exe $(APP_ENTRYPOINT)
 	cd build && \
 		zip -q -r $(APP_NAME)-$(VERSION)-windows-x64.zip . -x $(COMP_EXCL_LIST) &&\
 		sha256sum $(APP_NAME)-$(VERSION)-windows-x64.zip > $(APP_NAME)-$(VERSION)-windows-x64.zip.sha256 &&\
 		rm *.exe
 
-	@echo "building darwin-arm64"
-	GOOS=darwin GOARCH=arm64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
-	cd build && \
-		zip -q -r $(APP_NAME)-$(VERSION)-darwin-arm64.zip . -x $(COMP_EXCL_LIST) &&\
-		sha256sum $(APP_NAME)-$(VERSION)-darwin-arm64.zip > $(APP_NAME)-$(VERSION)-darwin-arm64.zip.sha256 &&\
-		rm $(APP_NAME)
+	#@echo "building darwin-arm64"
+	#CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT) #CC=aarch64-apple-darwin22-clang 
+	#cd build && \
+	#	zip -q -r $(APP_NAME)-$(VERSION)-darwin-arm64.zip . -x $(COMP_EXCL_LIST) &&\
+	#	sha256sum $(APP_NAME)-$(VERSION)-darwin-arm64.zip > $(APP_NAME)-$(VERSION)-darwin-arm64.zip.sha256 &&\
+	#	rm $(APP_NAME)
 
 	@echo "building linux-x64"
-	GOOS=linux GOARCH=amd64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ./build/$(APP_NAME) $(APP_ENTRYPOINT)
 	cd build && \
 		zip -q -r $(APP_NAME)-$(VERSION)-linux-x64.zip . -x $(COMP_EXCL_LIST) &&\
 		sha256sum $(APP_NAME)-$(VERSION)-linux-x64.zip > $(APP_NAME)-$(VERSION)-linux-x64.zip.sha256 &&\
