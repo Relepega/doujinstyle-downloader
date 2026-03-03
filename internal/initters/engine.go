@@ -70,6 +70,11 @@ func InitEngine(cfg *configManager.Config) *dsdl.DSDL {
 		Constructor:         filehosts.NewJottacloud,
 	})
 
+	err = engine.DB().Open()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	log.Println("Engine: DSDL initialized")
 
 	return engine
