@@ -1,4 +1,67 @@
 
+<a name="v0.4.0-b1"></a>
+## [v0.4.0-b1](https://github.com/Relepega/doujinstyle-downloader/compare/v0.4.0-a1...v0.4.0-b1)
+
+> 2025-08-22
+
+### Build
+
+* ditch tar in favor of zip to create the dist archives
+
+### Chore
+
+* bumped beta version
+* Added Database to the ignored directories
+* removed DB testing artifacts
+* updated deps
+* Updated deps
+* **air:** update air config to unwatch database directory
+
+### Feat
+
+* Graceful shutdown pt.3
+* graceful shutdown pt.2
+* i maybe did overdo something
+* added Insertable interface and implemented sqlite methods
+* Re-added Jottacloud
+* Re-added Google drive
+* **DB:** Session restore
+* **db:** Completed impl of download state manipulation methods + tests
+* **db:** Completed impl of Delete methods and relative test
+* **db:** Completed implementation of Get and GetAll methods and related test
+* **dsdl:** Added initial support for having multiple db backends
+* **views:** Handle reconnecting EventSource
+
+### Fix
+
+* **EventStream:** Fixed regression where ui updated weren't being pushed to clients
+* **db:** Fixed iteration logic due to db change
+* **filehosts:** Fixed Mediafire download url parsing
+
+### Refactor
+
+* Fixed code duplication and readability
+* Other DB Migration stuff
+* Renamed database module to "db" to avoid conflicts with stdlib module
+* Changed all references to be updated with the changes on last commit
+* **TQProxy:** Merged methods with similar logic and renamed others for more consistent naming scheme
+* **db:** Fixed completion state constraints
+* **playwrightWrapper:** Moved constructor opts to struct for better readability
+* **tracker:** Changed types from interfaces to any
+* **webserver:** first attempt to a graceful shutdown
+* **webserver:** Ported all SSE stuff to new server version
+* **webserver:** Removed old version
+
+### BREAKING CHANGE
+
+
+proxy layer wasn't necessary anymore as sqlite can
+handle both the queue and the data storage
+
+This change in DB implementation requires a rewrite of
+the whole sections where the DB is used.
+
+
 <a name="v0.4.0-a1"></a>
 ## [v0.4.0-a1](https://github.com/Relepega/doujinstyle-downloader/compare/v0.3.2...v0.4.0-a1)
 
