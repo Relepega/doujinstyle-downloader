@@ -44,6 +44,17 @@ func (ws *Webserver) handleError(w http.ResponseWriter, err error) {
 }
 
 func (ws *Webserver) handleTaskAdd(w http.ResponseWriter, r *http.Request) {
+	// enable cors access for this endpoint only
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST") // can be multiple like this "GET, POST"
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+
+	// handle preflight
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	service := strings.TrimSpace(r.FormValue("Service"))
 	slugs := r.FormValue("Slugs")
 
