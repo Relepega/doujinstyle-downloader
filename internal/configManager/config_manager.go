@@ -9,7 +9,7 @@ import (
 
 const (
 	config_fp     = "./config.toml"
-	latestVersion = "0.4.0-b1"
+	latestVersion = "0.4.0-b2"
 )
 
 type Config struct {
@@ -140,7 +140,7 @@ func updateCfg(old *Config, latest *Config) *Config {
 
 // Saves the config to file
 func (cfg *Config) Save() error {
-	file, err := os.OpenFile(config_fp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(config_fp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
 	}
