@@ -63,6 +63,11 @@ func (m *Mediafire) EvaluateFileExt() (string, error) {
 	//        return title.split('').slice(start+1).join('')
 	//    })() `)
 
+	// bypass if folder, to not error out the whole download
+	if m.isFolder() {
+		return "", nil
+	}
+
 	innerText, err := m.EvaluateFileName()
 	if err != nil {
 		return "", err
@@ -97,29 +102,37 @@ func (m *Mediafire) Download(tempDir, finalDir, filename string, setProgress fun
 		return err
 	}
 
+	for _, f := range files {
+		fmt.Println("NEW ENTRY")
+		fmt.Printf("\tdir  : \"%v\"\n", f.Directory)
+		fmt.Printf("\tfname: \"%v\"\n", f.Filename)
+		fmt.Printf("\turl  : \"%v\"\n", f.Url)
+	}
+
 	totalFiles := len(files)
 	downloadedFiles := 0
 
 	setProgress(0)
 
-	currDownloadDir := finalDir
-
 	for _, f := range files {
-		_, err = m.page.Goto(f.Url)
-		if err != nil {
+		_, err = m.page.Goto(f.Url, playwright.PageGotoOptions{
+			// Timeout:   new(float64), // default for 'new' is 0.0, which disables timeout
+			WaitUntil: playwright.WaitUntilStateCommit,
+		})
+		if err != nil && strings.Contains(err.Error(), "Timeout") {
 			return err
 		}
 
-		dlPath := filepath.Join(currDownloadDir, f.Directory)
-		folderExists := appUtils.DirectoryExists(dlPath)
+		folderExists := appUtils.DirectoryExists(f.Directory)
 		if !folderExists {
-			os.MkdirAll(dlPath, 0755)
+			os.MkdirAll(f.Directory, 0o755)
 		}
 
-		ok, _ := appUtils.FileExists(filepath.Join(dlPath, f.Filename))
+		abs_filename := filepath.Join(f.Directory, f.Filename)
+
+		ok, _ := appUtils.FileExists(abs_filename)
 		if !ok {
-			currDownloadDir = dlPath
-			m.downloadSingleFile(tempDir, finalDir, filename, func(p int8) {})
+			m.downloadSingleFile(tempDir, f.Directory, f.Filename, func(p int8) {})
 		}
 
 		downloadedFiles++
@@ -136,11 +149,7 @@ filehost-specific functions
 */
 
 func (m *Mediafire) isFolder() bool {
-	if strings.Contains(m.page.URL(), "/folder/") {
-		return true
-	}
-
-	return false
+	return strings.Contains(m.page.URL(), "/folder/")
 }
 
 func (m *Mediafire) getFolderKey() string {
@@ -167,35 +176,20 @@ func (m *Mediafire) fetchFolderContent(
 
 	// parse folders json
 	url := fmt.Sprintf(
-		"https://www.mediafire.com/api/1.5/folder/get_content.php?content_type=folders&version=1.5&folder_key=%s&response_format=json",
-		folderKey,
-	)
-
-	var foldersData MediafireFolderInfoResponse
-	err := appUtils.ParseJson(url, &foldersData)
-	if err != nil {
-		return nil, err
-	}
-	if foldersData.Response.Result != "Success" {
-		return nil, fmt.Errorf("Mediafire API: Couldn't get folder content")
-	}
-
-	// parse files json
-	url = fmt.Sprintf(
 		"https://www.mediafire.com/api/1.5/folder/get_content.php?content_type=files&version=1.5&folder_key=%s&response_format=json",
 		folderKey,
 	)
 
-	var filesData MediafireFolderInfoResponse
-	err = appUtils.ParseJson(url, &filesData)
+	var apiData MediafireFolderInfoResponse
+	err := appUtils.ParseJson(url, &apiData)
 	if err != nil {
 		return nil, err
 	}
-	if filesData.Response.Result != "Success" {
-		return nil, fmt.Errorf("Mediafire API: Couldn't get files data")
+	if apiData.Response.Result != "Success" {
+		return nil, fmt.Errorf("Mediafire API: Couldn't get folder content")
 	}
 
-	for _, f := range filesData.Response.FolderContent.Files {
+	for _, f := range apiData.Response.FolderContent.Files {
 		if f.PasswordProtected != "no" {
 			continue
 		}
@@ -204,17 +198,15 @@ func (m *Mediafire) fetchFolderContent(
 			continue
 		}
 
-		splitFn := strings.Split(f.Filename, ".")
-
 		fd = append(fd, &mediafire_file_data{
 			Directory: baseDir,
-			Filename:  strings.Join(splitFn[0:len(splitFn)-1], "."),
+			Filename:  f.Filename,
 			Url:       f.Links.NormalDownload,
 		})
 
 	}
 
-	for _, folder := range foldersData.Response.FolderContent.Folders {
+	for _, folder := range apiData.Response.FolderContent.Folders {
 		if folder.Permissions.Read != "1" || folder.FileCount == "0" {
 			continue
 		}
@@ -262,17 +254,26 @@ func (m *Mediafire) downloadSingleFile(
 		return nil
 	}
 
-	href, err := m.page.Evaluate(
-		// `atob(document.querySelector('#downloadButton').getAttribute("data-scrambled-url"))`,
-		`document.querySelector('#downloadButton').href`,
-	)
-	if err != nil {
-		fmt.Println("it's me, a deferred button render!")
-		return err
-	}
-	downloadUrl, ok := href.(string)
-	if !ok {
-		return fmt.Errorf("Mediafire: Couldn't get download url")
+	var downloadUrl string
+
+	for {
+		href, err := m.page.Evaluate(
+			// `atob(document.querySelector('#downloadButton').getAttribute("data-scrambled-url"))`,
+			`document.querySelector('#downloadButton').href`,
+		)
+		if err != nil {
+			// fmt.Println("it's me, a deferred button render!")
+			// return err
+			continue
+		}
+		url, ok := href.(string)
+		if !ok {
+			return fmt.Errorf("Mediafire: Couldn't get download url")
+		}
+
+		downloadUrl = url
+
+		break
 	}
 
 	err = appUtils.DownloadFile(
