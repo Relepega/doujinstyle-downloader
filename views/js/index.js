@@ -1,21 +1,21 @@
 const serviceSelect = document.querySelector('#ServiceNumber')
 
 document.addEventListener('DOMContentLoaded', () => {
-	const value = localStorage.getItem('LastSelectedService')
+    const value = localStorage.getItem('LastSelectedService')
 
-	if (value) {
-		serviceSelect.value = value
-	}
+    if (value) {
+        serviceSelect.value = value
+    }
 })
 
 serviceSelect.addEventListener('change', () => {
-	localStorage.setItem('LastSelectedService', serviceSelect.value)
+    localStorage.setItem('LastSelectedService', serviceSelect.value)
 })
-    
+
 /**
  *
  * @param {string} method
- * @param {string[]} ids
+ * @param {string|string[]} ids
  * @param {string} mode
  *
  */
@@ -24,12 +24,12 @@ async function taskAction(method, ids, mode) {
     data.append("IDs", ids)
     data.append("Mode", mode)
 
-	const res = await fetch('/api/task', { method: method, body: data })
+    const res = await fetch('/api/task', { method: method, body: data })
 
-	if (!res.ok) {
-		const text = await res.text()
-		window.alert(text)
-	}
+    if (!res.ok) {
+        const text = await res.text()
+        window.alert(text)
+    }
 }
 
 function aggregateNodeIDFromEnded() {
@@ -50,72 +50,67 @@ function aggregateNodeIDFromEnded() {
     return ids
 }
 
-document.addEventListener('click', async function (evt) {
-	// console.log(evt)
-	switch (evt.target.id) {
-		case 'clear-queued': {
-			await taskAction('DELETE', '', 'queued')
-			break
-		}
+document.addEventListener('click', async function(evt) {
+    // console.log(evt)
+    switch (evt.target.id) {
+        case 'clear-queued': {
+            await taskAction('DELETE', '', 'queued')
+            break
+        }
 
-		case 'clear-all-completed': {
-			await taskAction('DELETE', '', 'completed')
-			break
-		}
+        case 'clear-all-completed': {
+            await taskAction('DELETE', '', 'completed')
+            break
+        }
 
-		case 'clear-success-completed': {
-			await taskAction('DELETE', '', 'succeeded')
-			break
-		}
+        case 'clear-success-completed': {
+            await taskAction('DELETE', '', 'succeeded')
+            break
+        }
 
-		case 'clear-fail-completed': {
-			await taskAction('DELETE', '', 'failed')
-			break
-		}
+        case 'clear-fail-completed': {
+            await taskAction('DELETE', '', 'failed')
+            break
+        }
 
-		case 'retry-fail-completed': {
-			await taskAction('PATCH', '', 'failed')
-			break
-		}
+        case 'retry-fail-completed': {
+            await taskAction('PATCH', '', 'failed')
+            break
+        }
 
-		case 'task-ctrl-remove-task': {
-			const taskID = evt.target.attributes['data-id'].value
-			await taskAction('DELETE', taskID, 'single')
-			break
-		}
+        case 'task-ctrl-remove-task': {
+            const taskID = evt.target.getAttribute('data-id')
+            if (!taskID) break
 
-		case 'task-ctrl-copy-error': {
-			const albumID = evt.target.attributes['data-id'].value
-			const el = document.getElementById(albumID + '-error')
+            await taskAction('DELETE', taskID, 'single')
 
-			await navigator.clipboard.writeText(el.innerText)
-			window.alert('Error log of album ' + albumID + ' copied')
+            break
+        }
 
-			break
-		}
+        case 'task-ctrl-copy-error': {
+            const taskID = evt.target.getAttribute('data-id')
+            if (!taskID) break
 
-		case 'task-ctrl-retry': {
-			const id = evt.target.attributes['data-id'].value
+            const el = document.getElementById(albumID + '-error')
 
-			const formData = new FormData()
-			formData.append('IDs', id)
-            formData.append('Mode', 'single')
+            await navigator.clipboard.writeText(el.innerText)
+            window.alert('Error log of album ' + albumID + ' copied')
 
-			await fetch('/api/task', { method: 'PATCH', body: formData }).then(
-				async (res) => {
-					if (!res.ok) {
-						const text = await res.text()
-						window.alert(text)
-					}
-				},
-			)
+            break
+        }
 
-			break
-		}
+        case 'task-ctrl-retry': {
+            const taskID = evt.target.getAttribute('data-id')
+            if (!taskID) break
 
-		default:
-			break
-	}
+            await taskAction('PATCH', taskID, 'single')
+
+            break
+        }
+
+        default:
+            break
+    }
 })
 
 // document.querySelector("#clear-queued-btn").addEventListener("click", function() {
@@ -124,39 +119,39 @@ document.addEventListener('click', async function (evt) {
 // })
 
 document
-	.querySelector('form > button')
-	.addEventListener('click', async function (e) {
-		e.preventDefault()
+    .querySelector('form > button')
+    .addEventListener('click', async function(e) {
+        e.preventDefault()
 
-		const form = document.querySelector('form')
+        const form = document.querySelector('form')
 
-		const formData = new FormData(form)
+        const formData = new FormData(form)
         try {
-		    await fetch(window.location.origin+'/api/task', { method: 'POST', body: formData })
+            await fetch(window.location.origin + '/api/task', { method: 'POST', body: formData })
         } catch (exc) {
             console.error(exc)
         }
 
-		form.Slugs.value = ''
-	})
+        form.Slugs.value = ''
+    })
 
 document
-	.querySelector('#restart-btn')
-	.addEventListener('click', async function (e) {
-		const res = window.confirm(
-			'WARNING: this operation will restart the application. All unsaved progress will be discarded.\n\n Continue?',
-		)
+    .querySelector('#restart-btn')
+    .addEventListener('click', async function(e) {
+        const res = window.confirm(
+            'WARNING: this operation will restart the application. All unsaved progress will be discarded.\n\n Continue?',
+        )
 
-		if (res) {
-			try {
-				await fetch(window.location.origin+'/api/internal/restart', {
-					method: 'POST',
-				})
-			} catch (error) {}
+        if (res) {
+            try {
+                await fetch(window.location.origin + '/api/internal/restart', {
+                    method: 'POST',
+                })
+            } catch (error) { }
 
-			window.location.reload()
-		}
-	})
+            window.location.reload()
+        }
+    })
 
 // SSE things
 //  0=CONNECTING, 1=OPEN, 2=CLOSED
@@ -193,73 +188,73 @@ source.onerror = () => {
 // 	console.log(event.data)
 // })
 
-source.addEventListener('welcome', async function (event) {
-    source.close()
+source.addEventListener('welcome', async function(event) {
+    // source.close()
 
-	if (event.data == undefined) {
-		return
-	}
+    if (event.data == undefined) {
+        return
+    }
 
-	console.log(event.data)
+    console.log(event.data)
 })
 
-source.addEventListener('message', function (event) {
-	console.log('new message from server: ', event.data)
-	// let node = document.createElement("p")
-	// node.innerHTML = event.data
-	// document.getElementById("content").prepend(node)
+source.addEventListener('message', function(event) {
+    console.log('new message from server: ', event.data)
+    // let node = document.createElement("p")
+    // node.innerHTML = event.data
+    // document.getElementById("content").prepend(node)
 })
 
-source.addEventListener('new-task', function (event) {
-	//console.log('new task', event)
-	// https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML
-	document
-		.getElementById('queued')
-		.insertAdjacentHTML('beforeend', event.data)
+source.addEventListener('new-task', function(event) {
+    //console.log('new task', event)
+    // https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML
+    document
+        .getElementById('queued')
+        .insertAdjacentHTML('beforeend', event.data)
 })
 
-source.addEventListener('remove-node', function (event) {
-	//console.log('to remove: ', event.data)
-	const node = document.getElementById(event.data)
+source.addEventListener('remove-node', function(event) {
+    //console.log('to remove: ', event.data)
+    const node = document.getElementById(event.data)
 
-	if (!node) {
-		return
-	}
+    if (!node) {
+        return
+    }
 
-	// document.getElementById("content").removeChild(node)
-	node.remove()
+    // document.getElementById("content").removeChild(node)
+    node.remove()
 })
 
-source.addEventListener('replace-node', function (event) {
-	const data = JSON.parse(event.data)
-	//console.log('replace-node parsed data: ', data)
+source.addEventListener('replace-node', function(event) {
+    const data = JSON.parse(event.data)
+    //console.log('replace-node parsed data: ', data)
 
-	const node = document.getElementById(data.TargetNodeID)
-	if (node) {
-		node.remove()
-	}
+    const node = document.getElementById(data.TargetNodeID)
+    if (node) {
+        node.remove()
+    }
 
-	document
-		.querySelector(data.ReceiverNodeSelector)
-		.insertAdjacentHTML(data.Position, data.NewContent)
+    document
+        .querySelector(data.ReceiverNodeSelector)
+        .insertAdjacentHTML(data.Position, data.NewContent)
 })
 
-source.addEventListener('update-node-content', function (event) {
-	const data = JSON.parse(event.data)
-	console.log('replace-node-content parsed data: ', data)
+source.addEventListener('update-node-content', function(event) {
+    const data = JSON.parse(event.data)
+    //console.log('replace-node-content parsed data: ', data)
 
-	document.getElementById(data.ReceiverNodeSelector).innerHTML = data.NewContent
+    document.getElementById(data.ReceiverNodeSelector).innerHTML = data.NewContent
 })
 
-source.addEventListener('error', async function (event) {
-	if (event.data == undefined) {
-		return
-	}
+source.addEventListener('error', async function(event) {
+    if (event.data == undefined) {
+        return
+    }
 
-	console.error(event.data)
-	window.alert(event.data)
+    console.error(event.data)
+    window.alert(event.data)
 })
 
-window.addEventListener('beforeunload', function (e) {
+window.addEventListener('beforeunload', function(e) {
     source.close()
 });
