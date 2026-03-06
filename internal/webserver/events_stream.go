@@ -1,11 +1,8 @@
 package v2
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-
-	"github.com/relepega/doujinstyle-downloader/internal/webserver/sse"
 )
 
 func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
@@ -28,27 +25,23 @@ func (ws *Webserver) handleEventStream(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case <-client.Close():
-			event := sse.NewSSEBuilder().Event("close").Data("Server closed").Build()
+		case <-r.Context().Done():
+			// event := sse.NewSSEBuilder().Event("close").Data("Server closed").Build()
 
 			// fmt.Fprintf(w, "event: close\ndata: server closed\n\n")
-			fmt.Fprintf(w, event)
-			w.(http.Flusher).Flush()
+			// fmt.Fprint(w, event)
+			// w.(http.Flusher).Flush()
 
 			ws.connections.Removeclient(client)
 
 			log.Printf("Webserver: EventStream: Client disconnected (ID: %v)", client.ID())
 			return
 
-		// case <-r.Context().Done():
-		// 	ws.connections.Removeclient(client)
-		// 	log.Printf("Webserver: EventStream: Client (ID: %v) disconnected", client.ID())
-		// 	return
-
 		case msg := <-ws.msgChan:
 			// fmt.Println(msg)
 			ws.connections.Broadcast(msg)
 
-		default:
+			// default:
 			// time.Sleep(100 * time.Millisecond)
 		}
 	}
