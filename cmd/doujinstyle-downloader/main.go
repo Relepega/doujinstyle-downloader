@@ -45,6 +45,14 @@ func main() {
 	// init modules
 	cfg := initters.InitConfig()
 
+	// clear temp download dir
+	if appUtils.DirectoryExists(cfg.Download.Tempdir) {
+		err := os.RemoveAll(cfg.Download.Tempdir)
+		if err != nil {
+			log.Fatalln("Could not clear temp directory", err)
+		}
+	}
+
 	webserverHost := cfg.Server.Host
 	if strings.ToLower(cfg.Server.Host) == "auto" {
 		webserverHost = appUtils.GetLocalIPAddr()
