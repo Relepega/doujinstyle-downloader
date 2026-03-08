@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -25,6 +26,10 @@ type Webserver struct {
 	address string
 	port    uint16
 
+	isHTTPS bool
+	sslKey  string
+	sslCert string
+
 	httpServer  *http.Server
 	connections *sse.Hub
 
@@ -40,6 +45,9 @@ type Webserver struct {
 func NewWebServer(
 	address string,
 	port uint16,
+	isHTTPS bool,
+	sslKey string,
+	sslCert string,
 	dsdl *dsdl.DSDL,
 ) *Webserver {
 	log.Println("Webserver: Initializing webserver")
@@ -49,6 +57,9 @@ func NewWebServer(
 	webServer := &Webserver{
 		address:      address,
 		port:         port,
+		isHTTPS:      isHTTPS,
+		sslKey:       sslKey,
+		sslCert:      sslCert,
 		httpServer:   server,
 		connections:  sse.NewHub(),
 		msgChan:      make(chan string),
@@ -108,6 +119,9 @@ func (ws *Webserver) buildRoutes() *http.ServeMux {
 
 	mux.HandleFunc("GET /events-stream", ws.handleEventStream)
 
+	// handle hello test endpoint
+	mux.HandleFunc("/hello", ws.handleHelloRoute)
+
 	mux.HandleFunc("/", ws.handleIndexRoute)
 
 	// maintenance
@@ -136,16 +150,47 @@ func (ws *Webserver) Start() error {
 		ws.sseMessageBroker()
 	}()
 
-	// Start the server in a goroutine
-	go func() {
-		if err := ws.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("Webserver: HTTP server error: %v", err)
+	if ws.isHTTPS {
+		tlsConfig := &tls.Config{
+			MinVersion:               tls.VersionTLS13,
+			PreferServerCipherSuites: true,
+			CurvePreferences: []tls.CurveID{
+				tls.X25519,
+				tls.CurveP256,
+			},
 		}
-		log.Println("Webserver: Stopped serving new connections")
-	}()
 
-	fmt.Printf("Server is running on http://%s\n", netAddr)
-	log.Printf("Server is running on http://%s\n", netAddr)
+		ws.httpServer.TLSConfig = tlsConfig
+
+		// Start the server in a goroutine
+		go func() {
+			if err := ws.httpServer.ListenAndServeTLS(
+				ws.sslCert,
+				ws.sslKey,
+			); !errors.Is(
+				err,
+				http.ErrServerClosed,
+			) {
+				log.Fatalf("Webserver: error starting webserver: %v", err)
+			}
+			log.Println("Webserver: Stopped serving new connections")
+		}()
+
+		netAddr = "https://" + netAddr
+	} else {
+		// Start the server in a goroutine
+		go func() {
+			if err := ws.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("Webserver: error starting webserver: %v", err)
+			}
+			log.Println("Webserver: Stopped serving new connections")
+		}()
+
+		netAddr = "http://" + netAddr
+	}
+
+	fmt.Printf("Server is running on %s\n", netAddr)
+	log.Printf("Server is running on %s\n", netAddr)
 
 	return nil
 }

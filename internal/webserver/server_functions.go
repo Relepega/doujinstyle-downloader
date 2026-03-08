@@ -71,6 +71,12 @@ func (ws *Webserver) handleIndexRoute(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (ws *Webserver) handleHelloRoute(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	w.Write([]byte("Hello!"))
+}
+
 func (ws *Webserver) handleRestartServer(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 

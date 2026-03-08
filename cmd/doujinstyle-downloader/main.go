@@ -52,7 +52,14 @@ func main() {
 
 	engine := initters.InitEngine(cfg)
 
-	server := webserver.NewWebServer(webserverHost, cfg.Server.Port, engine)
+	server := webserver.NewWebServer(
+		webserverHost,
+		cfg.Server.Port,
+		cfg.Server.SSL.Active,
+		cfg.Server.SSL.Key,
+		cfg.Server.SSL.Cert,
+		engine,
+	)
 	server.Start()
 
 	// engine runner

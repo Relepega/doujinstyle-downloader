@@ -16,6 +16,11 @@ type Config struct {
 	Server struct {
 		Host string
 		Port uint16
+		SSL  struct {
+			Active bool
+			Cert   string
+			Key    string
+		}
 	}
 	Download struct {
 		ConcurrentJobs int8
@@ -40,6 +45,10 @@ func NewConfig() *Config {
 
 	cfg.Server.Host = "auto"
 	cfg.Server.Port = 5522
+
+	cfg.Server.SSL.Active = false
+	cfg.Server.SSL.Cert = ""
+	cfg.Server.SSL.Key = ""
 
 	cfg.Download.ConcurrentJobs = 2
 	cfg.Download.Directory = "./Downloads"
@@ -99,6 +108,24 @@ func updateCfg(old *Config, latest *Config) *Config {
 		_, ok = serverCfg["Port"]
 		if ok {
 			latest.Server.Port = old.Server.Port
+		}
+
+		sslCfg, ok := oldCfg["SSL"].(map[string]any)
+		if ok {
+			_, ok = sslCfg["Active"]
+			if ok {
+				latest.Server.SSL.Active = old.Server.SSL.Active
+			}
+
+			_, ok = sslCfg["Cert"]
+			if ok {
+				latest.Server.SSL.Cert = old.Server.SSL.Cert
+			}
+
+			_, ok = sslCfg["Key"]
+			if ok {
+				latest.Server.SSL.Key = old.Server.SSL.Key
+			}
 		}
 	}
 
