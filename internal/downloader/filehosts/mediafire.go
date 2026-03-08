@@ -102,13 +102,6 @@ func (m *Mediafire) Download(tempDir, finalDir, filename string, setProgress fun
 		return err
 	}
 
-	for _, f := range files {
-		fmt.Println("NEW ENTRY")
-		fmt.Printf("\tdir  : \"%v\"\n", f.Directory)
-		fmt.Printf("\tfname: \"%v\"\n", f.Filename)
-		fmt.Printf("\turl  : \"%v\"\n", f.Url)
-	}
-
 	totalFiles := len(files)
 	downloadedFiles := 0
 
