@@ -98,9 +98,14 @@ func (m *Mega) Download(tempDir, finalDir, filename string, setProgress func(p i
 		val, _ := m.page.Evaluate(
 			"document.querySelectorAll('.loading-spinner')[2].classList.contains('hidden')",
 		)
-		isHidden, _ := val.(bool)
+		isHidden1, _ := val.(bool)
 
-		if isHidden {
+		val, _ = m.page.Evaluate(
+			"document.querySelectorAll('.loading-spinner')[1].classList.contains('hidden')",
+		)
+		isHidden2, _ := val.(bool)
+
+		if isHidden1 || isHidden2 {
 			time.Sleep(500 * time.Millisecond)
 			break
 		}
@@ -124,18 +129,30 @@ func (m *Mega) Download(tempDir, finalDir, filename string, setProgress func(p i
 	timeout := 0.0
 
 	downloadHandler, err := m.page.ExpectDownload(func() error {
-		_, err := m.page.Evaluate(`() => {
-			const selectors = ['.js-default-download', '.fm-download-as-zip']
+		val, err := m.page.Evaluate(`() => {
+			const selectors = ['.js-default-download', '.fm-download-as-zip', '.fm-download-dropdown > button:nth-child(2)']
             selectors.forEach(sel => {
-                let el = document.querySelector(sel)
-                if (el) {
-                    el.click()
-                    return
-                }
+				try {
+					let el = document.querySelector(sel)
+					if (el) {
+						el.click()
+						return true
+					}
+				} catch(e) {}
             })
+
+			return false
 		}`)
 		if err != nil {
 			return fmt.Errorf("Mega: Couldn't start download: %v", err)
+		}
+
+		downloadStarted, ok := val.(bool)
+		if !ok {
+			return fmt.Errorf("Mega: couldn't cast selector parsing result")
+		}
+		if !downloadStarted {
+			return fmt.Errorf("Mega: couldn't evaluate download selectors")
 		}
 
 		errorDiv := m.page.Locator(".default-warning > .txt")
