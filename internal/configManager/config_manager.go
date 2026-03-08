@@ -9,7 +9,7 @@ import (
 
 const (
 	config_fp     = "./config.toml"
-	latestVersion = "0.4.0-b2"
+	latestVersion = "0.4.0-b3"
 )
 
 type Config struct {
@@ -38,7 +38,7 @@ To save it, call cfg.Save()
 func NewConfig() *Config {
 	cfg := &Config{}
 
-	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Host = "auto"
 	cfg.Server.Port = 5522
 
 	cfg.Download.ConcurrentJobs = 2
@@ -84,12 +84,12 @@ func (cfg *Config) Load() error {
 //
 // This is a bad hack tbh, but if it works it works
 func updateCfg(old *Config, latest *Config) *Config {
-	var oldCfg map[string]interface{}
+	var oldCfg map[string]any
 
 	data, _ := json.Marshal(old)
 	json.Unmarshal(data, &oldCfg)
 
-	serverCfg, ok := oldCfg["Server"].(map[string]interface{})
+	serverCfg, ok := oldCfg["Server"].(map[string]any)
 	if ok {
 		_, ok = serverCfg["Host"]
 		if ok {
@@ -102,7 +102,7 @@ func updateCfg(old *Config, latest *Config) *Config {
 		}
 	}
 
-	downloadCfg, ok := oldCfg["Download"].(map[string]interface{})
+	downloadCfg, ok := oldCfg["Download"].(map[string]any)
 	if ok {
 		_, ok = downloadCfg["ConcurrentJobs"]
 		if ok {
@@ -120,7 +120,7 @@ func updateCfg(old *Config, latest *Config) *Config {
 		}
 	}
 
-	devCfg, ok := oldCfg["Dev"].(map[string]interface{})
+	devCfg, ok := oldCfg["Dev"].(map[string]any)
 	if ok {
 		_, ok = devCfg["PlaywrightDebug"]
 		if ok {

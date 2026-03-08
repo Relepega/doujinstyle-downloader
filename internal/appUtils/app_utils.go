@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -16,7 +17,7 @@ import (
 
 func MkdirAll(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0755)
+		err = os.MkdirAll(dir, 0o755)
 		if err != nil {
 			return fmt.Errorf("Error creating folder: %v", err)
 		}
@@ -66,6 +67,20 @@ func GenerateRandomFilename() string {
 	filename := fmt.Sprintf("%x", b)
 
 	return filename
+}
+
+// https://stackoverflow.com/questions/23558425
+func GetLocalIPAddr() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	// if error, return fallback address
+	if err != nil {
+		return "127.0.0.1"
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP.String()
 }
 
 func DownloadFile(
@@ -137,9 +152,7 @@ func DownloadFile(
 		// Calculate and update the progress
 		currentProgress := int8((float64(currentSize) / float64(totalSize)) * 100)
 
-		if setProgress != nil {
-			setProgress(currentProgress)
-		}
+		setProgress(currentProgress)
 
 		// Write the chunk to the temp file
 		_, err := tempf.Write(buf[:n])

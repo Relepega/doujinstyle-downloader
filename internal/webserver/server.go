@@ -164,7 +164,7 @@ func (ws *Webserver) Shutdown(ctx context.Context) {
 	close(ws.msgChan)
 
 	if err := ws.httpServer.Shutdown(ctx); err != nil {
-		log.Println("Webserver: forced shutdown: %v", err)
+		log.Printf("Webserver: forced shutdown: %v\n", err)
 	}
 
 	log.Println("Webserver: exited gracefully")

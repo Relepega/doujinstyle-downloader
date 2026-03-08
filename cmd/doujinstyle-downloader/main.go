@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/playwright-community/playwright-go"
@@ -38,14 +40,19 @@ func main() {
 	}
 
 	// clear screen
-	// fmt.Print("\033[H\033[2J")
+	fmt.Print("\033[H\033[2J")
 
 	// init modules
 	cfg := initters.InitConfig()
 
+	webserverHost := cfg.Server.Host
+	if strings.ToLower(cfg.Server.Host) == "auto" {
+		webserverHost = appUtils.GetLocalIPAddr()
+	}
+
 	engine := initters.InitEngine(cfg)
 
-	server := webserver.NewWebServer(cfg.Server.Host, cfg.Server.Port, engine)
+	server := webserver.NewWebServer(webserverHost, cfg.Server.Port, engine)
 	server.Start()
 
 	// engine runner
