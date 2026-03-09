@@ -364,7 +364,13 @@ func taskRunner(
 			}
 
 			// download the file into temp
-			fullFilename := fmt.Sprintf("%s.%s", fname, fext)
+			var fullFilename string
+
+			if fext == "" {
+				fullFilename = fname
+			} else {
+				fullFilename = fmt.Sprintf("%s.%s", fname, fext)
+			}
 
 			updateHandler := func(prog int8) {
 				t.SetProgress(prog)
