@@ -30,6 +30,7 @@ type DSDL struct {
 	aggregators Aggregators
 	filehosts   Filehosts
 
+	pw      *playwright.Playwright
 	browser playwright.Browser
 }
 
@@ -64,7 +65,8 @@ func NewDSDL(browser playwright.Browser) *DSDL {
 		dsdl.browser = b
 	}
 
-	dsdl.browser = browser
+	// dsdl.browser = browser
+	dsdl.pw = pw
 
 	// start database
 	sqlite := db.NewSQLite(false)
@@ -80,6 +82,8 @@ func (dsdl *DSDL) Shutdown() error {
 	// if err != nil && err.Error() != "Connection closed" {
 	// 	return fmt.Errorf("DSDL: An error occurred while shutting down playwright: %v", err)
 	// }
+
+	_ = dsdl.pw.Stop()
 
 	err := dsdl.db.Close()
 	if err != nil {
