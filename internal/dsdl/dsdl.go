@@ -106,7 +106,7 @@ func (dsdl *DSDL) RegisterAggregator(f *Aggregator) error {
 		goto addAggr
 	}
 
-	for _, v := range dsdl.filehosts {
+	for _, v := range dsdl.aggregators {
 		if v.Name == f.Name {
 			unique = false
 		}
