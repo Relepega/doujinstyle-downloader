@@ -210,9 +210,9 @@ func (sdb *SQLiteDB) Find(slugOrID string) (bool, int, error) {
 
 	if err := sdb.db.Get(
 		&count,
-		`SELECT COUNT(*) FROM `+TABLE_NAME+` WHERE ID = ? OR Slug LIKE ? OR DisplayName = ?`,
+		`SELECT COUNT(*) FROM `+TABLE_NAME+` WHERE ID = ? OR Slug ?`,
 		slugOrID,
-		"%"+slugOrID+"%",
+		slugOrID,
 	); err != nil {
 		return false, count, err
 	}
