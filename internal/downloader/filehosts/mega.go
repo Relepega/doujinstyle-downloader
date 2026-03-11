@@ -51,7 +51,7 @@ func (m *Mega) waitForPageLoad() error {
 		val, err := m.page.Evaluate(
 			"document.querySelectorAll('.fm-empty-cloud-txt')[2].innerText",
 		)
-		if err != nil && val != nil {
+		if err != nil {
 			return fmt.Errorf("mega: %v", val)
 		}
 
