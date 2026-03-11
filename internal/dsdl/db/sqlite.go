@@ -713,7 +713,7 @@ func (sdb *SQLiteDB) ResetState(t *task.Task) (int, error) {
 }
 
 // Drops specified table name
-func (sdb *SQLiteDB) Drop(table string) error {
+func (sdb *SQLiteDB) Drop() error {
 	_, err := sdb.db.Exec(`DROP TABLE ` + TABLE_NAME)
 
 	return err
