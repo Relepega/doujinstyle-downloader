@@ -15,6 +15,8 @@ import (
 	"github.com/relepega/doujinstyle-downloader/internal/store"
 )
 
+var re = regexp.MustCompile(`\.$`)
+
 func MkdirAll(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0o755)
@@ -237,7 +239,6 @@ func SanitizePath(s string) string {
 	res = strings.TrimLeft(res, " ")
 
 	// replace all the dots only at the end of the string
-	re := regexp.MustCompile(`\.$`)
 	res = re.ReplaceAllString(res, "ˌ")
 
 	return res
