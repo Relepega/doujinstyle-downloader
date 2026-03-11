@@ -160,6 +160,7 @@ func (m *Mega) Download(tempDir, finalDir, filename string, setProgress func(p i
 		re := regexp.MustCompile(`\d+`)
 
 		for {
+			time.Sleep(1 * time.Second)
 			val, _ := m.page.Evaluate(
 				"() => document.querySelector('.transfer-task-status').innerText",
 			)
