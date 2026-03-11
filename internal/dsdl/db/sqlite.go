@@ -637,6 +637,9 @@ func (sdb *SQLiteDB) SetState(t *task.Task, newState int) error {
 // Returns an error if the task has reached a completion state and the updated state value
 func (sdb *SQLiteDB) AdvanceState(t *task.Task) (int, error) {
 	state, err := sdb.getStateInt(t)
+	if err != nil {
+		return 0, err
+	}
 
 	if state >= states.MaxCompletionState() {
 		return state, fmt.Errorf("Cannot advance the status of this task anymore")
@@ -669,6 +672,9 @@ func (sdb *SQLiteDB) AdvanceState(t *task.Task) (int, error) {
 // Returns an error if the task has reached a queued state and the updated state value
 func (sdb *SQLiteDB) RegressState(t *task.Task) (int, error) {
 	state, err := sdb.getStateInt(t)
+	if err != nil {
+		return 0, err
+	}
 
 	if state <= 0 {
 		return state, fmt.Errorf("Cannot regress the status of this task anymore")
