@@ -16,6 +16,8 @@ const (
 	DEFAULT_PAGE_NOT_LOADED_ERR = "The download page did not load in a reasonable amount of time."
 )
 
+var exhibitionsRegex = regexp.MustCompile("^(C[0-9]+)|(M[0-9]-[0-9]+)|(AC[0-9])$")
+
 type Doujinstyle struct {
 	dsdl.Aggregator
 
@@ -128,11 +130,10 @@ aggregator-specific functions
 */
 
 func (d *Doujinstyle) getExhibitions(tags string) string {
-	re := regexp.MustCompile("^(C[0-9]+)|(M[0-9]-[0-9]+)|(AC[0-9])$")
 	matches := []string{}
 
 	for substr := range strings.SplitSeq(tags, ", ") {
-		if re.MatchString(substr) {
+		if exhibitionsRegex.MatchString(substr) {
 			matches = append(matches, substr)
 		}
 	}
