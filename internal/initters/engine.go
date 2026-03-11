@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/playwright-community/playwright-go"
 
@@ -116,6 +117,7 @@ func QueueRunner(
 		default:
 			if db.CountFromStateNoErr(states.TASK_STATE_QUEUED) <= 0 ||
 				db.CountFromStateNoErr(states.TASK_STATE_RUNNING) == maxJobs {
+				time.Sleep(250 * time.Millisecond)
 				continue
 			}
 
@@ -169,7 +171,10 @@ func taskRunner(
 
 	markCompleted := func() {
 		log.Printf("TaskRunner: Marking task %v as complete\n", t.Id)
-		bwContext.Close()
+
+		if bwContext != nil {
+			bwContext.Close()
+		}
 
 		t.DownloadState = states.TASK_STATE_COMPLETED
 
@@ -204,8 +209,16 @@ func taskRunner(
 			if msg == "shutdown" {
 				log.Printf("TaskRunner: Marking task as aborted (server shutdown) (ID: %v)\n", t.Id)
 
-				err := bwContext.Close()
-				log.Printf("TaskRunner: An error occurred while stopping task ID %v: %v", t.Id, err)
+				if bwContext != nil {
+					err := bwContext.Close()
+					if err != nil {
+						log.Printf(
+							"TaskRunner: An error occurred while stopping task ID %v: %v",
+							t.Id,
+							err,
+						)
+					}
+				}
 
 				engine.DB().Update(t)
 
@@ -392,6 +405,7 @@ func taskRunner(
 
 			// task done :)
 			markCompleted()
+			return
 		}
 	}
 }
