@@ -252,14 +252,24 @@ func (m *Mediafire) downloadSingleFile(
 
 	var downloadUrl string
 
+	retryThreshold := 20
+
 	for {
+		if retryThreshold <= 0 {
+			return fmt.Errorf(
+				"Mediafire.downloadSingleFile: Threshold exceeded: could not fetch the download url in time",
+			)
+		}
+
 		href, err := m.page.Evaluate(
 			// `atob(document.querySelector('#downloadButton').getAttribute("data-scrambled-url"))`,
 			`document.querySelector('#downloadButton').href`,
 		)
 		if err != nil {
-			// fmt.Println("it's me, a deferred button render!")
-			// return err
+			retryThreshold--
+
+			time.Sleep(1 * time.Second)
+
 			continue
 		}
 		url, ok := href.(string)
