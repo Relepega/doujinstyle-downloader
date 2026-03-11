@@ -125,7 +125,10 @@ func (m *Mediafire) Download(tempDir, finalDir, filename string, setProgress fun
 
 		ok, _ := appUtils.FileExists(abs_filename)
 		if !ok {
-			m.downloadSingleFile(tempDir, f.Directory, f.Filename, func(p int8) {})
+			err := m.downloadSingleFile(tempDir, f.Directory, f.Filename, func(p int8) {})
+			if err != nil {
+				return err
+			}
 		}
 
 		downloadedFiles++
