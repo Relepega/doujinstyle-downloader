@@ -126,10 +126,14 @@ func DownloadFile(
 	}
 
 	// Get the total size of the file
-	totalSize, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+	var totalSize int64
+	totalSize, err = strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+	if err != nil {
+		totalSize = -1
+	}
 
 	// Create a buffer for copying
-	buf := make([]byte, 1024)
+	buf := make([]byte, 32*1024)
 
 	// Initialize the current size to zero
 	var currentSize int64
@@ -150,7 +154,12 @@ func DownloadFile(
 		currentSize += int64(n)
 
 		// Calculate and update the progress
-		currentProgress := int8((float64(currentSize) / float64(totalSize)) * 100)
+		var currentProgress int8
+		if totalSize == -1 {
+			currentProgress = 127
+		} else {
+			currentProgress = int8((float64(currentSize) / float64(totalSize)) * 100)
+		}
 
 		setProgress(currentProgress)
 
