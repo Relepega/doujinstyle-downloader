@@ -166,7 +166,7 @@ func DownloadFile(
 		// Write the chunk to the temp file
 		_, err := tempf.Write(buf[:n])
 		if err != nil {
-			return readErr
+			return err
 		}
 
 		if readErr == io.EOF {
