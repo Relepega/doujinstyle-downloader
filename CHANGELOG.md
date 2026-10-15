@@ -1,4 +1,30 @@
 
+<a name="v0.4.0-b2"></a>
+## [v0.4.0-b2](https://github.com/Relepega/doujinstyle-downloader/compare/v0.4.0-b1...v0.4.0-b2)
+
+> 2026-03-03
+
+### Chore
+
+* **version:** bumped beta version
+
+### Feat
+
+* edited chglog config
+* **engine:** Filepaths are now absolute
+* **webserver:** Added CORS rules to task add endpoint
+
+### Fix
+
+* Fixed mediafire single-link download
+* **mediafire:** Fixed broken folder download
+
+### Refactor
+
+* **doujinstyle:** gopls - Ranging over SplitSeq is more efficient
+* **mediafire:** Removed unused API type
+
+
 <a name="v0.4.0-b1"></a>
 ## [v0.4.0-b1](https://github.com/Relepega/doujinstyle-downloader/compare/v0.4.0-a1...v0.4.0-b1)
 

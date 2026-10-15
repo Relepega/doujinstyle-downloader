@@ -1,6 +1,6 @@
 package dsdl
 
-import "github.com/playwright-community/playwright-go"
+import "github.com/mxschmitt/playwright-go"
 
 type FilehostImpl interface {
 	PwPageNavigator

@@ -3,7 +3,7 @@ package playwrightWrapper
 import (
 	"fmt"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 
 	"github.com/relepega/doujinstyle-downloader/internal/configManager"
 	"github.com/relepega/doujinstyle-downloader/internal/store"
