@@ -53,8 +53,13 @@ func main() {
 		}
 	}
 
-	webserverHost := cfg.Server.Host
-	if strings.ToLower(cfg.Server.Host) == "auto" {
+	webserverHost := strings.ToLower(cfg.Server.Host)
+	switch webserverHost {
+	case "auto":
+	case "local":
+		webserverHost = "127.0.0.1"
+
+	case "public":
 		webserverHost = appUtils.GetLocalIPAddr()
 	}
 
